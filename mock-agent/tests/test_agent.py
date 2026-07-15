@@ -2,8 +2,6 @@ from langchain_core.messages import AIMessage, ToolMessage
 from langchain_core.runnables import RunnableLambda
 
 from mock_agent.main import (
-    API_KEY_PLACEHOLDER,
-    load_openai_api_key,
     make_task_tools,
     run_benchmark,
 )
@@ -16,11 +14,20 @@ def scripted_agent(messages):
         return AIMessage(
             content="",
             tool_calls=[
-                {"name": "read_priority_policy", "args": {}, "id": "policy"},
-                {"name": "list_zoom_meetings", "args": {}, "id": "zoom"},
                 {
-                    "name": "find_primary_calendar_events",
+                    "name": "google_sheets_get_many_rows",
                     "args": {
+                        "spreadsheet_id": "ss_meeting_policy",
+                        "worksheet_id": "ws_priority_rules",
+                        "row_count": 50,
+                    },
+                    "id": "policy",
+                },
+                {"name": "zoom_list_meetings", "args": {}, "id": "zoom"},
+                {
+                    "name": "google_calendar_find_event",
+                    "args": {
+                        "calendarid": "primary",
                         "start_time": "2026-02-20T14:00:00+00:00",
                         "end_time": "2026-02-20T15:00:00+00:00",
                     },
@@ -33,7 +40,7 @@ def scripted_agent(messages):
             content="",
             tool_calls=[
                 {
-                    "name": "update_zoom_meeting_topic",
+                    "name": "zoom_update_meeting",
                     "args": {
                         "meeting_id": 1234567890,
                         "topic": "[RESCHEDULED] Q1 Product Review - External",
@@ -47,8 +54,9 @@ def scripted_agent(messages):
             content="",
             tool_calls=[
                 {
-                    "name": "post_ops_update",
+                    "name": "slack_send_channel_message",
                     "args": {
+                        "channel_name": "ops-updates",
                         "text": (
                             "Executive Strategy Session won; Zoom meeting 1234567890 "
                             "was rescheduled. Calendar event ID: evt_conflict_001."
@@ -61,43 +69,23 @@ def scripted_agent(messages):
     return AIMessage(content="Conflict resolved and the operations update was posted.")
 
 
-def test_scoped_tool_names():
-    # Tool construction needs a world, but run_benchmark owns the real task world.
+def test_task_declared_tools_are_bound_without_world_argument():
     from automationbench.domains.sales.tasks import get_zoom_calendar_conflict_task
     from automationbench.schema.world import WorldState
 
     task = get_zoom_calendar_conflict_task()
-    tools = make_task_tools(WorldState(**task["info"]["initial_state"]))
-    assert [item.name for item in tools] == [
-        "read_priority_policy",
-        "list_zoom_meetings",
-        "find_primary_calendar_events",
-        "update_zoom_meeting_topic",
-        "post_ops_update",
-    ]
+    tools = make_task_tools(task, WorldState(**task["info"]["initial_state"]))
+    assert [item.name for item in tools] == task["info"]["zapier_tools"]
+    assert all("world" not in item.args for item in tools)
 
 
 def test_graph_and_benchmark_scoring_end_to_end():
-    result = run_benchmark(RunnableLambda(scripted_agent), model_name="scripted-test")
+    from automationbench.domains.sales.tasks import get_zoom_calendar_conflict_task
+
+    result = run_benchmark(
+        get_zoom_calendar_conflict_task(),
+        model_name="scripted-test",
+        agent_model=RunnableLambda(scripted_agent),
+    )
     assert result["score"]["partial_credit"] == 1.0
     assert result["score"]["task_completed_correctly"] == 1.0
-
-
-def test_repository_env_overrides_inherited_value(tmp_path, monkeypatch):
-    repository_env = tmp_path / "repository.env"
-    project_env = tmp_path / "project.env"
-    repository_env.write_text("OPENAI_API_KEY=repository-key\n")
-    project_env.write_text("OPENAI_API_KEY=project-key\n")
-    monkeypatch.setenv("OPENAI_API_KEY", "stale-inherited-value")
-
-    assert load_openai_api_key(repository_env, project_env) == "repository-key"
-
-
-def test_project_env_is_fallback_for_placeholder(tmp_path, monkeypatch):
-    repository_env = tmp_path / "repository.env"
-    project_env = tmp_path / "project.env"
-    repository_env.write_text(f"OPENAI_API_KEY={API_KEY_PLACEHOLDER}\n")
-    project_env.write_text("OPENAI_API_KEY=project-key\n")
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-
-    assert load_openai_api_key(repository_env, project_env) == "project-key"

@@ -9,9 +9,9 @@ The graph has exactly two nodes:
 START -> agent -> tools -> agent -> ... -> END
 ```
 
-The model receives only five task-scoped tools. Read access is limited to the meeting policy,
-Zoom meetings, and primary-calendar events. Write access is limited to renaming a Zoom meeting
-and posting to `#ops-updates`; the agent cannot modify Calendar or post to another channel.
+The model receives exactly the tools declared by the selected task's `info["zapier_tools"]`
+list. The runner resolves those names from AutomationBench's tool registry and binds each tool
+to a fresh in-memory world for that run.
 
 ## Set up
 
@@ -21,11 +21,10 @@ From this directory:
 uv sync
 ```
 
-Place your OpenAI API key in the repository-root `.env` or replace the placeholder in
-`mock-agent/.env`:
+Place your OpenAI API key in the repository-root `.env`:
 
 ```bash
-OPENAI_API_KEY=replace-with-your-openai-api-key
+LIBRA_INTERVIEW_API_KEY=replace-with-your-libra-api-key
 ```
 
 ## Run the single benchmark task
@@ -39,11 +38,7 @@ The command prints AutomationBench's `partial_credit` and strict
 token usage, and final simulated world to
 `results/sales.zoom_calendar_conflict.json`.
 
-The default model is `gpt-5.6-terra`. You can override it explicitly, for example:
-
-```bash
-uv run mock-agent --model gpt-5.5
-```
+The agent uses `gpt-5.6-sol` through the Libra Azure Responses API endpoint.
 
 ## Verify the graph without an API call
 
@@ -55,5 +50,5 @@ The integration test drives the same agent node, `ToolNode`, world mutations, an
 AutomationBench scorer with a scripted model. This checks wiring and scoring; it is not an LLM
 benchmark result.
 
-To expand to 10–12 tasks later, keep the graph unchanged and add one task adapter per selected
-task: its task loader plus a least-privilege tool factory.
+To expand to 10–12 tasks later, pass each selected task dictionary to `run_benchmark`; its prompt,
+initial state, assertions, and tool list are all loaded from that task.

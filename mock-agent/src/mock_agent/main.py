@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import copy
+from functools import wraps
 import json
 import os
 from pathlib import Path
@@ -11,12 +12,11 @@ from dotenv import load_dotenv
 from langchain_core.messages import (
     AIMessage,
     BaseMessage,
-    HumanMessage,
-    SystemMessage,
     ToolMessage,
+    convert_to_messages,
 )
 from langchain_core.runnables import Runnable
-from langchain_core.tools import BaseTool, tool
+from langchain_core.tools import BaseTool, StructuredTool
 from langchain_openai import ChatOpenAI
 from langgraph.graph import START, MessagesState, StateGraph
 from langgraph.prebuilt import ToolNode, tools_condition
@@ -24,79 +24,41 @@ from langgraph.prebuilt import ToolNode, tools_condition
 from automationbench.domains.sales.tasks import get_zoom_calendar_conflict_task
 from automationbench.rubric import partial_credit, task_completed_correctly
 from automationbench.schema.world import WorldState
-from automationbench.tools.zapier.google_calendar import google_calendar_find_event
-from automationbench.tools.zapier.google_sheets import google_sheets_get_many_rows
-from automationbench.tools.zapier.slack import slack_send_channel_message
-from automationbench.tools.zapier.zoom import zoom_list_meetings, zoom_update_meeting
-
-
-EXPERIMENT_SYSTEM_PROMPT = """You are a useful Sales agent.
-Use the available tools to proactively resolve the problem that is presented to you.
-Treat the spreadsheet policy as authoritative. Preserve source titles and identifiers verbatim.
-Do not guess tool results, do not make unrelated changes.
-"""
+from automationbench.tool_wrapper import _create_tool_wrapper
+from automationbench.tools import ALL_TOOLS
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 REPOSITORY_ROOT = PROJECT_ROOT.parent
-API_KEY_PLACEHOLDER = "replace-with-your-openai-api-key"
+LIBRA_BASE_URL = (
+    "https://example.invalid/"
+    "api/projects/proj-default/openai/v1"
+)
 
 
-def load_openai_api_key(
-    repository_env: Path = REPOSITORY_ROOT / ".env",
-    project_env: Path = PROJECT_ROOT / ".env",
-) -> str | None:
-    """Load the repository key first, falling back to the project .env file."""
-    load_dotenv(repository_env, override=True)
-    api_key = os.environ.get("OPENAI_API_KEY")
-    if not api_key or api_key == API_KEY_PLACEHOLDER:
-        load_dotenv(project_env, override=True)
-    return os.environ.get("OPENAI_API_KEY")
+def make_task_tools(task: dict[str, Any], world: WorldState) -> list[BaseTool]:
+    """Bind the task's declared Zapier tools to its in-memory world."""
+    registry = {tool.__name__: tool for tool in ALL_TOOLS}
+    names = task["info"]["zapier_tools"]
+    unknown = set(names) - registry.keys()
+    if unknown:
+        raise ValueError(f"Unknown task tools: {sorted(unknown)}")
 
+    def bind_world(func):
+        visible_func = _create_tool_wrapper(func, args_to_skip=["world"])
 
-def make_task_tools(world: WorldState) -> list[BaseTool]:
-    """Bind the five least-privilege tools needed by this benchmark task."""
+        @wraps(visible_func)
+        def bound(*args, **kwargs):
+            return func(world, *args, **kwargs)
 
-    @tool
-    def read_priority_policy() -> str:
-        """Read every row of the authoritative Meeting Priority Policy spreadsheet."""
-        return google_sheets_get_many_rows(
-            world,
-            spreadsheet_id="ss_meeting_policy",
-            worksheet_id="ws_priority_rules",
-            row_count=50,
-        )
-
-    @tool
-    def list_zoom_meetings(start_at: str | None = None) -> str:
-        """List Zoom meetings, optionally starting at an ISO-8601 timestamp."""
-        return zoom_list_meetings(world, start_at=start_at)
-
-    @tool
-    def find_primary_calendar_events(start_time: str, end_time: str) -> str:
-        """Find primary-calendar events overlapping an ISO-8601 time window."""
-        return google_calendar_find_event(
-            world,
-            calendarid="primary",
-            start_time=start_time,
-            end_time=end_time,
-        )
-
-    @tool
-    def update_zoom_meeting_topic(meeting_id: int, topic: str) -> str:
-        """Change only the topic of an existing Zoom meeting."""
-        return zoom_update_meeting(world, meeting_id=meeting_id, topic=topic)
-
-    @tool
-    def post_ops_update(text: str) -> str:
-        """Post a resolution summary only to the ops-updates Slack channel."""
-        return slack_send_channel_message(world, channel_name="ops-updates", text=text)
+        return bound
 
     return [
-        read_priority_policy,
-        list_zoom_meetings,
-        find_primary_calendar_events,
-        update_zoom_meeting_topic,
-        post_ops_update,
+        StructuredTool.from_function(
+            func=bind_world(registry[name]),
+            name=name,
+            description=registry[name].__doc__ or name,
+        )
+        for name in names
     ]
 
 
@@ -113,10 +75,6 @@ def build_graph(agent_model: Runnable[Any, BaseMessage], tools: list[BaseTool]):
     builder.add_conditional_edges("agent", tools_condition)
     builder.add_edge("tools", "agent")
     return builder.compile()
-
-
-def make_openai_model(model: str, tools: list[BaseTool]) -> Runnable:
-    return ChatOpenAI(model=model).bind_tools(tools)
 
 
 def score_world(task: dict[str, Any], world: WorldState) -> dict[str, Any]:
@@ -147,23 +105,24 @@ def serialize_message(message: BaseMessage) -> dict[str, Any]:
 
 
 def run_benchmark(
-    agent_model: Runnable[Any, BaseMessage],
-    *,
+    task: dict[str, Any],
     model_name: str,
     max_steps: int = 12,
+    agent_model: Runnable[Any, BaseMessage] | None = None,
 ) -> dict[str, Any]:
-    task = get_zoom_calendar_conflict_task()
     world = WorldState(**copy.deepcopy(task["info"]["initial_state"]))
-    tools = make_task_tools(world)
+    tools = make_task_tools(task, world)
+    if agent_model is None:
+        agent_model = ChatOpenAI(
+            model=model_name,
+            api_key=os.environ.get("LIBRA_INTERVIEW_API_KEY")
+            or os.environ["OPENAI_API_KEY"],
+            base_url=LIBRA_BASE_URL,
+            use_responses_api=True,
+        ).bind_tools(tools)
     graph = build_graph(agent_model, tools)
 
-    prompt_messages: list[BaseMessage] = [SystemMessage(content=EXPERIMENT_SYSTEM_PROMPT)]
-    prompt_messages.extend(
-        SystemMessage(content=item["content"])
-        if item["role"] == "system"
-        else HumanMessage(content=item["content"])
-        for item in task["prompt"]
-    )
+    prompt_messages = convert_to_messages(task["prompt"])
     final_state = graph.invoke(
         {"messages": prompt_messages},
         config={"recursion_limit": max_steps * 2 + 1},
@@ -191,7 +150,7 @@ def run_benchmark(
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run one AutomationBench task with LangGraph")
-    parser.add_argument("--model", default="gpt-5.6-terra")
+    parser.add_argument("--model", default="gpt-5.6-sol")
     parser.add_argument("--max-steps", type=int, default=12)
     parser.add_argument(
         "--output",
@@ -203,16 +162,9 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    api_key = load_openai_api_key()
-    if not api_key or api_key == API_KEY_PLACEHOLDER:
-        raise SystemExit(
-            "Set OPENAI_API_KEY in the repository-root .env or mock-agent/.env before running"
-        )
+    load_dotenv(REPOSITORY_ROOT / ".env")
     task = get_zoom_calendar_conflict_task()
-    bootstrap_world = WorldState(**copy.deepcopy(task["info"]["initial_state"]))
-    tools = make_task_tools(bootstrap_world)
-    model = make_openai_model(args.model, tools)
-    result = run_benchmark(model, model_name=args.model, max_steps=args.max_steps)
+    result = run_benchmark(task, args.model, args.max_steps)
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(result, indent=2, default=str) + "\n")
