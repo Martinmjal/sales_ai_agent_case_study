@@ -1,7 +1,12 @@
 from langchain_core.messages import AIMessage, ToolMessage
 from langchain_core.runnables import RunnableLambda
 
-from mock_agent.main import make_task_tools, run_benchmark
+from mock_agent.main import (
+    API_KEY_PLACEHOLDER,
+    load_openai_api_key,
+    make_task_tools,
+    run_benchmark,
+)
 
 
 def scripted_agent(messages):
@@ -76,3 +81,23 @@ def test_graph_and_benchmark_scoring_end_to_end():
     result = run_benchmark(RunnableLambda(scripted_agent), model_name="scripted-test")
     assert result["score"]["partial_credit"] == 1.0
     assert result["score"]["task_completed_correctly"] == 1.0
+
+
+def test_repository_env_overrides_inherited_value(tmp_path, monkeypatch):
+    repository_env = tmp_path / "repository.env"
+    project_env = tmp_path / "project.env"
+    repository_env.write_text("OPENAI_API_KEY=repository-key\n")
+    project_env.write_text("OPENAI_API_KEY=project-key\n")
+    monkeypatch.setenv("OPENAI_API_KEY", "stale-inherited-value")
+
+    assert load_openai_api_key(repository_env, project_env) == "repository-key"
+
+
+def test_project_env_is_fallback_for_placeholder(tmp_path, monkeypatch):
+    repository_env = tmp_path / "repository.env"
+    project_env = tmp_path / "project.env"
+    repository_env.write_text(f"OPENAI_API_KEY={API_KEY_PLACEHOLDER}\n")
+    project_env.write_text("OPENAI_API_KEY=project-key\n")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+    assert load_openai_api_key(repository_env, project_env) == "project-key"

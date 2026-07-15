@@ -30,15 +30,27 @@ from automationbench.tools.zapier.slack import slack_send_channel_message
 from automationbench.tools.zapier.zoom import zoom_list_meetings, zoom_update_meeting
 
 
-EXPERIMENT_SYSTEM_PROMPT = """You are running one AutomationBench workflow.
-Use the available tools to inspect source records, apply the requested change, and post the requested summary.
+EXPERIMENT_SYSTEM_PROMPT = """You are a useful Sales agent.
+Use the available tools to proactively resolve the problem that is presented to you.
 Treat the spreadsheet policy as authoritative. Preserve source titles and identifiers verbatim.
-Do not guess tool results, do not make unrelated changes, and stop once the requested writes succeed.
+Do not guess tool results, do not make unrelated changes.
 """
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 REPOSITORY_ROOT = PROJECT_ROOT.parent
 API_KEY_PLACEHOLDER = "replace-with-your-openai-api-key"
+
+
+def load_openai_api_key(
+    repository_env: Path = REPOSITORY_ROOT / ".env",
+    project_env: Path = PROJECT_ROOT / ".env",
+) -> str | None:
+    """Load the repository key first, falling back to the project .env file."""
+    load_dotenv(repository_env, override=True)
+    api_key = os.environ.get("OPENAI_API_KEY")
+    if not api_key or api_key == API_KEY_PLACEHOLDER:
+        load_dotenv(project_env, override=True)
+    return os.environ.get("OPENAI_API_KEY")
 
 
 def make_task_tools(world: WorldState) -> list[BaseTool]:
@@ -191,12 +203,10 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    load_dotenv(REPOSITORY_ROOT / ".env")
-    load_dotenv(PROJECT_ROOT / ".env")
-    api_key = os.environ.get("OPENAI_API_KEY")
+    api_key = load_openai_api_key()
     if not api_key or api_key == API_KEY_PLACEHOLDER:
         raise SystemExit(
-            "Replace the OPENAI_API_KEY placeholder in mock-agent/.env before running"
+            "Set OPENAI_API_KEY in the repository-root .env or mock-agent/.env before running"
         )
     task = get_zoom_calendar_conflict_task()
     bootstrap_world = WorldState(**copy.deepcopy(task["info"]["initial_state"]))
