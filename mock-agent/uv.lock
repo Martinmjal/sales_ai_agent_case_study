@@ -189,7 +189,7 @@ wheels = [
 [[package]]
 name = "automation-bench"
 version = "1.0.5"
-source = { editable = "../AutomationBench" }
+source = { directory = "../AutomationBench" }
 dependencies = [
     { name = "anthropic" },
     { name = "httpx" },
@@ -1138,7 +1138,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "automation-bench", editable = "../AutomationBench" },
+    { name = "automation-bench", directory = "../AutomationBench" },
     { name = "langchain", specifier = ">=1.2,<2" },
     { name = "langchain-openai", specifier = ">=1.1,<2" },
     { name = "langgraph", specifier = ">=1.0,<2" },

@@ -29,4 +29,4 @@ packages = ["src/mock_agent"]
 testpaths = ["tests"]
 
 [tool.uv.sources]
-automation-bench = { path = "../AutomationBench", editable = true }
+automation-bench = { path = "../AutomationBench" }
