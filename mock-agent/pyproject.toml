@@ -1,0 +1,32 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mock-agent"
+version = "0.1.0"
+description = "A minimal LangGraph ReAct agent for one AutomationBench task"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "automation-bench",
+    "langchain>=1.2,<2",
+    "langchain-openai>=1.1,<2",
+    "langgraph>=1.0,<2",
+    "python-dotenv>=1.2,<2",
+]
+
+[dependency-groups]
+dev = ["pytest>=9,<10"]
+
+[project.scripts]
+mock-agent = "mock_agent.main:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mock_agent"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.uv.sources]
+automation-bench = { path = "../AutomationBench", editable = true }
