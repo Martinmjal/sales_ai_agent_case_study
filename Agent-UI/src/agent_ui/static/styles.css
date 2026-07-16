@@ -467,6 +467,27 @@ input:focus-visible {
   font-weight: 650;
 }
 
+.session-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.stop-button {
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid #a73a32;
+  border-radius: 5px;
+  color: #8d2f29;
+  background: #fff7f6;
+  font-weight: 700;
+}
+
+.stop-button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
 .status-badge {
   padding: 5px 8px;
   border-radius: 4px;
@@ -481,10 +502,46 @@ input:focus-visible {
   background: var(--green-soft);
 }
 
-.status-badge.failed,
 .status-badge.stopped {
-  color: var(--accent-deep);
-  background: var(--accent-soft);
+  color: #73510a;
+  background: #fff3cc;
+}
+
+.status-badge.failed {
+  color: #982f2a;
+  background: #fde9e7;
+}
+
+.status-badge.interrupted {
+  color: #4e5551;
+  background: #e8ece9;
+}
+
+.history-status.stopped {
+  color: #73510a;
+}
+
+.history-status.failed {
+  color: #982f2a;
+}
+
+.history-status.interrupted {
+  color: #4e5551;
+}
+
+.execution-errors {
+  margin-top: 22px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.execution-errors pre {
+  margin: 9px 0 0;
+  color: #982f2a;
+  font: inherit;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .prompt-message {

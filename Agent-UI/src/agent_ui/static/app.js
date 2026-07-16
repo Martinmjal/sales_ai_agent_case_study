@@ -4,6 +4,7 @@ const state = {
   selectedTask: null,
   selectedSession: null,
   activeSessionId: null,
+  stoppingSessionId: null,
   eventSource: null,
 };
 
@@ -12,6 +13,8 @@ const elements = {
   browser: document.querySelector("#task-browser"),
   config: document.querySelector("#config-list"),
   connection: document.querySelector("#connection-status"),
+  errorList: document.querySelector("#execution-error-list"),
+  errors: document.querySelector("#execution-errors"),
   finalBlock: document.querySelector("#final-block"),
   finalResponse: document.querySelector("#final-response"),
   historyCount: document.querySelector("#history-count"),
@@ -35,6 +38,7 @@ const elements = {
   sessionTaskName: document.querySelector("#session-task-name"),
   sessionPrompt: document.querySelector("#session-prompt"),
   sessionWorkspace: document.querySelector("#session-workspace"),
+  stopRun: document.querySelector("#stop-run"),
   taskList: document.querySelector("#task-list"),
   toast: document.querySelector("#toast"),
 };
@@ -123,6 +127,7 @@ async function startTask(task, button) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ task_id: task.task_id }),
     });
+    state.activeSessionId = summary.session_id;
     await loadSession(summary.session_id);
     await refreshHistory();
   } catch (error) {
@@ -183,6 +188,7 @@ function historyItem(session) {
   const name = document.createElement("strong");
   const status = document.createElement("span");
   status.className = "history-status";
+  status.classList.add(session.status.toLowerCase());
   name.textContent = session.task_name;
   status.textContent = session.status;
   heading.append(name, status);
@@ -221,6 +227,10 @@ function renderSession(session) {
   elements.sessionStatus.className = `status-badge ${session.status.toLowerCase()}`;
 
   const running = session.status === "Running";
+  const stopping = state.stoppingSessionId === session.session_id;
+  elements.stopRun.hidden = !running || session.session_id !== state.activeSessionId;
+  elements.stopRun.disabled = stopping;
+  elements.stopRun.textContent = stopping ? "Stopping..." : "Stop run";
   elements.progressBlock.hidden = !running;
   elements.finalBlock.hidden = running;
   if (running) {
@@ -236,9 +246,23 @@ function renderSession(session) {
       elements.progressCopy.textContent = latest ? "Preparing the next benchmark action." : "Reviewing the prompt and available tools.";
     }
   } else {
+    if (state.stoppingSessionId === session.session_id) {
+      state.stoppingSessionId = null;
+    }
     elements.finalResponse.textContent = session.final_response || "No final response was produced.";
     const partial = session.evaluation?.partial_credit;
     elements.score.textContent = partial == null ? "Unavailable" : `${Math.round(partial * 100)}%`;
+    const errors = session.events
+      .filter((event) => event.kind === "tool_error" && event.error != null)
+      .map((event) => event.error);
+    if (session.lifecycle.terminal_error) errors.push(session.lifecycle.terminal_error);
+    elements.errors.hidden = errors.length === 0;
+    elements.errorList.replaceChildren();
+    for (const error of errors) {
+      const message = document.createElement("pre");
+      message.textContent = error;
+      elements.errorList.append(message);
+    }
   }
 
   elements.config.replaceChildren();
@@ -314,6 +338,22 @@ async function loadSession(sessionId) {
   }
 }
 
+async function stopActiveRun() {
+  const session = state.selectedSession;
+  if (!session || session.status !== "Running" || session.session_id !== state.activeSessionId) return;
+  state.stoppingSessionId = session.session_id;
+  renderSession(session);
+  try {
+    await api(`/api/sessions/${session.session_id}/stop`, { method: "POST" });
+    elements.progressTitle.textContent = "Stopping execution";
+    elements.progressCopy.textContent = "Waiting for the current safe boundary.";
+  } catch (error) {
+    state.stoppingSessionId = null;
+    renderSession(session);
+    showToast(error.message);
+  }
+}
+
 document.querySelector("#back-to-tasks").addEventListener("click", () => {
   closeEventStream();
   elements.browser.hidden = false;
@@ -324,6 +364,7 @@ document.querySelector("#back-to-tasks").addEventListener("click", () => {
 elements.search.addEventListener("input", () => renderTasks(elements.search.value));
 elements.historySearch.addEventListener("input", renderHistory);
 elements.returnActive.addEventListener("click", () => loadSession(state.activeSessionId));
+elements.stopRun.addEventListener("click", stopActiveRun);
 elements.historyToggle.addEventListener("click", () => {
   const collapsed = elements.historyPanel.classList.toggle("collapsed");
   elements.appShell.classList.toggle("history-collapsed", collapsed);

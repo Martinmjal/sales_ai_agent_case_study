@@ -13,6 +13,13 @@ the browser's local timezone, and keeps the active run available while terminal 
 Terminal artifacts are immutable once their final status is persisted; malformed and unsupported
 artifacts are ignored when history is materialized.
 
+The active Running session exposes one Stop control. A stop request sets the runtime cancellation
+signal and remains in progress until the runtime reaches its next safe model or completed
+tool-batch boundary. Stopped and failed runs retain their available trace, world, evaluation, and
+error evidence. On server startup, any persisted Running artifact without a live owner is marked
+Interrupted and is never resumed or replayed automatically. Stopped, Failed, and Interrupted
+artifacts are terminal and immutable, and missing evaluation data is displayed as unavailable.
+
 ## Set up
 
 The mock agent uses the same `LIBRA_BASE_URL` and `LIBRA_INTERVIEW_API_KEY` configuration described

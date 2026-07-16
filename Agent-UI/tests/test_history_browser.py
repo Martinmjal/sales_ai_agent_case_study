@@ -5,7 +5,7 @@ from agent_ui.app import create_app
 from agent_ui.store import SessionStore
 from playwright.sync_api import expect, sync_playwright
 
-from test_api import live_server
+from test_api import ControlledRuntime, live_server
 
 
 CHROME = Path("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome")
@@ -114,4 +114,66 @@ def test_evaluator_can_browse_history_and_return_to_the_active_run(tmp_path):
         expect(collapse).to_have_attribute("aria-expanded", "false")
         page.get_by_role("button", name="Expand history").click()
         expect(page.get_by_label("Search execution history")).to_be_visible()
+        browser.close()
+
+
+def test_evaluator_sees_startup_interruption_and_stops_only_the_active_run(tmp_path):
+    store = SessionStore(tmp_path)
+    now = datetime.now(timezone.utc)
+    store.create(
+        session_artifact(
+            "orphaned-session",
+            "sales.multi_hop_lookup",
+            "Multi Hop Lookup",
+            now - timedelta(minutes=2),
+            "Running",
+        )
+    )
+    failed = session_artifact(
+        "failed-session",
+        "sales.qualify_lead",
+        "Qualify Lead",
+        now - timedelta(minutes=4),
+        "Failed",
+    )
+    failed["lifecycle"]["terminal_error"] = "RuntimeError: scripted failure"
+    store.create(failed)
+    runtime = ControlledRuntime("model")
+    app = create_app(runtime=runtime, sessions_dir=tmp_path)
+
+    with live_server(app) as base_url, sync_playwright() as playwright:
+        launch_options = {"headless": True}
+        if CHROME.exists():
+            launch_options["executable_path"] = str(CHROME)
+        browser = playwright.chromium.launch(**launch_options)
+        page = browser.new_page(viewport={"width": 1440, "height": 900})
+        page.goto(base_url)
+
+        orphaned = page.locator("[data-session-id='orphaned-session']")
+        expect(orphaned.locator(".history-status")).to_have_text("Interrupted")
+        orphaned.click()
+        expect(page.locator("#session-status")).to_have_text("Interrupted")
+        expect(page.locator("#session-score")).to_have_text("Unavailable")
+        expect(page.get_by_role("button", name="Stop run")).to_have_count(0)
+
+        response = page.request.post(
+            f"{base_url}/api/sessions",
+            data={"task_id": "sales.zoom_calendar_conflict"},
+        )
+        active_session_id = response.json()["session_id"]
+        assert runtime.started.wait(timeout=2)
+        page.reload()
+
+        stop = page.get_by_role("button", name="Stop run")
+        expect(stop).to_be_visible()
+        stop.click()
+        runtime.release.set()
+        expect(page.locator("#session-status")).to_have_text("Stopped")
+        expect(stop).to_be_hidden()
+        expect(
+            page.locator(f"[data-session-id='{active_session_id}'] .history-status")
+        ).to_have_text("Stopped")
+        expect(
+            page.locator("[data-session-id='failed-session'] .history-status")
+        ).to_have_text("Failed")
         browser.close()

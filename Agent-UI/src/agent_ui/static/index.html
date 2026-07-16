@@ -64,7 +64,10 @@
         <article id="session-workspace" class="session-workspace" hidden>
           <div class="session-heading">
             <button id="back-to-tasks" class="quiet-button" type="button">Back to tasks</button>
-            <span id="session-status" class="status-badge">Running</span>
+            <div class="session-actions">
+              <button id="stop-run" class="stop-button" type="button" hidden>Stop run</button>
+              <span id="session-status" class="status-badge">Running</span>
+            </div>
           </div>
           <div class="prompt-message">
             <span class="message-label">Task</span>
@@ -85,6 +88,10 @@
             <div class="score-line">
               <span>Partial credit</span>
               <strong id="session-score">Unavailable</strong>
+            </div>
+            <div id="execution-errors" class="execution-errors" hidden>
+              <span class="message-label">Execution errors</span>
+              <div id="execution-error-list"></div>
             </div>
           </section>
         </article>

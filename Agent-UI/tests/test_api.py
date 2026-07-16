@@ -100,12 +100,87 @@ class PacedRuntime:
         )
 
 
+class ControlledRuntime:
+    def __init__(self, boundary):
+        self.boundary = boundary
+        self.started = Event()
+        self.release = Event()
+
+    async def run(self, request, *, event_sink=None, cancellation=None):
+        events = [
+            RuntimeEvent(
+                sequence=1,
+                kind=(
+                    EventKind.MODEL_TURN
+                    if self.boundary == "model"
+                    else EventKind.TOOL_CALL
+                ),
+                timestamp="2026-07-16T02:00:00+00:00",
+                run_id=f"{self.boundary}-run",
+                correlation_id=f"{self.boundary}-boundary",
+                name="update_account" if self.boundary == "tool" else None,
+                content="Working" if self.boundary == "model" else None,
+                arguments={"account_id": "account-1"}
+                if self.boundary == "tool"
+                else None,
+            )
+        ]
+        if event_sink is not None:
+            await event_sink(events[0])
+        self.started.set()
+        await asyncio.to_thread(self.release.wait)
+        if self.boundary == "tool":
+            events.append(
+                RuntimeEvent(
+                    sequence=2,
+                    kind=EventKind.TOOL_RESULT,
+                    timestamp="2026-07-16T02:00:01+00:00",
+                    run_id="tool-run",
+                    correlation_id="tool-boundary",
+                    name="update_account",
+                    result={"updated": True},
+                )
+            )
+            if event_sink is not None:
+                await event_sink(events[-1])
+        status = (
+            ExitStatus.STOPPED if cancellation.is_cancelled else ExitStatus.COMPLETED
+        )
+        return RuntimeOutcome(
+            status=status,
+            task_id=request.task_id,
+            run_id=f"{self.boundary}-run",
+            events=tuple(events),
+            final_response=None,
+            world_state={"boundary": self.boundary},
+            score={"partial_credit": 0.5, "assertions": []},
+            usage={"input_tokens": 3, "output_tokens": 1, "total_tokens": 4},
+        )
+
+
+class FatalRuntime:
+    async def run(self, request, *, event_sink=None, cancellation=None):
+        if event_sink is not None:
+            await event_sink(
+                RuntimeEvent(
+                    sequence=1,
+                    kind=EventKind.TOOL_ERROR,
+                    timestamp="2026-07-16T02:00:00+00:00",
+                    run_id="fatal-run",
+                    correlation_id="failed-call",
+                    name="update_account",
+                    error="CRM rejected account-1 exactly as emitted",
+                )
+            )
+        raise RuntimeError("scripted runtime failure")
+
+
 @contextmanager
 def live_server(app):
     listener = socket.socket()
     listener.bind(("127.0.0.1", 0))
     port = listener.getsockname()[1]
-    config = uvicorn.Config(app, log_level="error", lifespan="off")
+    config = uvicorn.Config(app, log_level="error", lifespan="on")
     server = uvicorn.Server(config)
     thread = Thread(target=server.run, kwargs={"sockets": [listener]}, daemon=True)
     thread.start()
@@ -298,3 +373,51 @@ def test_history_skips_unsupported_artifacts_and_terminal_sessions_are_immutable
     assert [session["session_id"] for session in history.json()["sessions"]] == [
         "completed-session"
     ]
+
+
+def test_execution_control_preserves_safe_boundary_state_and_fatal_evidence(tmp_path):
+    task_id = "sales.zoom_calendar_conflict"
+
+    for boundary in ("model", "tool"):
+        runtime = ControlledRuntime(boundary)
+        app = create_app(runtime=runtime, sessions_dir=tmp_path / boundary)
+        with TestClient(app) as client:
+            started = client.post("/api/sessions", json={"task_id": task_id})
+            session_id = started.json()["session_id"]
+            assert runtime.started.wait(timeout=2)
+
+            stop = client.post(f"/api/sessions/{session_id}/stop")
+            runtime.release.set()
+            for _ in range(100):
+                artifact = client.get(f"/api/sessions/{session_id}").json()
+                if artifact["status"] == "Stopped":
+                    break
+                sleep(0.01)
+
+            repeated_stop = client.post(f"/api/sessions/{session_id}/stop")
+
+        assert stop.status_code == 202
+        assert artifact["status"] == "Stopped"
+        assert artifact["final_world"] == {"boundary": boundary}
+        assert artifact["evaluation"]["partial_credit"] == 0.5
+        assert [event["kind"] for event in artifact["events"]] == (
+            ["model_turn"] if boundary == "model" else ["tool_call", "tool_result"]
+        )
+        assert repeated_stop.status_code == 409
+
+    app = create_app(runtime=FatalRuntime(), sessions_dir=tmp_path / "fatal")
+    with TestClient(app) as client:
+        started = client.post("/api/sessions", json={"task_id": task_id})
+        session_id = started.json()["session_id"]
+        for _ in range(100):
+            artifact = client.get(f"/api/sessions/{session_id}").json()
+            if artifact["status"] == "Failed":
+                break
+            sleep(0.01)
+
+    assert artifact["status"] == "Failed"
+    assert artifact["evaluation"] is None
+    assert artifact["events"][0]["error"] == "CRM rejected account-1 exactly as emitted"
+    assert artifact["lifecycle"]["terminal_error"] == (
+        "RuntimeError: scripted runtime failure"
+    )

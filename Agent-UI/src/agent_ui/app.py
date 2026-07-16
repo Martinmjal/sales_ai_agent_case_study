@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import copy
+from contextlib import asynccontextmanager
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 import json
@@ -16,7 +17,13 @@ from pydantic import BaseModel
 
 from automationbench.schema.world import WorldState
 from mock_agent.catalog import TaskCatalog, TaskDefinition, UnknownTaskError
-from mock_agent.contract import AgentRuntime, ExitStatus, RuntimeEvent, RuntimeRequest
+from mock_agent.contract import (
+    AgentRuntime,
+    CancellationSignal,
+    ExitStatus,
+    RuntimeEvent,
+    RuntimeRequest,
+)
 from mock_agent.main import make_task_tools
 from mock_agent.runtime import MockAgentRuntime
 
@@ -40,6 +47,10 @@ class CreateSessionRequest(BaseModel):
 
 class ActiveSessionError(RuntimeError):
     """Raised when another execution already owns the runtime."""
+
+
+class SessionNotRunningError(RuntimeError):
+    """Raised when execution control targets a session without a live owner."""
 
 
 def _now() -> str:
@@ -102,6 +113,7 @@ class ExecutionManager:
         self._active_session_id: str | None = None
         self._lock = asyncio.Lock()
         self._event_locks: dict[str, asyncio.Lock] = {}
+        self._cancellations: dict[str, CancellationSignal] = {}
         self._background_tasks: set[asyncio.Task[None]] = set()
 
     async def start(self, task_id: str) -> dict[str, Any]:
@@ -116,10 +128,36 @@ class ExecutionManager:
             session = self.store.create(self._new_session(task))
             self._active_session_id = session["session_id"]
             self._event_locks[session["session_id"]] = asyncio.Lock()
+            self._cancellations[session["session_id"]] = CancellationSignal()
             background = asyncio.create_task(self._execute(session["session_id"]))
             self._background_tasks.add(background)
             background.add_done_callback(self._background_tasks.discard)
             return _summary(session)
+
+    async def stop(self, session_id: str) -> dict[str, Any]:
+        async with self._lock:
+            if self._active_session_id != session_id:
+                raise SessionNotRunningError(session_id)
+            session = self.store.read(session_id)
+            if session["status"] != "Running":
+                raise SessionNotRunningError(session_id)
+            self._cancellations[session_id].cancel()
+            return _summary(session)
+
+    def interrupt_orphans(self) -> None:
+        for session in self.store.list():
+            if session["status"] != "Running":
+                continue
+            interrupted_at = _now()
+            session["status"] = "Interrupted"
+            session["lifecycle"].update(
+                {
+                    "updated_at": interrupted_at,
+                    "completed_at": interrupted_at,
+                    "terminal_error": "Execution owner was lost when the server stopped.",
+                }
+            )
+            self.store.save(session)
 
     def _new_session(self, task: TaskDefinition) -> dict[str, Any]:
         created_at = _now()
@@ -169,6 +207,7 @@ class ExecutionManager:
                     max_steps=self.config.max_steps,
                 ),
                 event_sink=persist_event,
+                cancellation=self._cancellations[session_id],
             )
             session = self.store.read(session_id)
             completed_at = _now()
@@ -209,6 +248,7 @@ class ExecutionManager:
             async with self._lock:
                 if self._active_session_id == session_id:
                     self._active_session_id = None
+                self._cancellations.pop(session_id, None)
 
     async def stream_events(self, session_id: str, after: int) -> Any:
         next_sequence = max(after + 1, 1)
@@ -248,7 +288,13 @@ def create_app(
         store=SessionStore(sessions_dir or REPOSITORY_ROOT / "sessions"),
         config=config or AgentConfig(),
     )
-    app = FastAPI(title="Agent UI", version="0.1.0")
+
+    @asynccontextmanager
+    async def lifespan(_: FastAPI):
+        manager.interrupt_orphans()
+        yield
+
+    app = FastAPI(title="Agent UI", version="0.1.0", lifespan=lifespan)
     app.mount("/static", StaticFiles(directory=STATIC_DIRECTORY), name="static")
 
     @app.get("/", include_in_schema=False)
@@ -282,6 +328,16 @@ def create_app(
     @app.get("/api/sessions")
     async def list_sessions() -> dict[str, Any]:
         return {"sessions": [_summary(session) for session in manager.store.list()]}
+
+    @app.post("/api/sessions/{session_id}/stop", status_code=status.HTTP_202_ACCEPTED)
+    async def stop_session(session_id: str) -> dict[str, Any]:
+        try:
+            return await manager.stop(session_id)
+        except (SessionNotFoundError, SessionNotRunningError) as error:
+            raise HTTPException(
+                status_code=409,
+                detail="Only the active running session can be stopped",
+            ) from error
 
     @app.get("/api/sessions/{session_id}")
     async def get_session(session_id: str) -> dict[str, Any]:

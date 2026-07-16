@@ -39,7 +39,12 @@ class SessionStore:
                 current = json.loads(destination.read_text(encoding="utf-8"))
             except (OSError, json.JSONDecodeError):
                 current = None
-            if current and current.get("status") in {"Completed", "Stopped", "Failed"}:
+            if current and current.get("status") in {
+                "Completed",
+                "Stopped",
+                "Failed",
+                "Interrupted",
+            }:
                 raise ImmutableSessionError(
                     f"Terminal session cannot be changed: {session['session_id']}"
                 )
@@ -90,7 +95,8 @@ class SessionStore:
         evaluation = session.get("evaluation")
         return (
             isinstance(session.get("session_id"), str)
-            and session.get("status") in {"Running", "Completed", "Stopped", "Failed"}
+            and session.get("status")
+            in {"Running", "Completed", "Stopped", "Failed", "Interrupted"}
             and isinstance(lifecycle, dict)
             and isinstance(lifecycle.get("created_at"), str)
             and isinstance(task, dict)
