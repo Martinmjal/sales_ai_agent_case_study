@@ -332,6 +332,126 @@ def evaluated_artifact(created_at):
     return artifact, score
 
 
+def sparse_normalized_world_artifact(created_at):
+    artifact = session_artifact(
+        "sparse-normalized-session",
+        "sales.zoom_calendar_conflict",
+        "Zoom Calendar Conflict",
+        created_at,
+        "Completed",
+        1.0,
+    )
+    initial_world = {
+        "meta": {
+            "schema_version": "0.1.0",
+            "current_time": "2026-02-20T12:00:00+00:00",
+            "allowed_services": ["google_sheets", "zoom"],
+        },
+        "google_sheets": {
+            "rows": [
+                {
+                    "spreadsheet_id": "meeting-policy",
+                    "worksheet_id": "priority-rules",
+                    "row_id": 2,
+                    "cells": {"Priority": "1", "Rule": "C-level attendee"},
+                }
+            ]
+        },
+        "zoom": {
+            "meetings": [
+                {
+                    "id": 1234567890,
+                    "topic": "Q1 Product Review - External",
+                    "start_time": "2026-02-20T14:00:00+00:00",
+                }
+            ]
+        },
+    }
+    final_world = WorldState.model_validate(initial_world).model_dump(mode="json")
+    final_world["zoom"]["meetings"][0]["topic"] = (
+        "[RESCHEDULED] Q1 Product Review - External"
+    )
+    artifact["initial_world"] = initial_world
+    artifact["final_world"] = final_world
+    return artifact
+
+
+def test_evaluator_hides_world_schema_normalization_noise(tmp_path):
+    artifact = sparse_normalized_world_artifact(datetime.now(timezone.utc))
+    store = SessionStore(tmp_path)
+    store.create(artifact)
+    app = create_app(sessions_dir=tmp_path)
+
+    with live_server(app) as base_url, sync_playwright() as playwright:
+        launch_options = {"headless": True}
+        if CHROME.exists():
+            launch_options["executable_path"] = str(CHROME)
+        browser = playwright.chromium.launch(**launch_options)
+        page = browser.new_page(viewport={"width": 1440, "height": 900})
+        page.goto(base_url)
+        page.locator("[data-session-id='sparse-normalized-session']").click()
+
+        world_changes = page.locator("#world-diff .world-change")
+        expect(world_changes).to_have_count(1)
+        expect(world_changes.first).to_contain_text("world.zoom.meetings[0].topic")
+        expect(world_changes.first).to_contain_text("Q1 Product Review - External")
+        expect(world_changes.first).to_contain_text(
+            "[RESCHEDULED] Q1 Product Review - External"
+        )
+        browser.close()
+
+
+def test_evaluator_matches_reordered_world_records_by_identity(tmp_path):
+    artifact = session_artifact(
+        "reordered-world-session",
+        "sales.zoom_calendar_conflict",
+        "Zoom Calendar Conflict",
+        datetime.now(timezone.utc),
+        "Completed",
+        1.0,
+    )
+    initial_world = {
+        "meta": {
+            "current_time": "2026-02-20T12:00:00+00:00",
+            "allowed_services": ["zoom"],
+        },
+        "zoom": {
+            "meetings": [
+                {
+                    "id": "meeting-a",
+                    "topic": "First unchanged meeting",
+                    "start_time": "2026-02-20T14:00:00+00:00",
+                },
+                {
+                    "id": "meeting-b",
+                    "topic": "Second unchanged meeting",
+                    "start_time": "2026-02-20T16:00:00+00:00",
+                },
+            ]
+        },
+    }
+    final_world = WorldState.model_validate(initial_world).model_dump(mode="json")
+    final_world["zoom"]["meetings"].reverse()
+    artifact["initial_world"] = initial_world
+    artifact["final_world"] = final_world
+    SessionStore(tmp_path).create(artifact)
+    app = create_app(sessions_dir=tmp_path)
+
+    with live_server(app) as base_url, sync_playwright() as playwright:
+        launch_options = {"headless": True}
+        if CHROME.exists():
+            launch_options["executable_path"] = str(CHROME)
+        browser = playwright.chromium.launch(**launch_options)
+        page = browser.new_page(viewport={"width": 1440, "height": 900})
+        page.goto(base_url)
+        page.locator("[data-session-id='reordered-world-session']").click()
+
+        expect(page.locator("#world-diff")).to_have_text(
+            "No world changes recorded."
+        )
+        browser.close()
+
+
 def test_evaluator_exposes_complete_deterministic_evidence(tmp_path):
     artifact, official_score = evaluated_artifact(datetime.now(timezone.utc))
     store = SessionStore(tmp_path)

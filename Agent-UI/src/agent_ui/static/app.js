@@ -6,6 +6,7 @@ const state = {
   activeSessionId: null,
   stoppingSessionId: null,
   eventSource: null,
+  worldChanges: new Map(),
 };
 
 const elements = {
@@ -342,7 +343,8 @@ function renderWorldEvidence(session) {
     elements.worldDiff.append(unavailable);
     return;
   }
-  const changes = collectWorldChanges(session.initial_world, session.final_world);
+  const changes = state.worldChanges.get(session.session_id)
+    ?? collectWorldChanges(session.initial_world, session.final_world);
   if (changes.length === 0) {
     const unchanged = document.createElement("p");
     unchanged.className = "unchanged-evidence";
@@ -895,7 +897,7 @@ function streamSession(session) {
   source.addEventListener("session", async () => {
     closeEventStream();
     if (state.selectedSession?.session_id === session.session_id) {
-      const completed = await api(`/api/sessions/${session.session_id}`);
+      const completed = await fetchSession(session.session_id);
       renderSession(completed);
       await refreshHistory();
     }
@@ -903,7 +905,7 @@ function streamSession(session) {
   });
   source.onerror = async () => {
     if (state.selectedSession?.session_id !== session.session_id) return;
-    const materialized = await api(`/api/sessions/${session.session_id}`);
+    const materialized = await fetchSession(session.session_id);
     renderSession(materialized);
     if (materialized.status !== "Running") {
       closeEventStream();
@@ -914,7 +916,7 @@ function streamSession(session) {
 
 async function loadSession(sessionId) {
   closeEventStream();
-  const session = await api(`/api/sessions/${sessionId}`);
+  const session = await fetchSession(sessionId);
   renderSession(session);
   if (narrowLayout.matches && openDrawer === elements.historyPanel) {
     closeResponsiveDrawer(false);
@@ -925,6 +927,15 @@ async function loadSession(sessionId) {
   } else {
     await refreshHistory();
   }
+}
+
+async function fetchSession(sessionId) {
+  const [session, evidence] = await Promise.all([
+    api(`/api/sessions/${sessionId}`),
+    api(`/api/sessions/${sessionId}/world-changes`),
+  ]);
+  state.worldChanges.set(sessionId, evidence.changes);
+  return session;
 }
 
 async function stopActiveRun() {

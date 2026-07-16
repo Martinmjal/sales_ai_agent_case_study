@@ -28,6 +28,7 @@ from mock_agent.main import make_task_tools
 from mock_agent.runtime import MockAgentRuntime
 
 from agent_ui.store import SessionNotFoundError, SessionStore
+from agent_ui.world_diff import world_changes
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
@@ -345,6 +346,19 @@ def create_app(
             return manager.store.read(session_id)
         except SessionNotFoundError as error:
             raise HTTPException(status_code=404, detail=str(error)) from error
+
+    @app.get("/api/sessions/{session_id}/world-changes")
+    async def get_world_changes(session_id: str) -> dict[str, Any]:
+        try:
+            session = manager.store.read(session_id)
+        except SessionNotFoundError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        return {
+            "changes": world_changes(
+                session.get("initial_world"),
+                session.get("final_world"),
+            )
+        }
 
     @app.get("/api/sessions/{session_id}/events")
     async def stream_session_events(
