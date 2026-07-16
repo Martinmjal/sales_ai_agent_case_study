@@ -43,3 +43,35 @@ uv run pytest
 
 The scripted suite drives the public runtime seam with real AutomationBench tools and official
 scoring. It requires no model API key.
+
+## Offline evaluation
+
+Copy and freeze the example inputs before a panel run. The manifest contains only canonical task
+IDs; evaluator metadata stays outside the runtime request and model context.
+
+```bash
+cp evaluation/config.example.json evaluation/config.json
+cp evaluation/manifest.example.json evaluation/manifest.json
+uv run mock-agent-eval run \
+  --manifest evaluation/manifest.json \
+  --config evaluation/config.json \
+  --repetitions 10 \
+  --artifacts-dir results/evaluation
+```
+
+The evaluator runs sequentially with a fresh runtime/world for every attempt. Each agent
+observation is written immediately, agent failures remain scorable, exhausted transient endpoint
+attempts are replaced, and rerunning the same command skips completed configuration/task/repetition
+pairs.
+
+Generate byte-stable Markdown and JSON reports offline:
+
+```bash
+uv run mock-agent-eval report \
+  --artifacts-dir results/evaluation \
+  --markdown results/evaluation/report.md \
+  --json results/evaluation/report.json
+```
+
+The checked-in manifest is a development example, not a claim that its task is held out. Replace
+it with the owner-preregistered Sales panel before the final evaluation.

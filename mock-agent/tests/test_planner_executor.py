@@ -1024,6 +1024,7 @@ def test_runtime_stops_after_two_provider_retries_with_a_model_error_outcome():
         EventKind.MODEL_ERROR,
         EventKind.COMPLETION,
     ]
+    assert outcome.events[-2].content["infrastructure_failure"] is True
     assert "HTTP 503" in outcome.terminal_error
 
 

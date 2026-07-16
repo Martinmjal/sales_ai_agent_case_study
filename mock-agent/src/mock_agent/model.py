@@ -42,9 +42,12 @@ class ModelClient(Protocol):
 
 
 class ProviderFailure(RuntimeError):
-    def __init__(self, error: Exception, retries: list[dict[str, Any]]):
+    def __init__(
+        self, error: Exception, retries: list[dict[str, Any]], *, transient: bool
+    ):
         self.error = error
         self.retries = retries
+        self.transient = transient
         super().__init__(f"{type(error).__name__}: {error}")
 
 
@@ -98,7 +101,9 @@ class OpenAIModelClient:
                 )
             except Exception as error:
                 if attempt == 2 or not self._is_transient(error):
-                    raise ProviderFailure(error, retries) from error
+                    raise ProviderFailure(
+                        error, retries, transient=self._is_transient(error)
+                    ) from error
                 retries.append(
                     {
                         "retry": attempt + 1,

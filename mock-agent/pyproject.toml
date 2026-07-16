@@ -19,6 +19,7 @@ dev = ["pytest>=9,<10"]
 
 [project.scripts]
 mock-agent = "mock_agent.main:main"
+mock-agent-eval = "mock_agent.evaluation:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/mock_agent"]

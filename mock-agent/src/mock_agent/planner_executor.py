@@ -61,9 +61,10 @@ class ModelProtocolError(RuntimeError):
 
 
 class ModelFailure(RuntimeError):
-    def __init__(self, error: Exception):
+    def __init__(self, error: Exception, *, infrastructure_failure: bool = False):
         self.error_type = type(error).__name__
         self.message = str(error)
+        self.infrastructure_failure = infrastructure_failure
         super().__init__(f"{self.error_type}: {self.message}")
 
 
@@ -173,7 +174,9 @@ class PlannerExecutorRuntime:
                         parent_id=run_id,
                         content=retry,
                     )
-                raise ModelFailure(error.error) from error
+                raise ModelFailure(
+                    error.error, infrastructure_failure=error.transient
+                ) from error
             except Exception as error:
                 raise ModelFailure(error) from error
             for retry in reply.metadata.get("provider_retries", []):
@@ -563,6 +566,7 @@ class PlannerExecutorRuntime:
                 content={
                     "error_type": error.error_type,
                     "message": error.message,
+                    "infrastructure_failure": error.infrastructure_failure,
                 },
             )
             return await self._finish(
