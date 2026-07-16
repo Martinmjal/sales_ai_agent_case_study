@@ -4,12 +4,13 @@ import asyncio
 import copy
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
+import json
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from fastapi import FastAPI, HTTPException, status
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, Header, HTTPException, Query, status
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -100,6 +101,7 @@ class ExecutionManager:
         self.config = config
         self._active_session_id: str | None = None
         self._lock = asyncio.Lock()
+        self._event_locks: dict[str, asyncio.Lock] = {}
         self._background_tasks: set[asyncio.Task[None]] = set()
 
     async def start(self, task_id: str) -> dict[str, Any]:
@@ -113,6 +115,7 @@ class ExecutionManager:
             task = self.catalog.get_task(task_id)
             session = self.store.create(self._new_session(task))
             self._active_session_id = session["session_id"]
+            self._event_locks[session["session_id"]] = asyncio.Lock()
             background = asyncio.create_task(self._execute(session["session_id"]))
             self._background_tasks.add(background)
             background.add_done_callback(self._background_tasks.discard)
@@ -149,10 +152,13 @@ class ExecutionManager:
 
     async def _execute(self, session_id: str) -> None:
         async def persist_event(event: RuntimeEvent) -> None:
-            session = self.store.read(session_id)
-            session["events"].append(_event_payload(event))
-            session["lifecycle"]["updated_at"] = _now()
-            self.store.save(session)
+            async with self._event_locks[session_id]:
+                session = self.store.read(session_id)
+                payload = _event_payload(event)
+                payload["sequence"] = len(session["events"]) + 1
+                session["events"].append(payload)
+                session["lifecycle"]["updated_at"] = _now()
+                self.store.save(session)
 
         session = self.store.read(session_id)
         try:
@@ -173,7 +179,6 @@ class ExecutionManager:
                         ExitStatus.STOPPED: "Stopped",
                         ExitStatus.FAILED: "Failed",
                     }[outcome.status],
-                    "events": [_event_payload(event) for event in outcome.events],
                     "final_response": outcome.final_response,
                     "evaluation": outcome.score,
                     "usage": outcome.usage,
@@ -204,6 +209,30 @@ class ExecutionManager:
             async with self._lock:
                 if self._active_session_id == session_id:
                     self._active_session_id = None
+
+    async def stream_events(self, session_id: str, after: int) -> Any:
+        next_sequence = max(after + 1, 1)
+        while True:
+            session = self.store.read(session_id)
+            for event in session["events"]:
+                sequence = event["sequence"]
+                if sequence < next_sequence:
+                    continue
+                yield (
+                    f"id: {sequence}\n"
+                    "event: runtime\n"
+                    f"data: {json.dumps(event, ensure_ascii=True, default=str)}\n\n"
+                )
+                next_sequence = sequence + 1
+            if session["status"] != "Running" and next_sequence > len(
+                session["events"]
+            ):
+                yield (
+                    "event: session\n"
+                    f"data: {json.dumps({'status': session['status']})}\n\n"
+                )
+                return
+            await asyncio.sleep(0.05)
 
 
 def create_app(
@@ -260,5 +289,24 @@ def create_app(
             return manager.store.read(session_id)
         except SessionNotFoundError as error:
             raise HTTPException(status_code=404, detail=str(error)) from error
+
+    @app.get("/api/sessions/{session_id}/events")
+    async def stream_session_events(
+        session_id: str,
+        last_event_id: int = Header(default=0, alias="Last-Event-ID"),
+        after: int = Query(default=0, ge=0),
+    ) -> StreamingResponse:
+        try:
+            manager.store.read(session_id)
+        except SessionNotFoundError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        return StreamingResponse(
+            manager.stream_events(session_id, max(last_event_id, after)),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "X-Accel-Buffering": "no",
+            },
+        )
 
     return app

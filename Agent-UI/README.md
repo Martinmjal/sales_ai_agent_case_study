@@ -4,6 +4,10 @@ Local evaluator workspace for selecting and running any of the 100 registered Au
 sales tasks. FastAPI owns each execution as a background task and writes one self-contained JSON
 artifact to the repository-root `sessions/` directory.
 
+Running sessions expose a reconnectable SSE stream at `/api/sessions/{session_id}/events`.
+The JSON artifact is the durable source of truth: clients load it first, then resume the stream
+after its latest sequence with `Last-Event-ID` or the `after` query parameter.
+
 ## Set up
 
 The mock agent uses the same `LIBRA_BASE_URL` and `LIBRA_INTERVIEW_API_KEY` configuration described

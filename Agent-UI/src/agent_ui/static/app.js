@@ -3,7 +3,7 @@ const state = {
   sessions: [],
   selectedTask: null,
   selectedSession: null,
-  pollTimer: null,
+  eventSource: null,
 };
 
 const elements = {
@@ -163,9 +163,17 @@ function renderSession(session) {
   elements.progressBlock.hidden = !running;
   elements.finalBlock.hidden = running;
   if (running) {
-    const toolResults = session.events.filter((event) => event.kind === "tool_result").length;
-    elements.progressTitle.textContent = toolResults ? "Working through the task" : "Model activity";
-    elements.progressCopy.textContent = toolResults ? "Applying benchmark actions and evaluating progress." : "Reviewing the prompt and available tools.";
+    const latest = session.events.at(-1);
+    if (latest?.kind === "completion") {
+      elements.progressTitle.textContent = "Evaluation";
+      elements.progressCopy.textContent = "Scoring the final benchmark world.";
+    } else if (["tool_call", "tool_result", "tool_error"].includes(latest?.kind)) {
+      elements.progressTitle.textContent = "Tool batch activity";
+      elements.progressCopy.textContent = latest.kind === "tool_call" ? `Running ${latest.name || "a benchmark tool"}.` : "Collecting completed tool results.";
+    } else {
+      elements.progressTitle.textContent = "Model activity";
+      elements.progressCopy.textContent = latest ? "Preparing the next benchmark action." : "Reviewing the prompt and available tools.";
+    }
   } else {
     elements.finalResponse.textContent = session.final_response || "No final response was produced.";
     const partial = session.evaluation?.partial_credit;
@@ -191,21 +199,64 @@ function renderSession(session) {
   renderHistory();
 }
 
+function closeEventStream() {
+  if (state.eventSource) {
+    state.eventSource.close();
+    state.eventSource = null;
+  }
+}
+
+function streamSession(session) {
+  closeEventStream();
+  const after = session.events.at(-1)?.sequence || 0;
+  const source = new EventSource(`/api/sessions/${session.session_id}/events?after=${after}`);
+  state.eventSource = source;
+  elements.connection.textContent = "Live";
+
+  source.addEventListener("runtime", (message) => {
+    if (state.selectedSession?.session_id !== session.session_id) return;
+    const event = JSON.parse(message.data);
+    const latest = state.selectedSession.events.at(-1)?.sequence || 0;
+    if (event.sequence <= latest) return;
+    state.selectedSession.events.push(event);
+    renderSession(state.selectedSession);
+  });
+  source.addEventListener("session", async () => {
+    closeEventStream();
+    if (state.selectedSession?.session_id === session.session_id) {
+      const completed = await api(`/api/sessions/${session.session_id}`);
+      renderSession(completed);
+      await refreshHistory();
+    }
+    elements.connection.textContent = `${state.tasks.length} tasks ready`;
+  });
+  source.onerror = async () => {
+    if (state.selectedSession?.session_id !== session.session_id) return;
+    const materialized = await api(`/api/sessions/${session.session_id}`);
+    renderSession(materialized);
+    if (materialized.status !== "Running") {
+      closeEventStream();
+      await refreshHistory();
+    }
+  };
+}
+
 async function loadSession(sessionId) {
-  window.clearTimeout(state.pollTimer);
+  closeEventStream();
   const session = await api(`/api/sessions/${sessionId}`);
   renderSession(session);
   if (session.status === "Running") {
-    state.pollTimer = window.setTimeout(() => loadSession(sessionId), 700);
+    streamSession(session);
   } else {
     await refreshHistory();
   }
 }
 
 document.querySelector("#back-to-tasks").addEventListener("click", () => {
-  window.clearTimeout(state.pollTimer);
+  closeEventStream();
   elements.browser.hidden = false;
   elements.sessionWorkspace.hidden = true;
+  elements.connection.textContent = `${state.tasks.length} tasks ready`;
 });
 
 elements.search.addEventListener("input", () => renderTasks(elements.search.value));
@@ -221,6 +272,8 @@ async function initialize() {
     renderTasks();
     renderHistory();
     elements.connection.textContent = `${state.tasks.length} tasks ready`;
+    const active = state.sessions.find((session) => session.status === "Running");
+    if (active) await loadSession(active.session_id);
   } catch (error) {
     elements.connection.textContent = "Unavailable";
     showToast(error.message);
