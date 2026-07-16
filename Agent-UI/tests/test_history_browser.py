@@ -446,8 +446,155 @@ def test_evaluator_matches_reordered_world_records_by_identity(tmp_path):
         page.goto(base_url)
         page.locator("[data-session-id='reordered-world-session']").click()
 
-        expect(page.locator("#world-diff")).to_have_text(
+        expect(page.locator("#world-summary")).to_have_text("No changes")
+        page.get_by_text("World changes", exact=True).click()
+        expect(page.locator("#world-activity")).to_have_text(
             "No world changes recorded."
+        )
+        browser.close()
+
+
+def record_activity_artifact(created_at):
+    artifact = sparse_normalized_world_artifact(created_at)
+    artifact["session_id"] = "record-activity-session"
+    artifact["final_world"]["zoom"]["meetings"][0]["start_time"] = (
+        "2026-02-20T16:00:00Z"
+    )
+    artifact["final_world"]["slack"]["messages"].append(
+        {
+            "ts": "1784196225.974537",
+            "channel_id": "C_OPS",
+            "user_id": "USLACKBOT",
+            "text": "Scheduling conflict resolved.",
+            "is_bot": True,
+            "bot_name": "Zapier",
+        }
+    )
+    return artifact
+
+
+def test_evaluator_collapses_world_activity_behind_a_concise_summary(tmp_path):
+    artifact = record_activity_artifact(datetime.now(timezone.utc))
+    SessionStore(tmp_path).create(artifact)
+    app = create_app(sessions_dir=tmp_path)
+
+    with live_server(app) as base_url, sync_playwright() as playwright:
+        launch_options = {"headless": True}
+        if CHROME.exists():
+            launch_options["executable_path"] = str(CHROME)
+        browser = playwright.chromium.launch(**launch_options)
+        page = browser.new_page(viewport={"width": 1440, "height": 900})
+        page.goto(base_url)
+        page.locator("[data-session-id='record-activity-session']").click()
+
+        expect(page.locator("#world-summary")).to_have_text(
+            "2 applications · 2 records · 3 changes"
+        )
+        expect(page.locator("#world-diff .world-change").first).to_be_hidden()
+        expect(page.get_by_text("Raw session JSON", exact=True)).to_be_visible()
+
+        page.get_by_text("World changes", exact=True).click()
+        expect(page.locator("#world-diff .world-change")).to_have_count(3)
+        expect(page.locator("#world-activity .world-application").first).to_be_visible()
+        expect(page.locator("#world-diff .world-change").first).to_be_hidden()
+        browser.close()
+
+
+def test_evaluator_groups_world_activity_by_application_and_record(tmp_path):
+    artifact = record_activity_artifact(datetime.now(timezone.utc))
+    SessionStore(tmp_path).create(artifact)
+    app = create_app(sessions_dir=tmp_path)
+
+    with live_server(app) as base_url, sync_playwright() as playwright:
+        launch_options = {"headless": True}
+        if CHROME.exists():
+            launch_options["executable_path"] = str(CHROME)
+        browser = playwright.chromium.launch(**launch_options)
+        page = browser.new_page(viewport={"width": 1440, "height": 900})
+        page.goto(base_url)
+        page.locator("[data-session-id='record-activity-session']").click()
+        page.get_by_text("World changes", exact=True).click()
+
+        application_groups = page.locator("#world-activity .world-application")
+        expect(application_groups).to_have_count(2)
+
+        zoom = page.locator("[data-world-application='zoom']")
+        expect(zoom.locator("summary").first).to_contain_text(
+            "Zoom1 record · 2 changes"
+        )
+        expect(zoom.locator(".world-record")).to_be_hidden()
+        zoom.locator("summary").first.click()
+        expect(zoom.locator(".world-record")).to_have_count(1)
+        expect(zoom.locator(".world-record")).to_contain_text(
+            "Updated meeting 1234567890"
+        )
+        expect(zoom.locator(".world-field-change")).to_have_count(2)
+
+        slack = page.locator("[data-world-application='slack']")
+        expect(slack.locator("summary").first).to_contain_text(
+            "Slack1 record · 1 change"
+        )
+        slack.locator("summary").first.click()
+        expect(slack.locator(".world-record")).to_have_count(1)
+        expect(slack.locator(".world-record")).to_contain_text(
+            "Created message 1784196225.974537"
+        )
+        expect(slack.locator(".world-record")).to_contain_text(
+            "Scheduling conflict resolved."
+        )
+
+        technical_diff = page.locator("#technical-world-diff")
+        expect(technical_diff.locator("#world-diff .world-change").first).to_be_hidden()
+        technical_diff.get_by_text("Technical state diff", exact=True).click()
+        expect(technical_diff.locator("#world-diff .world-change")).to_have_count(3)
+        browser.close()
+
+
+def test_world_activity_disclosures_remain_keyboard_operable_on_narrow_screens(
+    tmp_path,
+):
+    artifact = record_activity_artifact(datetime.now(timezone.utc))
+    SessionStore(tmp_path).create(artifact)
+    app = create_app(sessions_dir=tmp_path)
+
+    with live_server(app) as base_url, sync_playwright() as playwright:
+        launch_options = {"headless": True}
+        if CHROME.exists():
+            launch_options["executable_path"] = str(CHROME)
+        browser = playwright.chromium.launch(**launch_options)
+        page = browser.new_page(viewport={"width": 390, "height": 760})
+        page.goto(base_url)
+
+        page.get_by_role("button", name="Open session history").click()
+        page.locator("[data-session-id='record-activity-session']").click()
+        page.get_by_role("button", name="Open evaluator inspector").click()
+
+        world_summary = page.locator("#world-section > summary")
+        world_summary.focus()
+        world_summary.dispatch_event(
+            "keydown", {"key": "Enter", "bubbles": True}
+        )
+        expect(page.locator("#world-section")).to_have_attribute("open", "")
+
+        zoom_summary = page.locator(
+            "[data-world-application='zoom'] > summary"
+        )
+        zoom_summary.focus()
+        zoom_summary.dispatch_event(
+            "keydown", {"key": "Enter", "bubbles": True}
+        )
+        expect(page.locator("[data-world-application='zoom']")).to_have_attribute(
+            "open", ""
+        )
+        expect(page.locator("#technical-world-diff")).not_to_have_attribute(
+            "open", ""
+        )
+
+        raw_session = page.get_by_text("Raw session JSON", exact=True)
+        raw_session.scroll_into_view_if_needed()
+        expect(raw_session).to_be_visible()
+        assert page.locator("#inspector").evaluate(
+            "node => node.scrollWidth <= node.clientWidth"
         )
         browser.close()
 
@@ -493,6 +640,7 @@ def test_evaluator_exposes_complete_deterministic_evidence(tmp_path):
         world_diff = evidence.locator("#world-diff")
         expect(world_diff).to_contain_text("new-contact")
         expect(world_diff).to_contain_text("Added")
+        evidence.get_by_text("World changes", exact=True).click()
         evidence.get_by_text("Initial world snapshot", exact=True).click()
         expect(evidence.locator("#initial-world-snapshot")).to_contain_text(
             "existing-contact"
@@ -540,7 +688,11 @@ def test_evaluator_marks_missing_evidence_without_inferring_reasoning(tmp_path):
             row = evidence.locator(".evidence-metrics > div", has_text=label)
             expect(row.locator("dd")).to_have_text("Unavailable")
         expect(evidence.get_by_text("Assertion results unavailable")).to_be_visible()
-        expect(evidence.get_by_text("World changes unavailable")).to_be_visible()
+        expect(evidence.locator("#world-summary")).to_have_text("Unavailable")
+        evidence.get_by_text("World changes", exact=True).click()
+        expect(
+            evidence.get_by_text("World changes unavailable", exact=True)
+        ).to_be_visible()
         expect(evidence.locator("#reasoning-evidence")).to_be_hidden()
         evidence.get_by_text("Raw session JSON", exact=True).click()
         expect(evidence.locator("#raw-session-json")).to_contain_text('"usage": null')

@@ -63,6 +63,10 @@ const elements = {
   toolDefinitions: document.querySelector("#tool-definitions"),
   toast: document.querySelector("#toast"),
   trace: document.querySelector("#causal-trace"),
+  technicalWorldDiff: document.querySelector("#technical-world-diff"),
+  worldActivity: document.querySelector("#world-activity"),
+  worldSection: document.querySelector("#world-section"),
+  worldSummary: document.querySelector("#world-summary"),
   worldDiff: document.querySelector("#world-diff"),
 };
 
@@ -333,25 +337,53 @@ function collectWorldChanges(initialValue, finalValue, path = "world", changes =
 }
 
 function renderWorldEvidence(session) {
+  if (elements.worldSection.dataset.sessionId !== session.session_id) {
+    elements.worldSection.open = false;
+    elements.worldSection.querySelectorAll(":scope > details").forEach((disclosure) => {
+      disclosure.open = false;
+    });
+    elements.worldSection.dataset.sessionId = session.session_id;
+  }
   elements.initialWorld.textContent = displayValue(session.initial_world);
   elements.finalWorld.textContent = displayValue(session.final_world);
+  elements.worldActivity.replaceChildren();
   elements.worldDiff.replaceChildren();
   if (session.initial_world == null || session.final_world == null) {
+    elements.worldSummary.textContent = "Unavailable";
+    elements.technicalWorldDiff.hidden = true;
     const unavailable = document.createElement("p");
     unavailable.className = "unavailable-evidence";
     unavailable.textContent = "World changes unavailable";
-    elements.worldDiff.append(unavailable);
+    elements.worldActivity.append(unavailable);
     return;
   }
   const changes = state.worldChanges.get(session.session_id)
     ?? collectWorldChanges(session.initial_world, session.final_world);
   if (changes.length === 0) {
+    elements.worldSummary.textContent = "No changes";
+    elements.technicalWorldDiff.hidden = true;
     const unchanged = document.createElement("p");
     unchanged.className = "unchanged-evidence";
     unchanged.textContent = "No world changes recorded.";
-    elements.worldDiff.append(unchanged);
+    elements.worldActivity.append(unchanged);
     return;
   }
+  elements.technicalWorldDiff.hidden = false;
+  const applications = new Set();
+  const records = new Set();
+  for (const change of changes) {
+    const application = change.path.match(/^world\.([^.[]+)/)?.[1] || "world";
+    const record = change.path.match(/^world\.[^.[]+\.[^.[]+\[\d+\]/)?.[0]
+      || `world.${application}`;
+    applications.add(application);
+    records.add(record);
+  }
+  elements.worldSummary.textContent = [
+    `${applications.size} ${applications.size === 1 ? "application" : "applications"}`,
+    `${records.size} ${records.size === 1 ? "record" : "records"}`,
+    `${changes.length} ${changes.length === 1 ? "change" : "changes"}`,
+  ].join(" · ");
+  renderWorldActivity(changes);
   for (const change of changes) {
     const row = document.createElement("article");
     row.className = "world-change";
@@ -366,6 +398,82 @@ function renderWorldEvidence(session) {
     if (change.after !== undefined) addEvidence(row, "After", change.after);
     elements.worldDiff.append(row);
   }
+}
+
+function renderWorldActivity(changes) {
+  const applications = new Map();
+  for (const change of changes) {
+    const application = change.application
+      || change.path.match(/^world\.([^.[]+)/)?.[1]
+      || "world";
+    const record = change.record || {
+      path: `world.${application}`,
+      collection: "state",
+      identity: [],
+    };
+    if (!applications.has(application)) applications.set(application, new Map());
+    const records = applications.get(application);
+    if (!records.has(record.path)) records.set(record.path, { ...record, changes: [] });
+    records.get(record.path).changes.push(change);
+  }
+
+  for (const [application, records] of [...applications].sort(([left], [right]) => left.localeCompare(right))) {
+    const disclosure = document.createElement("details");
+    disclosure.className = "world-application";
+    disclosure.dataset.worldApplication = application;
+    const summary = document.createElement("summary");
+    const name = document.createElement("strong");
+    const total = document.createElement("span");
+    const changeCount = [...records.values()].reduce((sum, record) => sum + record.changes.length, 0);
+    name.textContent = humanizeWorldName(application);
+    total.textContent = `${records.size} ${records.size === 1 ? "record" : "records"} · ${changeCount} ${changeCount === 1 ? "change" : "changes"}`;
+    summary.append(name, total);
+    disclosure.append(summary);
+
+    for (const record of records.values()) {
+      const article = document.createElement("article");
+      article.className = "world-record";
+      const heading = document.createElement("strong");
+      const wholeRecordChange = record.changes.length === 1
+        && record.changes[0].path === record.path;
+      const action = wholeRecordChange && record.changes[0].action === "Added"
+        ? "Created"
+        : wholeRecordChange && record.changes[0].action === "Removed"
+          ? "Removed"
+          : "Updated";
+      const recordType = singularWorldName(record.collection);
+      const identity = record.identity.map((value) => String(value)).join(" / ");
+      heading.textContent = `${action} ${recordType}${identity ? ` ${identity}` : ""}`;
+      article.append(heading);
+
+      for (const change of record.changes) {
+        const field = document.createElement("div");
+        field.className = "world-field-change";
+        const label = document.createElement("span");
+        const fieldName = change.path === record.path
+          ? action
+          : humanizeWorldName(change.path.split(".").at(-1));
+        label.textContent = fieldName;
+        field.append(label);
+        if (change.before !== undefined) addEvidence(field, "Before", change.before);
+        if (change.after !== undefined) addEvidence(field, "After", change.after);
+        article.append(field);
+      }
+      disclosure.append(article);
+    }
+    elements.worldActivity.append(disclosure);
+  }
+}
+
+function humanizeWorldName(value) {
+  return String(value)
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function singularWorldName(value) {
+  const names = { meetings: "meeting", messages: "message", rows: "row" };
+  return names[value] || (value.endsWith("s") ? value.slice(0, -1) : value);
 }
 
 function renderEvaluationEvidence(session) {
@@ -1014,7 +1122,7 @@ elements.inspectorResizer.addEventListener("keydown", (event) => {
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && openDrawer) closeResponsiveDrawer();
   if (event.key === "Tab" && openDrawer) {
-    const focusable = [...openDrawer.querySelectorAll("button, input, summary[tabindex='0']")]
+    const focusable = [...openDrawer.querySelectorAll("button, input, summary")]
       .filter((element) => !element.disabled && element.getClientRects().length > 0);
     const first = focusable[0];
     const last = focusable.at(-1);

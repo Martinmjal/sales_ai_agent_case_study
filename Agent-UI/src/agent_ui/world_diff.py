@@ -74,6 +74,8 @@ def _collect_changes(
     after: Any,
     path: str,
     changes: list[dict[str, Any]],
+    application: str | None = None,
+    record: dict[str, Any] | None = None,
 ) -> None:
     if before == after:
         return
@@ -99,6 +101,10 @@ def _collect_changes(
             change["before"] = before
         if after is not _MISSING:
             change["after"] = after
+        if application is not None:
+            change["application"] = application
+        if record is not None:
+            change["record"] = record
         changes.append(change)
         return
     if isinstance(before, list) or isinstance(after, list):
@@ -110,27 +116,50 @@ def _collect_changes(
             identities = list(before_by_id)
             identities.extend(identity for identity in after_by_id if identity not in before_by_id)
             for index, identity in enumerate(identities):
+                item_record = record or {
+                    "path": f"{path}[{index}]",
+                    "collection": path.rsplit(".", 1)[-1],
+                    "identity": list(identity[1]),
+                }
                 _collect_changes(
                     before_by_id.get(identity, _MISSING),
                     after_by_id.get(identity, _MISSING),
                     f"{path}[{index}]",
                     changes,
+                    application,
+                    item_record,
                 )
             return
         for index in range(max(len(before_items), len(after_items))):
+            before_item = before_items[index] if index < len(before_items) else _MISSING
+            after_item = after_items[index] if index < len(after_items) else _MISSING
+            item_record = record
+            if item_record is None and (
+                isinstance(before_item, dict) or isinstance(after_item, dict)
+            ):
+                item_record = {
+                    "path": f"{path}[{index}]",
+                    "collection": path.rsplit(".", 1)[-1],
+                    "identity": [index],
+                }
             _collect_changes(
-                before_items[index] if index < len(before_items) else _MISSING,
-                after_items[index] if index < len(after_items) else _MISSING,
+                before_item,
+                after_item,
                 f"{path}[{index}]",
                 changes,
+                application,
+                item_record,
             )
         return
     for key in sorted(before.keys() | after.keys()):
+        child_application = key if path == "world" else application
         _collect_changes(
             before.get(key, _MISSING),
             after.get(key, _MISSING),
             f"{path}.{key}",
             changes,
+            child_application,
+            record,
         )
 
 

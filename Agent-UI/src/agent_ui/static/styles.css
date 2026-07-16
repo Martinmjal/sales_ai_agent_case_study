@@ -759,6 +759,19 @@ body.pane-resizing {
   text-align: right;
 }
 
+.world-section > summary {
+  cursor: pointer;
+}
+
+.world-summary-content {
+  display: inline-flex;
+  width: calc(100% - 18px);
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-left: 3px;
+}
+
 .assertion-list {
   border-top: 1px solid var(--line);
 }
@@ -818,6 +831,73 @@ body.pane-resizing {
   display: grid;
   gap: 7px;
   margin: 10px 0 12px;
+}
+
+.world-activity {
+  display: grid;
+  gap: 7px;
+  margin: 10px 0 12px;
+}
+
+.world-application {
+  border-bottom: 1px solid var(--line);
+}
+
+.world-application > summary {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 9px 0;
+  cursor: pointer;
+}
+
+.world-application > summary::before {
+  content: "›";
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1;
+  transition: transform 120ms ease;
+}
+
+.world-application[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.world-application > summary strong {
+  margin-right: auto;
+  font-size: 10px;
+}
+
+.world-application > summary span {
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.world-record {
+  padding: 3px 0 10px 14px;
+}
+
+.world-record > strong {
+  display: block;
+  margin-bottom: 7px;
+  font-size: 10px;
+}
+
+.world-field-change {
+  padding: 6px 0;
+}
+
+.world-field-change > span:first-child {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.world-field-change .trace-evidence {
+  margin-top: 4px;
 }
 
 .world-change {

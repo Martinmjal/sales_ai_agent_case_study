@@ -149,9 +149,18 @@
               </div>
               <div id="assertion-list" class="assertion-list"></div>
             </section>
-            <section class="world-section" aria-labelledby="world-title">
-              <h3 id="world-title">World changes</h3>
-              <div id="world-diff" class="world-diff"></div>
+            <details id="world-section" class="world-section">
+              <summary>
+                <span class="world-summary-content">
+                  <h3 id="world-title">World changes</h3>
+                  <span id="world-summary" class="section-total"></span>
+                </span>
+              </summary>
+              <div id="world-activity" class="world-activity"></div>
+              <details id="technical-world-diff" class="evidence-disclosure">
+                <summary>Technical state diff</summary>
+                <div id="world-diff" class="world-diff"></div>
+              </details>
               <details class="evidence-disclosure">
                 <summary>Initial world snapshot</summary>
                 <pre id="initial-world-snapshot"></pre>
@@ -160,7 +169,7 @@
                 <summary>Final world snapshot</summary>
                 <pre id="final-world-snapshot"></pre>
               </details>
-            </section>
+            </details>
             <section id="reasoning-evidence" class="reasoning-section" aria-labelledby="reasoning-title" hidden>
               <h3 id="reasoning-title">Provider reasoning</h3>
               <div id="reasoning-summaries"></div>
