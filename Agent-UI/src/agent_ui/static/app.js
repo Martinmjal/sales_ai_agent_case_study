@@ -714,9 +714,22 @@ function renderInspector(session) {
     callsByParent.set(event.parent_id, calls);
   }
 
+  const lifecycleTitles = {
+    planning: "Planning",
+    plan_created: "Plan created",
+    step_started: "Step started",
+    review: "Planner review",
+  };
+
   for (const event of events) {
-    if (event.kind === "model_turn") {
-      const turn = traceNode("model_turn", "Assistant turn", nodeState(session, event), event.correlation_id);
+    if (event.kind in lifecycleTitles) {
+      const lifecycle = traceNode(event.kind, lifecycleTitles[event.kind], nodeState(session, event), event.correlation_id);
+      addEvidence(lifecycle, "Details", event.content);
+      addEvidence(lifecycle, "Duration", event.duration_ms == null ? null : `${event.duration_ms} ms`);
+      elements.trace.append(lifecycle);
+    } else if (["model_turn", "executor_turn"].includes(event.kind)) {
+      const title = event.kind === "executor_turn" ? "Executor turn" : "Assistant turn";
+      const turn = traceNode(event.kind, title, nodeState(session, event), event.correlation_id);
       addEvidence(turn, "Response", event.content);
       addEvidence(turn, "Duration", event.duration_ms == null ? null : `${event.duration_ms} ms`);
       elements.trace.append(turn);

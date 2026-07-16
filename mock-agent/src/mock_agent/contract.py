@@ -8,6 +8,11 @@ from typing import Any, Protocol
 
 
 class EventKind(str, Enum):
+    PLANNING = "planning"
+    PLAN_CREATED = "plan_created"
+    STEP_STARTED = "step_started"
+    EXECUTOR_TURN = "executor_turn"
+    REVIEW = "review"
     MODEL_TURN = "model_turn"
     TOOL_CALL = "tool_call"
     TOOL_RESULT = "tool_result"
@@ -40,7 +45,7 @@ class RuntimeEvent:
     content: Any = None
     arguments: dict[str, Any] | None = None
     result: Any = None
-    error: str | None = None
+    error: Any = None
     usage: dict[str, int] | None = None
     duration_ms: float | None = None
     metadata: dict[str, Any] = field(default_factory=dict)

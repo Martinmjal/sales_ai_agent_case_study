@@ -81,6 +81,21 @@ token usage, and final simulated world to
 
 The agent uses `gpt-5.6-sol` through the Libra Azure Responses API endpoint.
 
+## Framework-free planner-executor
+
+`mock_agent.planner_executor.PlannerExecutorRuntime` is the custom runtime under
+development. It uses a direct Responses API client, creates a bounded structured plan,
+executes one step at a time through framework-free tool specifications and validation,
+and asks the planner to review tool-grounded evidence. AutomationBench task identity,
+assertions, expected values, raw world state, and scoring remain inside the adapter.
+
+Run it through the existing evaluator while retaining this LangGraph baseline:
+
+```bash
+cd ../Agent-UI
+AGENT_RUNTIME=planner-executor uv run agent-ui
+```
+
 ## Verify the graph without an API call
 
 ```bash
