@@ -11,12 +11,20 @@ class EventKind(str, Enum):
     PLANNING = "planning"
     PLAN_CREATED = "plan_created"
     STEP_STARTED = "step_started"
+    STEP_RETRY = "step_retry"
+    REPLAN = "replan"
     EXECUTOR_TURN = "executor_turn"
     REVIEW = "review"
     MODEL_TURN = "model_turn"
     TOOL_CALL = "tool_call"
     TOOL_RESULT = "tool_result"
     TOOL_ERROR = "tool_error"
+    PROTOCOL_CORRECTION = "protocol_correction"
+    PROTOCOL_ERROR = "protocol_error"
+    PROVIDER_RETRY = "provider_retry"
+    MODEL_ERROR = "model_error"
+    BUDGET_EXHAUSTED = "budget_exhausted"
+    CANCELLATION = "cancellation"
     COMPLETION = "completion"
 
 
@@ -24,6 +32,15 @@ class ExitStatus(str, Enum):
     COMPLETED = "completed"
     STOPPED = "stopped"
     FAILED = "failed"
+
+
+class TerminationReason(str, Enum):
+    GOAL_COMPLETED = "goal_completed"
+    BUDGET_EXHAUSTED = "budget_exhausted"
+    CANCELLED = "cancelled"
+    MODEL_PROTOCOL_ERROR = "model_protocol_error"
+    MODEL_ERROR = "model_error"
+    RUNTIME_ERROR = "runtime_error"
 
 
 @dataclass(frozen=True)
@@ -62,6 +79,7 @@ class RuntimeOutcome:
     score: dict[str, Any] | None
     usage: dict[str, int]
     terminal_error: str | None = None
+    termination_reason: TerminationReason | None = None
 
 
 class CancellationSignal:

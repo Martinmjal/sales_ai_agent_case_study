@@ -67,16 +67,13 @@ location.
 uv run agent-ui
 ```
 
-The LangGraph baseline remains the default during the expand step. To run the custom,
-framework-free planner-executor through the same evaluator interface:
-
-```bash
-AGENT_RUNTIME=planner-executor uv run agent-ui
-```
-
 Open `http://127.0.0.1:8000`. The configured model, maximum steps, and agent version are frozen into
 each session and displayed in the interface. They remain server-side settings; optional overrides
 are `AGENT_MODEL`, `AGENT_MAX_STEPS`, and `AGENT_VERSION`.
+
+The framework-free planner-executor is the sole runtime. Recovery, provider retries, protocol
+correction, cancellation, budget exhaustion, and completion are retained as ordered durable
+events in each session artifact.
 
 ## Verify
 

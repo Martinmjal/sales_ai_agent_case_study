@@ -94,18 +94,10 @@ class AutomationBenchSession:
         self._world = world
 
     def evaluate(self) -> tuple[dict[str, Any], dict[str, Any]]:
-        task = self._definition.to_benchmark_task()
-        state = {
-            "info": task["info"],
-            "initial_state": copy.deepcopy(task["info"]["initial_state"]),
-            "world": self._world,
-        }
-        score = {
-            "partial_credit": partial_credit(state),
-            "task_completed_correctly": task_completed_correctly(state),
-            "assertions": state.get("_assertion_results", []),
-        }
-        return score, self._world.model_dump(mode="json")
+        return (
+            score_world(self._definition.to_benchmark_task(), self._world),
+            self._world.model_dump(mode="json"),
+        )
 
 
 class AutomationBenchAdapter:
@@ -148,3 +140,16 @@ def _arguments_model(function: Any) -> type[BaseModel]:
         )
         fields[name] = (hints.get(name, Any), default)
     return create_model(f"{function.__name__}_arguments", **fields)
+
+
+def score_world(task: dict[str, Any], world: WorldState) -> dict[str, Any]:
+    state = {
+        "info": task["info"],
+        "initial_state": copy.deepcopy(task["info"]["initial_state"]),
+        "world": world,
+    }
+    return {
+        "partial_credit": partial_credit(state),
+        "task_completed_correctly": task_completed_correctly(state),
+        "assertions": state.get("_assertion_results", []),
+    }

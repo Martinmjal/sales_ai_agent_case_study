@@ -240,6 +240,8 @@ function nodeState(session, event, result) {
     return session.status === "Running" ? "running" : session.status.toLowerCase();
   }
   if (event.kind === "completion") return session.status.toLowerCase();
+  if (["protocol_error", "model_error"].includes(event.kind)) return "failed";
+  if (["budget_exhausted", "cancellation"].includes(event.kind)) return "stopped";
   return "completed";
 }
 
@@ -718,7 +720,15 @@ function renderInspector(session) {
     planning: "Planning",
     plan_created: "Plan created",
     step_started: "Step started",
+    step_retry: "Step retry",
+    replan: "Plan replaced",
     review: "Planner review",
+    protocol_correction: "Protocol correction",
+    protocol_error: "Protocol error",
+    provider_retry: "Provider retry",
+    model_error: "Model error",
+    budget_exhausted: "Budget exhausted",
+    cancellation: "Cancellation",
   };
 
   for (const event of events) {

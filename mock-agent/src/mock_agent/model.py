@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass, field
 import json
 import os
 from typing import Any, Protocol
 
-from openai import AsyncOpenAI
-from pydantic import BaseModel
+from openai import APIConnectionError, AsyncOpenAI
+from pydantic import BaseModel, ValidationError
 
 from mock_agent.adapter import ToolSpec
 
@@ -40,11 +41,24 @@ class ModelClient(Protocol):
     async def respond(self, request: ModelRequest) -> ModelReply: ...
 
 
+class ProviderFailure(RuntimeError):
+    def __init__(self, error: Exception, retries: list[dict[str, Any]]):
+        self.error = error
+        self.retries = retries
+        super().__init__(f"{type(error).__name__}: {error}")
+
+
 class OpenAIModelClient:
     """Direct, stateless adapter for the Libra-compatible Responses API."""
 
-    def __init__(self, client: Any | None = None) -> None:
+    def __init__(
+        self,
+        client: Any | None = None,
+        *,
+        retry_delays: tuple[float, float] = (0.05, 0.1),
+    ) -> None:
         self._client = client
+        self._retry_delays = retry_delays
 
     async def respond(self, request: ModelRequest) -> ModelReply:
         client = self._client or self._client_from_environment()
@@ -65,10 +79,35 @@ class OpenAIModelClient:
                 }
                 for tool in request.tools
             ]
-        response = await client.responses.parse(
-            **values,
-            text_format=request.response_model,
-        )
+        retries = []
+        for attempt in range(3):
+            try:
+                response = await client.responses.parse(
+                    **values,
+                    text_format=request.response_model,
+                )
+                break
+            except ValidationError as error:
+                return ModelReply(
+                    content=None,
+                    metadata={
+                        "structured_output_error": error.errors(
+                            include_url=False, include_input=False
+                        )
+                    },
+                )
+            except Exception as error:
+                if attempt == 2 or not self._is_transient(error):
+                    raise ProviderFailure(error, retries) from error
+                retries.append(
+                    {
+                        "retry": attempt + 1,
+                        "max_retries": 2,
+                        "error_type": type(error).__name__,
+                        "status_code": self._status_code(error),
+                    }
+                )
+                await asyncio.sleep(self._retry_delays[attempt])
         calls = []
         for item in response.output:
             if getattr(item, "type", None) != "function_call":
@@ -91,8 +130,28 @@ class OpenAIModelClient:
             content=content,
             tool_calls=tuple(calls),
             usage=usage_values,
-            metadata={"response_id": response.id, "status": response.status},
+            metadata={
+                "response_id": response.id,
+                "status": response.status,
+                "provider_retries": retries,
+            },
         )
+
+    @classmethod
+    def _is_transient(cls, error: Exception) -> bool:
+        status_code = cls._status_code(error)
+        return (
+            isinstance(error, (APIConnectionError, ConnectionError, TimeoutError))
+            or status_code == 429
+            or (status_code is not None and 500 <= status_code < 600)
+        )
+
+    @staticmethod
+    def _status_code(error: Exception) -> int | None:
+        status_code = getattr(error, "status_code", None)
+        if status_code is None:
+            status_code = getattr(getattr(error, "response", None), "status_code", None)
+        return int(status_code) if status_code is not None else None
 
     @staticmethod
     def _input_item(item: dict[str, Any]) -> dict[str, Any]:
@@ -111,4 +170,4 @@ class OpenAIModelClient:
         )
         if not api_key:
             raise RuntimeError("Set LIBRA_INTERVIEW_API_KEY or OPENAI_API_KEY")
-        return AsyncOpenAI(api_key=api_key, base_url=base_url)
+        return AsyncOpenAI(api_key=api_key, base_url=base_url, max_retries=0)

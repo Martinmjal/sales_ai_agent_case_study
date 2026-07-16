@@ -10,18 +10,56 @@ from agent_ui.app import AgentConfig, create_app
 from agent_ui.store import ImmutableSessionError, SessionStore
 from fastapi.testclient import TestClient
 import httpx
-from langchain_core.messages import AIMessage
-from langchain_core.runnables import RunnableLambda
 from mock_agent.contract import EventKind, ExitStatus, RuntimeEvent, RuntimeOutcome
-from mock_agent.runtime import MockAgentRuntime
+from mock_agent.model import ModelReply
+from mock_agent.planner_executor import PlannerExecutorRuntime
 import pytest
 import uvicorn
 
 
-def scripted_agent(_messages):
-    return AIMessage(
-        content="Scripted final response.",
-        usage_metadata={"input_tokens": 8, "output_tokens": 4, "total_tokens": 12},
+class ScriptedModel:
+    def __init__(self, replies):
+        self.replies = iter(replies)
+
+    async def respond(self, _request):
+        return next(self.replies)
+
+
+def scripted_runtime():
+    return PlannerExecutorRuntime(
+        model_client=ScriptedModel(
+            [
+                ModelReply(
+                    content={
+                        "goal": "Inspect the task.",
+                        "steps": [
+                            {
+                                "id": "inspect",
+                                "objective": "Inspect the task.",
+                                "required_evidence": ["A grounded result"],
+                            }
+                        ],
+                    },
+                    usage={"input_tokens": 4, "output_tokens": 2, "total_tokens": 6},
+                ),
+                ModelReply(
+                    content={
+                        "summary": "The task was inspected.",
+                        "evidence": [],
+                        "actions": [],
+                        "errors": [],
+                    },
+                    usage={"input_tokens": 2, "output_tokens": 1, "total_tokens": 3},
+                ),
+                ModelReply(
+                    content={
+                        "decision": "goal_completed",
+                        "final_response": "Scripted final response.",
+                    },
+                    usage={"input_tokens": 2, "output_tokens": 1, "total_tokens": 3},
+                ),
+            ]
+        )
     )
 
 
@@ -209,12 +247,12 @@ def next_sse_event(lines):
 
 def test_evaluator_can_run_a_catalog_task_and_reopen_its_artifact(tmp_path):
     app = create_app(
-        runtime=MockAgentRuntime(agent_model=RunnableLambda(scripted_agent)),
+        runtime=scripted_runtime(),
         sessions_dir=tmp_path,
         config=AgentConfig(
             model="scripted-test",
             max_steps=12,
-            agent_version="mock-agent/0.1.0",
+            agent_version="planner-executor/0.2.0",
         ),
     )
 
@@ -241,6 +279,7 @@ def test_evaluator_can_run_a_catalog_task_and_reopen_its_artifact(tmp_path):
 
     assert artifact["final_response"] == "Scripted final response."
     assert artifact["evaluation"] is not None
+    assert artifact["lifecycle"]["termination_reason"] == "goal_completed"
     assert {
         "schema_version",
         "session_id",

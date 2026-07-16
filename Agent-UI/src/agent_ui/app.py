@@ -15,7 +15,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from automationbench.schema.world import WorldState
+from mock_agent.adapter import AutomationBenchAdapter
 from mock_agent.catalog import TaskCatalog, TaskDefinition, UnknownTaskError
 from mock_agent.contract import (
     AgentRuntime,
@@ -24,8 +24,8 @@ from mock_agent.contract import (
     RuntimeEvent,
     RuntimeRequest,
 )
-from mock_agent.main import make_task_tools
-from mock_agent.runtime import MockAgentRuntime
+from mock_agent.model import OpenAIModelClient
+from mock_agent.planner_executor import PlannerExecutorRuntime
 
 from agent_ui.store import SessionNotFoundError, SessionStore
 from agent_ui.world_diff import world_change_evidence
@@ -39,7 +39,7 @@ STATIC_DIRECTORY = Path(__file__).resolve().parent / "static"
 class AgentConfig:
     model: str = "gpt-5.6-sol"
     max_steps: int = 12
-    agent_version: str = "mock-agent/0.1.0"
+    agent_version: str = "planner-executor/0.2.0"
 
 
 class CreateSessionRequest(BaseModel):
@@ -73,16 +73,16 @@ def _task_payload(task: TaskDefinition) -> dict[str, Any]:
     }
 
 
-def _tool_definitions(task: TaskDefinition) -> list[dict[str, Any]]:
-    benchmark_task = task.to_benchmark_task()
-    world = WorldState(**copy.deepcopy(task.info["initial_state"]))
+def _tool_definitions(
+    task: TaskDefinition, adapter: AutomationBenchAdapter
+) -> list[dict[str, Any]]:
     return [
         {
             "name": tool.name,
             "description": tool.description,
-            "input_schema": tool.get_input_schema().model_json_schema(),
+            "input_schema": tool.input_schema,
         }
-        for tool in make_task_tools(benchmark_task, world)
+        for tool in adapter.open(task.summary.task_id).agent_task.tools
     ]
 
 
@@ -104,11 +104,13 @@ class ExecutionManager:
         *,
         runtime: AgentRuntime,
         catalog: TaskCatalog,
+        adapter: AutomationBenchAdapter,
         store: SessionStore,
         config: AgentConfig,
     ) -> None:
         self.runtime = runtime
         self.catalog = catalog
+        self.adapter = adapter
         self.store = store
         self.config = config
         self._active_session_id: str | None = None
@@ -166,7 +168,7 @@ class ExecutionManager:
         task_payload.update(
             {
                 "assertions": copy.deepcopy(task.info["assertions"]),
-                "tool_definitions": _tool_definitions(task),
+                "tool_definitions": _tool_definitions(task, self.adapter),
             }
         )
         return {
@@ -178,6 +180,7 @@ class ExecutionManager:
                 "updated_at": created_at,
                 "completed_at": None,
                 "terminal_error": None,
+                "termination_reason": None,
             },
             "task": task_payload,
             "agent": asdict(self.config),
@@ -230,6 +233,9 @@ class ExecutionManager:
                     "updated_at": completed_at,
                     "completed_at": completed_at,
                     "terminal_error": outcome.terminal_error,
+                    "termination_reason": outcome.termination_reason.value
+                    if outcome.termination_reason
+                    else None,
                 }
             )
             self.store.save(session)
@@ -242,6 +248,7 @@ class ExecutionManager:
                     "updated_at": completed_at,
                     "completed_at": completed_at,
                     "terminal_error": f"{type(error).__name__}: {error}",
+                    "termination_reason": "runtime_error",
                 }
             )
             self.store.save(session)
@@ -283,9 +290,15 @@ def create_app(
     config: AgentConfig | None = None,
 ) -> FastAPI:
     catalog = TaskCatalog.from_sales_dataset()
+    adapter = AutomationBenchAdapter(catalog=catalog)
     manager = ExecutionManager(
-        runtime=runtime or MockAgentRuntime(catalog=catalog),
+        runtime=runtime
+        or PlannerExecutorRuntime(
+            model_client=OpenAIModelClient(),
+            adapter=adapter,
+        ),
         catalog=catalog,
+        adapter=adapter,
         store=SessionStore(sessions_dir or REPOSITORY_ROOT / "sessions"),
         config=config or AgentConfig(),
     )

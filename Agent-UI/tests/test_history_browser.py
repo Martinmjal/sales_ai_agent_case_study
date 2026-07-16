@@ -8,7 +8,7 @@ from agent_ui.store import SessionStore
 from automationbench.schema.salesforce import Contact
 from automationbench.schema.world import WorldState
 from mock_agent.contract import EventKind, ExitStatus, RuntimeEvent, RuntimeOutcome
-from mock_agent.main import score_world
+from mock_agent.adapter import score_world
 from playwright.sync_api import expect, sync_playwright
 
 from test_api import ControlledRuntime, live_server
