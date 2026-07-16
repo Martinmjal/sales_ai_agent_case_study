@@ -35,10 +35,21 @@ changes sit alongside collapsed initial and final snapshots and the complete rea
 JSON. Missing evidence is labeled unavailable; provider-visible reasoning summaries and reasoning
 token counts appear only when the durable artifact contains them.
 
+The shell keeps all three columns visible on wide screens, reduces history to an expandable rail
+on medium screens, and exposes history and evaluation as focus-managed drawers on narrow screens.
+The frontend is served as local HTML, CSS, and JavaScript with no CDN or build-time dependency.
+
 ## Set up
 
-The mock agent uses the same `LIBRA_BASE_URL` and `LIBRA_INTERVIEW_API_KEY` configuration described
-in `../mock-agent/README.md`. From this directory:
+The application uses the mock agent's Libra-compatible model endpoint. Put these required values
+in either the repository-root `.env` or `mock-agent/.env`:
+
+```dotenv
+LIBRA_INTERVIEW_API_KEY=replace-with-your-libra-api-key
+LIBRA_BASE_URL=https://replace-with-your-libra-endpoint.example/api/projects/replace-with-project/openai/v1
+```
+
+`OPENAI_API_KEY` is accepted as the API-key fallback. Then, from this directory:
 
 ```bash
 uv sync

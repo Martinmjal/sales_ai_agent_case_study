@@ -11,11 +11,14 @@ const state = {
 const elements = {
   appShell: document.querySelector("#app-shell"),
   browser: document.querySelector("#task-browser"),
+  closeHistory: document.querySelector("#close-history"),
+  closeInspector: document.querySelector("#close-inspector"),
   config: document.querySelector("#config-list"),
   connection: document.querySelector("#connection-status"),
   errorList: document.querySelector("#execution-error-list"),
   errors: document.querySelector("#execution-errors"),
   evidenceMetrics: document.querySelector("#evidence-metrics"),
+  drawerBackdrop: document.querySelector("#drawer-backdrop"),
   finalBlock: document.querySelector("#final-block"),
   finalResponse: document.querySelector("#final-response"),
   historyCount: document.querySelector("#history-count"),
@@ -30,6 +33,8 @@ const elements = {
   inspectorEmpty: document.querySelector("#inspector-empty"),
   inspectorPrompt: document.querySelector("#inspector-prompt"),
   inspectorState: document.querySelector("#inspector-state"),
+  openHistory: document.querySelector("#open-history"),
+  openInspector: document.querySelector("#open-inspector"),
   assertionList: document.querySelector("#assertion-list"),
   assertionTotal: document.querySelector("#assertion-total"),
   initialWorld: document.querySelector("#initial-world-snapshot"),
@@ -57,6 +62,11 @@ const elements = {
   trace: document.querySelector("#causal-trace"),
   worldDiff: document.querySelector("#world-diff"),
 };
+
+const narrowLayout = window.matchMedia("(max-width: 740px)");
+const mediumLayout = window.matchMedia("(min-width: 741px) and (max-width: 1180px)");
+let openDrawer = null;
+let drawerTrigger = null;
 
 function userPrompt(prompt) {
   const messages = [...prompt].reverse();
@@ -418,6 +428,9 @@ function renderInspector(session) {
     empty.textContent = session.status === "Running" ? "Waiting for the first assistant turn." : "No runtime events were recorded.";
     elements.trace.append(empty);
   }
+  elements.inspector.querySelectorAll("summary").forEach((summary) => {
+    summary.tabIndex = 0;
+  });
 }
 
 async function api(path, options) {
@@ -434,6 +447,73 @@ function showToast(message) {
   elements.toast.textContent = message;
   elements.toast.hidden = false;
   window.setTimeout(() => { elements.toast.hidden = true; }, 4200);
+}
+
+function setHistoryCollapsed(collapsed) {
+  elements.historyPanel.classList.toggle("collapsed", collapsed);
+  elements.appShell.classList.toggle("history-collapsed", collapsed);
+  elements.historyContent.hidden = collapsed;
+  elements.historyToggle.textContent = collapsed ? ">" : "<";
+  elements.historyToggle.setAttribute("aria-expanded", String(!collapsed));
+  const action = collapsed ? "Expand" : "Collapse";
+  elements.historyToggle.setAttribute("aria-label", `${action} history`);
+  elements.historyToggle.title = `${action} history`;
+}
+
+function closeResponsiveDrawer(restoreFocus = true) {
+  if (!openDrawer) return;
+  const panel = openDrawer;
+  const trigger = drawerTrigger;
+  panel.classList.remove("drawer-open");
+  panel.setAttribute("aria-hidden", "true");
+  panel.removeAttribute("aria-modal");
+  panel.removeAttribute("role");
+  elements.drawerBackdrop.hidden = true;
+  document.body.classList.remove("drawer-active");
+  elements.openHistory.setAttribute("aria-expanded", "false");
+  elements.openInspector.setAttribute("aria-expanded", "false");
+  openDrawer = null;
+  drawerTrigger = null;
+  if (restoreFocus) trigger?.focus();
+}
+
+function openResponsiveDrawer(panel, trigger, closeButton) {
+  if (!narrowLayout.matches) return;
+  closeResponsiveDrawer(false);
+  openDrawer = panel;
+  drawerTrigger = trigger;
+  panel.classList.add("drawer-open");
+  panel.setAttribute("aria-hidden", "false");
+  panel.setAttribute("aria-modal", "true");
+  panel.setAttribute("role", "dialog");
+  elements.drawerBackdrop.hidden = false;
+  document.body.classList.add("drawer-active");
+  trigger.setAttribute("aria-expanded", "true");
+  closeButton.focus();
+}
+
+function openDrawerFromKeyboard(event, panel, trigger, closeButton) {
+  if (!["Enter", " "].includes(event.key)) return;
+  event.preventDefault();
+  openResponsiveDrawer(panel, trigger, closeButton);
+  window.setTimeout(() => closeButton.focus(), 50);
+}
+
+function syncResponsiveLayout() {
+  closeResponsiveDrawer(false);
+  if (narrowLayout.matches) {
+    setHistoryCollapsed(false);
+    elements.historyPanel.setAttribute("aria-hidden", "true");
+    elements.inspector.setAttribute("aria-hidden", "true");
+    return;
+  }
+  elements.historyPanel.removeAttribute("aria-hidden");
+  elements.inspector.removeAttribute("aria-hidden");
+  elements.historyPanel.removeAttribute("aria-modal");
+  elements.historyPanel.removeAttribute("role");
+  elements.inspector.removeAttribute("aria-modal");
+  elements.inspector.removeAttribute("role");
+  setHistoryCollapsed(mediumLayout.matches);
 }
 
 function renderTasks(query = "") {
@@ -685,6 +765,10 @@ async function loadSession(sessionId) {
   closeEventStream();
   const session = await api(`/api/sessions/${sessionId}`);
   renderSession(session);
+  if (narrowLayout.matches && openDrawer === elements.historyPanel) {
+    closeResponsiveDrawer(false);
+    elements.sessionTaskName.focus();
+  }
   if (session.status === "Running") {
     streamSession(session);
   } else {
@@ -720,15 +804,67 @@ elements.historySearch.addEventListener("input", renderHistory);
 elements.returnActive.addEventListener("click", () => loadSession(state.activeSessionId));
 elements.stopRun.addEventListener("click", stopActiveRun);
 elements.historyToggle.addEventListener("click", () => {
-  const collapsed = elements.historyPanel.classList.toggle("collapsed");
-  elements.appShell.classList.toggle("history-collapsed", collapsed);
-  elements.historyContent.hidden = collapsed;
-  elements.historyToggle.textContent = collapsed ? ">" : "<";
-  elements.historyToggle.setAttribute("aria-expanded", String(!collapsed));
-  const action = collapsed ? "Expand" : "Collapse";
-  elements.historyToggle.setAttribute("aria-label", `${action} history`);
-  elements.historyToggle.title = `${action} history`;
+  setHistoryCollapsed(!elements.historyPanel.classList.contains("collapsed"));
 });
+elements.openHistory.addEventListener("click", (event) => {
+  event.preventDefault();
+  if (openDrawer !== elements.historyPanel) {
+    openResponsiveDrawer(elements.historyPanel, elements.openHistory, elements.closeHistory);
+  }
+});
+elements.openHistory.addEventListener("keydown", (event) => {
+  openDrawerFromKeyboard(
+    event,
+    elements.historyPanel,
+    elements.openHistory,
+    elements.closeHistory,
+  );
+});
+elements.openInspector.addEventListener("click", (event) => {
+  event.preventDefault();
+  if (openDrawer !== elements.inspector) {
+    openResponsiveDrawer(elements.inspector, elements.openInspector, elements.closeInspector);
+  }
+});
+elements.openInspector.addEventListener("keydown", (event) => {
+  openDrawerFromKeyboard(
+    event,
+    elements.inspector,
+    elements.openInspector,
+    elements.closeInspector,
+  );
+});
+elements.closeHistory.addEventListener("click", () => closeResponsiveDrawer());
+elements.closeInspector.addEventListener("click", () => closeResponsiveDrawer());
+elements.drawerBackdrop.addEventListener("click", () => closeResponsiveDrawer());
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && openDrawer) closeResponsiveDrawer();
+  if (event.key === "Tab" && openDrawer) {
+    const focusable = [...openDrawer.querySelectorAll("button, input, summary[tabindex='0']")]
+      .filter((element) => !element.disabled && element.getClientRects().length > 0);
+    const first = focusable[0];
+    const last = focusable.at(-1);
+    if (first && last) {
+      if (event.shiftKey && (document.activeElement === first || !openDrawer.contains(document.activeElement))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (document.activeElement === last || !openDrawer.contains(document.activeElement))) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+  }
+  if (
+    ["Enter", " "].includes(event.key)
+    && event.target instanceof HTMLElement
+    && event.target.matches("details > summary")
+  ) {
+    event.preventDefault();
+    event.target.parentElement.open = !event.target.parentElement.open;
+  }
+});
+narrowLayout.addEventListener("change", syncResponsiveLayout);
+mediumLayout.addEventListener("change", syncResponsiveLayout);
 
 async function initialize() {
   try {
@@ -750,4 +886,5 @@ async function initialize() {
   }
 }
 
+syncResponsiveLayout();
 initialize();

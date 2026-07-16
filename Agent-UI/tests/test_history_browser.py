@@ -647,3 +647,104 @@ def test_evaluator_sees_startup_interruption_and_stops_only_the_active_run(tmp_p
             page.locator("[data-session-id='failed-session'] .history-status")
         ).to_have_text("Failed")
         browser.close()
+
+
+def test_responsive_workspace_keeps_navigation_keyboard_operable(tmp_path):
+    store = SessionStore(tmp_path)
+    store.create(causal_trace_artifact(datetime.now(timezone.utc)))
+    app = create_app(sessions_dir=tmp_path)
+
+    with live_server(app) as base_url, sync_playwright() as playwright:
+        launch_options = {"headless": True}
+        if CHROME.exists():
+            launch_options["executable_path"] = str(CHROME)
+        browser = playwright.chromium.launch(**launch_options)
+        page = browser.new_page(viewport={"width": 1440, "height": 900})
+        page.goto(base_url)
+
+        history = page.locator("#history-panel")
+        workspace = page.locator(".workspace")
+        inspector = page.locator("#inspector")
+        wide_boxes = [item.bounding_box() for item in (history, workspace, inspector)]
+        assert all(box is not None for box in wide_boxes)
+        assert wide_boxes[0]["x"] < wide_boxes[1]["x"] < wide_boxes[2]["x"]
+
+        page.set_viewport_size({"width": 960, "height": 800})
+        page.wait_for_function(
+            "document.querySelector('#history-panel').getBoundingClientRect().width <= 64"
+        )
+        medium_boxes = [item.bounding_box() for item in (history, workspace, inspector)]
+        assert all(box is not None for box in medium_boxes)
+        assert medium_boxes[0]["width"] <= 64
+        assert medium_boxes[0]["x"] < medium_boxes[1]["x"] < medium_boxes[2]["x"]
+        assert page.evaluate(
+            "document.documentElement.scrollWidth <= document.documentElement.clientWidth"
+        )
+        assert workspace.evaluate("node => node.scrollWidth <= node.clientWidth")
+
+        page.set_viewport_size({"width": 390, "height": 760})
+        open_history = page.get_by_role("button", name="Open session history")
+        open_inspector = page.get_by_role("button", name="Open evaluator inspector")
+        expect(open_history).to_be_visible()
+        expect(open_inspector).to_be_visible()
+        expect(history).to_be_hidden()
+        expect(inspector).to_be_hidden()
+
+        open_history.press("Enter")
+        expect(history).to_be_visible()
+        expect(page.get_by_role("button", name="Close session history")).to_be_focused()
+        page.keyboard.press("Escape")
+        expect(history).to_be_hidden()
+        expect(open_history).to_be_focused()
+
+        open_inspector.press("Enter")
+        expect(inspector).to_be_visible()
+        expect(
+            page.get_by_role("button", name="Close evaluator inspector")
+        ).to_be_focused()
+        page.keyboard.press("Escape")
+        expect(inspector).to_be_hidden()
+        expect(open_inspector).to_be_focused()
+        browser.close()
+
+
+def test_long_completed_session_remains_accessible_on_a_narrow_screen(tmp_path):
+    store = SessionStore(tmp_path)
+    store.create(causal_trace_artifact(datetime.now(timezone.utc)))
+    app = create_app(sessions_dir=tmp_path)
+
+    with live_server(app) as base_url, sync_playwright() as playwright:
+        launch_options = {"headless": True}
+        if CHROME.exists():
+            launch_options["executable_path"] = str(CHROME)
+        browser = playwright.chromium.launch(**launch_options)
+        page = browser.new_page(viewport={"width": 390, "height": 760})
+        page.goto(base_url)
+
+        page.get_by_role("button", name="Open session history").click()
+        session = page.locator("[data-session-id='causal-session']")
+        session.click()
+        expect(page.locator("#history-panel")).to_be_hidden()
+        expect(page.locator("#session-status")).to_have_text("Completed")
+
+        page.get_by_role("button", name="Open evaluator inspector").click()
+        inspector = page.locator("#inspector")
+        tools = inspector.get_by_text("2 available tools", exact=True)
+        tools.dispatch_event("keydown", {"key": "Enter", "bubbles": True})
+        expect(inspector.locator("#tool-definitions")).to_be_visible()
+        expect(inspector.locator("#tool-definitions")).to_contain_text(
+            "Find matching CRM accounts."
+        )
+        account_call = inspector.locator(
+            "[data-correlation-id='call-accounts'][data-trace-kind='tool_call']"
+        )
+        account_call.locator("summary").dispatch_event(
+            "keydown", {"key": "Enter", "bubbles": True}
+        )
+        expect(account_call).to_have_attribute("open", "")
+
+        assert page.evaluate(
+            "document.documentElement.scrollWidth <= document.documentElement.clientWidth"
+        )
+        assert inspector.evaluate("node => node.scrollWidth <= node.clientWidth")
+        browser.close()

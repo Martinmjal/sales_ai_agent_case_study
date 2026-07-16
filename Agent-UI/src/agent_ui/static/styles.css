@@ -51,7 +51,8 @@ button {
 }
 
 button:focus-visible,
-input:focus-visible {
+input:focus-visible,
+summary:focus-visible {
   outline: 3px solid rgb(198 77 52 / 28%);
   outline-offset: 2px;
 }
@@ -106,6 +107,15 @@ input:focus-visible {
   font-weight: 650;
 }
 
+body.drawer-active {
+  overflow: hidden;
+}
+
+.drawer-controls,
+.drawer-close {
+  display: none;
+}
+
 .app-shell {
   display: grid;
   min-height: calc(100vh - 58px);
@@ -124,10 +134,12 @@ input:focus-visible {
 }
 
 .history-panel {
+  grid-column: 1;
   border-right: 1px solid var(--line);
 }
 
 .inspector {
+  grid-column: 3;
   border-left: 1px solid var(--line);
   max-height: calc(100vh - 58px);
   overflow-y: auto;
@@ -335,6 +347,7 @@ input:focus-visible {
 }
 
 .workspace {
+  grid-column: 2;
   min-width: 0;
   background: var(--surface);
 }
@@ -424,6 +437,12 @@ input:focus-visible {
   font-size: 14px;
   line-height: 1.65;
   white-space: pre-wrap;
+}
+
+.preview-prompt,
+.prompt-message p,
+.final-block > p {
+  overflow-wrap: anywhere;
 }
 
 .meta-row {
@@ -1013,17 +1032,53 @@ input:focus-visible {
   box-shadow: var(--shadow);
 }
 
-@media (max-width: 1080px) {
+.drawer-backdrop {
+  position: fixed;
+  inset: 58px 0 0;
+  z-index: 20;
+  padding: 0;
+  border: 0;
+  background: rgb(32 35 33 / 42%);
+}
+
+@media (min-width: 741px) and (max-width: 1180px) {
   .app-shell {
-    grid-template-columns: 205px minmax(440px, 1fr);
+    grid-template-columns: 58px minmax(0, 1fr) minmax(280px, 34vw);
   }
 
-  .app-shell.history-collapsed {
-    grid-template-columns: 58px minmax(440px, 1fr);
+  .app-shell:not(.history-collapsed) {
+    grid-template-columns: 58px minmax(0, 1fr) minmax(280px, 34vw);
   }
 
   .inspector {
-    grid-column: 2;
+    grid-column: 3;
+  }
+
+  .app-shell:not(.history-collapsed) .history-panel {
+    position: fixed;
+    top: 58px;
+    bottom: 0;
+    left: 0;
+    z-index: 15;
+    width: 260px;
+    overflow-y: auto;
+    box-shadow: 8px 0 20px rgb(32 35 33 / 12%);
+  }
+}
+
+@media (max-width: 1050px) {
+  .task-layout {
+    display: block;
+  }
+
+  .task-list {
+    height: 320px;
+    min-height: 0;
+  }
+
+  .task-preview {
+    margin-top: 24px;
+    padding: 24px 0 0;
     border-top: 1px solid var(--line);
     border-left: 0;
   }
@@ -1031,11 +1086,25 @@ input:focus-visible {
 
 @media (max-width: 740px) {
   .topbar {
-    position: static;
+    position: sticky;
   }
 
   .app-shell {
     display: block;
+  }
+
+  .drawer-controls {
+    display: flex;
+    gap: 5px;
+    margin-left: auto;
+  }
+
+  .drawer-controls .quiet-button {
+    padding: 7px 8px;
+  }
+
+  .connection-status {
+    margin-left: 0;
   }
 
   #history-toggle {
@@ -1044,17 +1113,47 @@ input:focus-visible {
 
   .history-panel,
   .inspector {
+    position: fixed;
+    top: 58px;
+    bottom: 0;
+    z-index: 30;
+    width: min(340px, calc(100vw - 32px));
+    max-height: none;
+    overflow-y: auto;
     border: 0;
-    border-bottom: 1px solid var(--line);
+    visibility: hidden;
+    transition: transform 160ms ease, visibility 160ms ease;
+  }
+
+  .history-panel {
+    left: 0;
+    border-right: 1px solid var(--line);
+    transform: translateX(-100%);
+  }
+
+  .inspector {
+    right: 0;
+    border-left: 1px solid var(--line);
+    transform: translateX(100%);
+  }
+
+  .history-panel.drawer-open,
+  .inspector.drawer-open {
+    visibility: visible;
+    transform: translateX(0);
+  }
+
+  .drawer-close {
+    display: block;
   }
 
   .history-list {
-    display: flex;
-    overflow-x: auto;
+    display: grid;
+    overflow-x: visible;
   }
 
   .history-item {
-    min-width: 190px;
+    min-width: 0;
   }
 
   .task-browser,
@@ -1089,8 +1188,20 @@ input:focus-visible {
   }
 }
 
+@media (max-width: 520px) {
+  .connection-status,
+  .environment {
+    display: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .activity-dot {
     animation: none;
+  }
+
+  .history-panel,
+  .inspector {
+    transition: none;
   }
 }
