@@ -1,1 +1,1 @@
-"""Minimal LangGraph agent for a cherry-picked AutomationBench task."""
+"""Mock agent and evaluator-facing AutomationBench runtime adapter."""

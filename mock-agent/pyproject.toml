@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "mock-agent"
 version = "0.1.0"
-description = "A minimal LangGraph ReAct agent for one AutomationBench task"
+description = "A minimal AutomationBench agent with a framework-neutral evaluator runtime"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
