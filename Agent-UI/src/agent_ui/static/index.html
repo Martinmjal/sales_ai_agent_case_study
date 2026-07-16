@@ -109,6 +109,39 @@
           <p id="inspector-state">Select a task to review its prompt and start an execution.</p>
         </div>
         <div id="inspector-content" hidden>
+          <section id="evaluation-evidence" class="evaluation-evidence" aria-labelledby="evidence-title">
+            <div class="evidence-summary">
+              <h3 id="evidence-title">Evaluation evidence</h3>
+              <dl id="evidence-metrics" class="evidence-metrics"></dl>
+            </div>
+            <section class="assertion-section" aria-labelledby="assertion-title">
+              <div class="section-heading">
+                <h3 id="assertion-title">Assertions</h3>
+                <span id="assertion-total" class="section-total"></span>
+              </div>
+              <div id="assertion-list" class="assertion-list"></div>
+            </section>
+            <section class="world-section" aria-labelledby="world-title">
+              <h3 id="world-title">World changes</h3>
+              <div id="world-diff" class="world-diff"></div>
+              <details class="evidence-disclosure">
+                <summary>Initial world snapshot</summary>
+                <pre id="initial-world-snapshot"></pre>
+              </details>
+              <details class="evidence-disclosure">
+                <summary>Final world snapshot</summary>
+                <pre id="final-world-snapshot"></pre>
+              </details>
+            </section>
+            <section id="reasoning-evidence" class="reasoning-section" aria-labelledby="reasoning-title" hidden>
+              <h3 id="reasoning-title">Provider reasoning</h3>
+              <div id="reasoning-summaries"></div>
+            </section>
+            <details class="evidence-disclosure raw-session-disclosure">
+              <summary>Raw session JSON</summary>
+              <pre id="raw-session-json"></pre>
+            </details>
+          </section>
           <section class="session-context" aria-labelledby="context-title">
             <h3 id="context-title">Frozen context</h3>
             <details class="context-disclosure" open>

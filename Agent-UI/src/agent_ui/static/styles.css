@@ -616,6 +616,187 @@ input:focus-visible {
   margin: 20px 0 0;
 }
 
+.evaluation-evidence {
+  margin-top: 18px;
+}
+
+.evidence-summary {
+  position: sticky;
+  top: -22px;
+  z-index: 2;
+  padding: 14px 0 12px;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line-strong);
+  background: var(--surface-muted);
+}
+
+.evidence-summary h3,
+.assertion-section h3,
+.world-section h3,
+.reasoning-section h3 {
+  margin: 0;
+  color: var(--muted);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.evidence-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 14px;
+  margin: 12px 0 0;
+}
+
+.evidence-metrics div:last-child {
+  grid-column: 1 / -1;
+}
+
+.evidence-metrics dt {
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.evidence-metrics dd {
+  margin: 3px 0 0;
+  font-size: 11px;
+  font-weight: 750;
+  overflow-wrap: anywhere;
+}
+
+.evidence-metrics [data-metric-state="passed"],
+.evidence-metrics [data-metric-state="completed"] {
+  color: var(--green);
+}
+
+.evidence-metrics [data-metric-state="failed"],
+.evidence-metrics [data-metric-state="interrupted"] {
+  color: #982f2a;
+}
+
+.assertion-section,
+.world-section,
+.reasoning-section,
+.raw-session-disclosure {
+  margin-top: 22px;
+}
+
+.section-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 9px;
+}
+
+.section-total {
+  color: var(--muted);
+  font-size: 9px;
+  text-align: right;
+}
+
+.assertion-list {
+  border-top: 1px solid var(--line);
+}
+
+.assertion-result,
+.evidence-disclosure {
+  border-bottom: 1px solid var(--line);
+}
+
+.assertion-result summary,
+.evidence-disclosure summary {
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.assertion-result summary {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 9px;
+  padding: 9px 0;
+}
+
+.assertion-result summary strong {
+  min-width: 0;
+  font-size: 10px;
+  overflow-wrap: anywhere;
+}
+
+.assertion-result summary span {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 750;
+}
+
+.assertion-passed summary span {
+  color: var(--green);
+}
+
+.assertion-failed summary span {
+  color: #982f2a;
+}
+
+.assertion-result pre,
+.evidence-disclosure pre,
+.world-change pre {
+  max-width: 100%;
+  margin: 0 0 10px;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font: 10px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.world-diff {
+  display: grid;
+  gap: 7px;
+  margin: 10px 0 12px;
+}
+
+.world-change {
+  min-width: 0;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.world-change > div:first-child {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+}
+
+.world-change strong {
+  color: var(--green);
+  font-size: 9px;
+  text-transform: uppercase;
+}
+
+.world-change code {
+  min-width: 0;
+  color: var(--muted);
+  font-size: 9px;
+  overflow-wrap: anywhere;
+}
+
+.evidence-disclosure summary {
+  padding: 9px 0;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.reasoning-section p,
+.unavailable-evidence,
+.unchanged-evidence {
+  margin: 9px 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .session-context,
 .trace-section {
   margin-top: 20px;

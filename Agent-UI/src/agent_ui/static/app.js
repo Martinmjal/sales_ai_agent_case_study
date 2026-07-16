@@ -15,6 +15,7 @@ const elements = {
   connection: document.querySelector("#connection-status"),
   errorList: document.querySelector("#execution-error-list"),
   errors: document.querySelector("#execution-errors"),
+  evidenceMetrics: document.querySelector("#evidence-metrics"),
   finalBlock: document.querySelector("#final-block"),
   finalResponse: document.querySelector("#final-response"),
   historyCount: document.querySelector("#history-count"),
@@ -29,10 +30,17 @@ const elements = {
   inspectorEmpty: document.querySelector("#inspector-empty"),
   inspectorPrompt: document.querySelector("#inspector-prompt"),
   inspectorState: document.querySelector("#inspector-state"),
+  assertionList: document.querySelector("#assertion-list"),
+  assertionTotal: document.querySelector("#assertion-total"),
+  initialWorld: document.querySelector("#initial-world-snapshot"),
   preview: document.querySelector("#task-preview"),
   progressBlock: document.querySelector("#progress-block"),
   progressCopy: document.querySelector("#progress-copy"),
   progressTitle: document.querySelector("#progress-title"),
+  finalWorld: document.querySelector("#final-world-snapshot"),
+  rawSession: document.querySelector("#raw-session-json"),
+  reasoningEvidence: document.querySelector("#reasoning-evidence"),
+  reasoningSummaries: document.querySelector("#reasoning-summaries"),
   returnActive: document.querySelector("#return-active"),
   score: document.querySelector("#session-score"),
   search: document.querySelector("#task-search"),
@@ -47,6 +55,7 @@ const elements = {
   toolDefinitions: document.querySelector("#tool-definitions"),
   toast: document.querySelector("#toast"),
   trace: document.querySelector("#causal-trace"),
+  worldDiff: document.querySelector("#world-diff"),
 };
 
 function userPrompt(prompt) {
@@ -101,6 +110,166 @@ function addEvidence(node, label, value) {
   node.append(row);
 }
 
+function durationLabel(session) {
+  const start = Date.parse(session.lifecycle.created_at);
+  const end = Date.parse(session.lifecycle.completed_at || session.lifecycle.updated_at);
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return "Unavailable";
+  const seconds = (end - start) / 1000;
+  return `${seconds.toFixed(seconds < 10 && !Number.isInteger(seconds) ? 2 : 0)} s`;
+}
+
+function usageLabel(usage) {
+  if (!usage) return "Unavailable";
+  const parts = [];
+  const reasoningTokens = usage.reasoning_tokens ?? usage.output_token_details?.reasoning;
+  if (usage.input_tokens != null) parts.push(`${usage.input_tokens} input`);
+  if (usage.output_tokens != null) parts.push(`${usage.output_tokens} output`);
+  if (usage.total_tokens != null) parts.push(`${usage.total_tokens} total`);
+  if (reasoningTokens != null) parts.push(`${reasoningTokens} reasoning`);
+  return parts.length > 0 ? parts.join(" · ") : "Unavailable";
+}
+
+function metric(label, value, stateName = null) {
+  const row = document.createElement("div");
+  const term = document.createElement("dt");
+  const detail = document.createElement("dd");
+  term.textContent = label;
+  detail.textContent = value;
+  if (stateName) detail.dataset.metricState = stateName;
+  row.append(term, detail);
+  return row;
+}
+
+function collectWorldChanges(initialValue, finalValue, path = "world", changes = []) {
+  if (JSON.stringify(initialValue) === JSON.stringify(finalValue)) return changes;
+  if (
+    initialValue == null
+    || finalValue == null
+    || typeof initialValue !== "object"
+    || typeof finalValue !== "object"
+  ) {
+    changes.push({
+      action: initialValue === undefined ? "Added" : finalValue === undefined ? "Removed" : "Changed",
+      path,
+      before: initialValue,
+      after: finalValue,
+    });
+    return changes;
+  }
+  if (Array.isArray(initialValue) || Array.isArray(finalValue)) {
+    const before = Array.isArray(initialValue) ? initialValue : [];
+    const after = Array.isArray(finalValue) ? finalValue : [];
+    for (let index = 0; index < Math.max(before.length, after.length); index += 1) {
+      collectWorldChanges(before[index], after[index], `${path}[${index}]`, changes);
+    }
+    return changes;
+  }
+  const keys = new Set([...Object.keys(initialValue), ...Object.keys(finalValue)]);
+  for (const key of [...keys].sort()) {
+    collectWorldChanges(initialValue[key], finalValue[key], `${path}.${key}`, changes);
+  }
+  return changes;
+}
+
+function renderWorldEvidence(session) {
+  elements.initialWorld.textContent = displayValue(session.initial_world);
+  elements.finalWorld.textContent = displayValue(session.final_world);
+  elements.worldDiff.replaceChildren();
+  if (session.initial_world == null || session.final_world == null) {
+    const unavailable = document.createElement("p");
+    unavailable.className = "unavailable-evidence";
+    unavailable.textContent = "World changes unavailable";
+    elements.worldDiff.append(unavailable);
+    return;
+  }
+  const changes = collectWorldChanges(session.initial_world, session.final_world);
+  if (changes.length === 0) {
+    const unchanged = document.createElement("p");
+    unchanged.className = "unchanged-evidence";
+    unchanged.textContent = "No world changes recorded.";
+    elements.worldDiff.append(unchanged);
+    return;
+  }
+  for (const change of changes) {
+    const row = document.createElement("article");
+    row.className = "world-change";
+    const heading = document.createElement("div");
+    const action = document.createElement("strong");
+    const path = document.createElement("code");
+    action.textContent = change.action;
+    path.textContent = change.path;
+    heading.append(action, path);
+    row.append(heading);
+    if (change.before !== undefined) addEvidence(row, "Before", change.before);
+    if (change.after !== undefined) addEvidence(row, "After", change.after);
+    elements.worldDiff.append(row);
+  }
+}
+
+function renderEvaluationEvidence(session) {
+  const evaluation = session.evaluation;
+  const partial = evaluation?.partial_credit;
+  const strict = evaluation?.task_completed_correctly;
+  elements.evidenceMetrics.replaceChildren(
+    metric("Lifecycle", session.status, session.status.toLowerCase()),
+    metric("Partial credit", partial == null ? "Unavailable" : `${Math.round(partial * 100)}%`),
+    metric(
+      "Strict completion",
+      strict == null ? "Unavailable" : Number(strict) === 1 ? "Passed" : "Failed",
+      strict == null ? "unavailable" : Number(strict) === 1 ? "passed" : "failed",
+    ),
+    metric("Duration", durationLabel(session)),
+    metric("Token usage", usageLabel(session.usage)),
+  );
+
+  const assertions = evaluation?.assertions;
+  elements.assertionList.replaceChildren();
+  if (!Array.isArray(assertions)) {
+    elements.assertionTotal.textContent = "Unavailable";
+    const unavailable = document.createElement("p");
+    unavailable.className = "unavailable-evidence";
+    unavailable.textContent = "Assertion results unavailable";
+    elements.assertionList.append(unavailable);
+  } else {
+    const scored = assertions.filter((assertion) => !assertion.excluded);
+    const passed = scored.filter((assertion) => assertion.passed).length;
+    elements.assertionTotal.textContent = `${passed} of ${scored.length} scored assertions passed`;
+    for (const assertion of assertions) {
+      const explicitlyExcluded = assertion.params?.excluded === true || assertion.params?.scored === false;
+      const statusName = assertion.excluded ? "excluded" : assertion.passed ? "passed" : "failed";
+      const item = document.createElement("details");
+      item.className = `assertion-result assertion-${statusName}`;
+      item.dataset.assertionStatus = statusName;
+      const summary = document.createElement("summary");
+      const name = document.createElement("strong");
+      const status = document.createElement("span");
+      name.textContent = assertion.type;
+      status.textContent = assertion.excluded
+        ? explicitlyExcluded ? "Excluded" : "Pre-satisfied · excluded"
+        : assertion.passed ? "Passed" : "Failed";
+      summary.append(name, status);
+      const params = document.createElement("pre");
+      params.textContent = displayValue(assertion.params || {});
+      item.append(summary, params);
+      elements.assertionList.append(item);
+    }
+  }
+
+  renderWorldEvidence(session);
+  const summaries = session.events.flatMap((event) => {
+    const summary = event.metadata?.reasoning_summary ?? event.metadata?.reasoning?.summary;
+    return Array.isArray(summary) ? summary : summary == null ? [] : [summary];
+  });
+  elements.reasoningEvidence.hidden = summaries.length === 0;
+  elements.reasoningSummaries.replaceChildren();
+  for (const summary of summaries) {
+    const content = document.createElement("p");
+    content.textContent = displayValue(summary);
+    elements.reasoningSummaries.append(content);
+  }
+  elements.rawSession.textContent = JSON.stringify(session, null, 2);
+}
+
 function renderToolCall(session, call, result) {
   const stateName = nodeState(session, call, result);
   const disclosure = document.createElement("details");
@@ -133,6 +302,7 @@ function renderInspector(session) {
   elements.inspectorPrompt.textContent = session.task.prompt
     .map((message) => `${message.role}: ${displayValue(message.content)}`)
     .join("\n\n");
+  renderEvaluationEvidence(session);
 
   const tools = session.task.tool_definitions || (session.task.tools || []).map((name) => ({ name }));
   elements.toolCount.textContent = `${tools.length} available tools`;
@@ -451,7 +621,7 @@ function renderSession(session) {
     if (state.stoppingSessionId === session.session_id) {
       state.stoppingSessionId = null;
     }
-    elements.finalResponse.textContent = session.final_response || "No final response was produced.";
+    elements.finalResponse.textContent = session.final_response || "Final response unavailable";
     const partial = session.evaluation?.partial_credit;
     elements.score.textContent = partial == null ? "Unavailable" : `${Math.round(partial * 100)}%`;
     const errors = [];

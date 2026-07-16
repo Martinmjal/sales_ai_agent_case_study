@@ -27,6 +27,14 @@ error reconnected by correlation ID. Compact disclosures retain arguments, resul
 durations, and long structured values without duplicating tool evidence in the center workspace.
 The final response or terminal execution outcome closes the trace with an accessible state.
 
+The same inspector exposes deterministic evaluation evidence separately from the final response.
+Its sticky summary distinguishes partial credit from strict benchmark completion and includes
+lifecycle, duration, and available token usage. Assertion disclosures follow the official scorer's
+passed, failed, explicitly excluded, and pre-satisfied exclusion semantics. Human-readable world
+changes sit alongside collapsed initial and final snapshots and the complete read-only session
+JSON. Missing evidence is labeled unavailable; provider-visible reasoning summaries and reasoning
+token counts appear only when the durable artifact contains them.
+
 ## Set up
 
 The mock agent uses the same `LIBRA_BASE_URL` and `LIBRA_INTERVIEW_API_KEY` configuration described

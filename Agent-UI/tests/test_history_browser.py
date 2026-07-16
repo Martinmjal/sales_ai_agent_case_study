@@ -5,7 +5,10 @@ from threading import Event
 
 from agent_ui.app import create_app
 from agent_ui.store import SessionStore
+from automationbench.schema.salesforce import Contact
+from automationbench.schema.world import WorldState
 from mock_agent.contract import EventKind, ExitStatus, RuntimeEvent, RuntimeOutcome
+from mock_agent.main import score_world
 from playwright.sync_api import expect, sync_playwright
 
 from test_api import ControlledRuntime, live_server
@@ -244,6 +247,186 @@ def causal_trace_artifact(created_at):
     return artifact
 
 
+def evaluated_artifact(created_at):
+    initial_world = WorldState()
+    initial_world.salesforce.contacts = [
+        Contact(
+            id="existing-contact",
+            email="existing@example.com",
+            first_name="Existing",
+            last_name="Contact",
+        )
+    ]
+    final_world = initial_world.model_copy(deep=True)
+    final_world.salesforce.contacts.append(
+        Contact(
+            id="new-contact",
+            email="new@example.com",
+            first_name="New",
+            last_name="Contact",
+            phone="555-123-4567",
+        )
+    )
+    assertions = [
+        {
+            "type": "salesforce_record_exists",
+            "collection": "contacts",
+            "record_id": "existing-contact",
+        },
+        {
+            "type": "salesforce_contact_phone_equals",
+            "contact_id": "new-contact",
+            "phone": "555-123-4567",
+        },
+        {
+            "type": "salesforce_record_exists",
+            "collection": "contacts",
+            "record_id": "missing-contact",
+        },
+    ]
+    task = {
+        "info": {
+            "assertions": assertions,
+            "initial_state": initial_world.model_dump(mode="json"),
+        }
+    }
+    score = score_world(task, final_world)
+    artifact = session_artifact(
+        "evaluated-session",
+        "sales.evidence_review",
+        "Evidence Review",
+        created_at,
+        "Completed",
+    )
+    artifact["lifecycle"]["completed_at"] = (
+        created_at + timedelta(seconds=4.25)
+    ).isoformat()
+    artifact["task"]["assertions"] = assertions
+    artifact["events"] = [
+        {
+            "sequence": 1,
+            "kind": "model_turn",
+            "correlation_id": "reasoned-turn",
+            "content": "I will create the requested contact.",
+            "metadata": {
+                "reasoning_summary": "Checked the target fields before writing."
+            },
+        },
+        {
+            "sequence": 2,
+            "kind": "completion",
+            "correlation_id": "evaluated-run",
+            "content": {"status": "completed"},
+        },
+    ]
+    artifact["final_response"] = "Created the requested contact."
+    artifact["evaluation"] = score
+    artifact["usage"] = {
+        "input_tokens": 120,
+        "output_tokens": 45,
+        "total_tokens": 165,
+        "reasoning_tokens": 18,
+    }
+    artifact["initial_world"] = initial_world.model_dump(mode="json")
+    artifact["final_world"] = final_world.model_dump(mode="json")
+    return artifact, score
+
+
+def test_evaluator_exposes_complete_deterministic_evidence(tmp_path):
+    artifact, official_score = evaluated_artifact(datetime.now(timezone.utc))
+    store = SessionStore(tmp_path)
+    store.create(artifact)
+    app = create_app(sessions_dir=tmp_path)
+
+    with live_server(app) as base_url, sync_playwright() as playwright:
+        launch_options = {"headless": True}
+        if CHROME.exists():
+            launch_options["executable_path"] = str(CHROME)
+        browser = playwright.chromium.launch(**launch_options)
+        page = browser.new_page(viewport={"width": 1440, "height": 900})
+        page.goto(base_url)
+        page.locator("[data-session-id='evaluated-session']").click()
+
+        evidence = page.locator("#evaluation-evidence")
+        expect(evidence.get_by_text("Completed", exact=True)).to_be_visible()
+        expect(evidence.get_by_text("Partial credit", exact=True)).to_be_visible()
+        expect(evidence.get_by_text("50%", exact=True)).to_be_visible()
+        expect(evidence.get_by_text("Strict completion", exact=True)).to_be_visible()
+        expect(
+            evidence.locator("[data-metric-state='failed']", has_text="Failed")
+        ).to_be_visible()
+        expect(evidence.get_by_text("1 of 2 scored assertions passed")).to_be_visible()
+        expect(evidence.locator("[data-assertion-status='passed']")).to_have_count(1)
+        expect(evidence.locator("[data-assertion-status='failed']")).to_have_count(1)
+        expect(evidence.locator("[data-assertion-status='excluded']")).to_have_count(1)
+        expect(evidence).to_contain_text(
+            official_score["assertions"][1]["params"]["phone"]
+        )
+        expect(evidence).to_contain_text("4.25 s")
+        expect(evidence).to_contain_text("165 total")
+        expect(evidence).to_contain_text("18 reasoning")
+        expect(evidence).to_contain_text("Checked the target fields before writing.")
+
+        expect(page.locator("#final-response")).to_have_text(
+            "Created the requested contact."
+        )
+        world_diff = evidence.locator("#world-diff")
+        expect(world_diff).to_contain_text("new-contact")
+        expect(world_diff).to_contain_text("Added")
+        evidence.get_by_text("Initial world snapshot", exact=True).click()
+        expect(evidence.locator("#initial-world-snapshot")).to_contain_text(
+            "existing-contact"
+        )
+        evidence.get_by_text("Final world snapshot", exact=True).click()
+        expect(evidence.locator("#final-world-snapshot")).to_contain_text("new-contact")
+        evidence.get_by_text("Raw session JSON", exact=True).click()
+        expect(evidence.locator("#raw-session-json")).to_contain_text(
+            '"session_id": "evaluated-session"'
+        )
+        browser.close()
+
+
+def test_evaluator_marks_missing_evidence_without_inferring_reasoning(tmp_path):
+    artifact = session_artifact(
+        "missing-evidence-session",
+        "sales.incomplete_run",
+        "Incomplete Run",
+        datetime.now(timezone.utc),
+        "Interrupted",
+    )
+    artifact["final_response"] = None
+    artifact["evaluation"] = None
+    artifact["usage"] = None
+    artifact["initial_world"] = None
+    artifact["final_world"] = None
+    store = SessionStore(tmp_path)
+    store.create(artifact)
+    app = create_app(sessions_dir=tmp_path)
+
+    with live_server(app) as base_url, sync_playwright() as playwright:
+        launch_options = {"headless": True}
+        if CHROME.exists():
+            launch_options["executable_path"] = str(CHROME)
+        browser = playwright.chromium.launch(**launch_options)
+        page = browser.new_page(viewport={"width": 1440, "height": 900})
+        page.goto(base_url)
+        page.locator("[data-session-id='missing-evidence-session']").click()
+
+        evidence = page.locator("#evaluation-evidence")
+        expect(page.locator("#final-response")).to_have_text(
+            "Final response unavailable"
+        )
+        for label in ("Partial credit", "Strict completion", "Token usage"):
+            row = evidence.locator(".evidence-metrics > div", has_text=label)
+            expect(row.locator("dd")).to_have_text("Unavailable")
+        expect(evidence.get_by_text("Assertion results unavailable")).to_be_visible()
+        expect(evidence.get_by_text("World changes unavailable")).to_be_visible()
+        expect(evidence.locator("#reasoning-evidence")).to_be_hidden()
+        evidence.get_by_text("Raw session JSON", exact=True).click()
+        expect(evidence.locator("#raw-session-json")).to_contain_text('"usage": null')
+        browser.close()
+
+
 def test_evaluator_explains_a_completed_causal_trace(tmp_path):
     store = SessionStore(tmp_path)
     store.create(causal_trace_artifact(datetime.now(timezone.utc)))
@@ -260,11 +443,13 @@ def test_evaluator_explains_a_completed_causal_trace(tmp_path):
 
         inspector = page.locator("#inspector")
         expect(inspector.get_by_role("heading", name="Causal trace")).to_be_visible()
-        expect(
-            inspector.get_by_text("Trace a large enterprise", exact=False)
-        ).to_be_visible()
+        expect(inspector.locator("#inspector-prompt")).to_contain_text(
+            "Trace a large enterprise"
+        )
         inspector.get_by_text("2 available tools", exact=True).click()
-        expect(inspector.get_by_text("Find matching CRM accounts.")).to_be_visible()
+        expect(inspector.locator("#tool-definitions")).to_contain_text(
+            "Find matching CRM accounts."
+        )
 
         turns = inspector.locator("[data-trace-kind='model_turn']")
         expect(turns).to_have_count(2)
