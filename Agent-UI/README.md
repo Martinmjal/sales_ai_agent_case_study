@@ -37,6 +37,8 @@ token counts appear only when the durable artifact contains them.
 
 The shell keeps all three columns visible on wide screens, reduces history to an expandable rail
 on medium screens, and exposes history and evaluation as focus-managed drawers on narrow screens.
+On desktop, the session history and evaluator inspector have draggable separators with keyboard
+arrow controls. Pane widths stay within workspace-safe bounds and are remembered in the browser.
 The frontend is served as local HTML, CSS, and JavaScript with no CDN or build-time dependency.
 
 ## Set up

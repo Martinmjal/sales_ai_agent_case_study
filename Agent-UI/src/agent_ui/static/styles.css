@@ -117,13 +117,15 @@ body.drawer-active {
 }
 
 .app-shell {
+  --history-width: 230px;
+  --inspector-width: 330px;
   display: grid;
   min-height: calc(100vh - 58px);
-  grid-template-columns: 230px minmax(480px, 1fr) 330px;
+  grid-template-columns: var(--history-width) 8px minmax(480px, 1fr) 8px var(--inspector-width);
 }
 
 .app-shell.history-collapsed {
-  grid-template-columns: 58px minmax(480px, 1fr) 330px;
+  grid-template-columns: 58px 0 minmax(480px, 1fr) 8px var(--inspector-width);
 }
 
 .history-panel,
@@ -139,10 +141,54 @@ body.drawer-active {
 }
 
 .inspector {
-  grid-column: 3;
+  grid-column: 5;
   border-left: 1px solid var(--line);
   max-height: calc(100vh - 58px);
   overflow-y: auto;
+}
+
+.pane-resizer {
+  position: relative;
+  z-index: 2;
+  min-width: 0;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.pane-resizer::before {
+  position: absolute;
+  inset: 0 3px;
+  background: var(--line);
+  content: "";
+  transition: background 120ms ease, box-shadow 120ms ease;
+}
+
+.pane-resizer:hover::before,
+.pane-resizer:focus-visible::before,
+body.pane-resizing .pane-resizer.is-resizing::before {
+  background: var(--accent);
+  box-shadow: 0 0 0 2px rgb(198 77 52 / 14%);
+}
+
+.pane-resizer:focus-visible {
+  outline: 0;
+}
+
+.history-resizer {
+  grid-column: 2;
+}
+
+.inspector-resizer {
+  grid-column: 4;
+}
+
+.app-shell.history-collapsed .history-resizer {
+  display: none;
+}
+
+body.pane-resizing {
+  cursor: col-resize;
+  user-select: none;
 }
 
 .panel-heading,
@@ -347,7 +393,7 @@ body.drawer-active {
 }
 
 .workspace {
-  grid-column: 2;
+  grid-column: 3;
   min-width: 0;
   background: var(--surface);
 }
@@ -1043,15 +1089,19 @@ body.drawer-active {
 
 @media (min-width: 741px) and (max-width: 1180px) {
   .app-shell {
-    grid-template-columns: 58px minmax(0, 1fr) minmax(280px, 34vw);
+    grid-template-columns: 58px 0 minmax(0, 1fr) 8px var(--inspector-width);
   }
 
   .app-shell:not(.history-collapsed) {
-    grid-template-columns: 58px minmax(0, 1fr) minmax(280px, 34vw);
+    grid-template-columns: 58px 0 minmax(0, 1fr) 8px var(--inspector-width);
   }
 
   .inspector {
-    grid-column: 3;
+    grid-column: 5;
+  }
+
+  .history-resizer {
+    display: none;
   }
 
   .app-shell:not(.history-collapsed) .history-panel {
@@ -1091,6 +1141,10 @@ body.drawer-active {
 
   .app-shell {
     display: block;
+  }
+
+  .pane-resizer {
+    display: none;
   }
 
   .drawer-controls {

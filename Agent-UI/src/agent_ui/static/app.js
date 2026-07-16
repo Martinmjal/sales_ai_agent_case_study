@@ -26,12 +26,14 @@ const elements = {
   historyEmpty: document.querySelector("#history-empty"),
   historyList: document.querySelector("#history-list"),
   historyPanel: document.querySelector("#history-panel"),
+  historyResizer: document.querySelector("#history-resizer"),
   historySearch: document.querySelector("#history-search"),
   historyToggle: document.querySelector("#history-toggle"),
   inspector: document.querySelector("#inspector"),
   inspectorContent: document.querySelector("#inspector-content"),
   inspectorEmpty: document.querySelector("#inspector-empty"),
   inspectorPrompt: document.querySelector("#inspector-prompt"),
+  inspectorResizer: document.querySelector("#inspector-resizer"),
   inspectorState: document.querySelector("#inspector-state"),
   openHistory: document.querySelector("#open-history"),
   openInspector: document.querySelector("#open-inspector"),
@@ -65,8 +67,156 @@ const elements = {
 
 const narrowLayout = window.matchMedia("(max-width: 740px)");
 const mediumLayout = window.matchMedia("(min-width: 741px) and (max-width: 1180px)");
+const paneWidthStorageKey = "agent-ui-pane-widths";
+const defaultPaneWidths = { history: 230, inspector: 330 };
+const paneWidthLimits = {
+  history: { min: 180, max: 420 },
+  inspector: { min: 280, max: 720 },
+};
+const preferredPaneWidths = loadPaneWidths();
+let effectivePaneWidths = { ...defaultPaneWidths };
 let openDrawer = null;
 let drawerTrigger = null;
+
+function loadPaneWidths() {
+  try {
+    const saved = JSON.parse(window.localStorage.getItem(paneWidthStorageKey));
+    return Object.fromEntries(Object.entries(defaultPaneWidths).map(([pane, fallback]) => [
+      pane,
+      Number.isFinite(saved?.[pane]) ? saved[pane] : fallback,
+    ]));
+  } catch {
+    return { ...defaultPaneWidths };
+  }
+}
+
+function savePaneWidths() {
+  try {
+    window.localStorage.setItem(paneWidthStorageKey, JSON.stringify(preferredPaneWidths));
+  } catch {
+    // Resizing still works when browser storage is unavailable.
+  }
+}
+
+function clamp(value, minimum, maximum) {
+  return Math.min(Math.max(value, minimum), Math.max(minimum, maximum));
+}
+
+function applyPaneWidths() {
+  if (narrowLayout.matches) return;
+
+  const shellWidth = elements.appShell.clientWidth;
+  const collapsedHistory = elements.appShell.classList.contains("history-collapsed");
+  const centerMinimum = mediumLayout.matches ? 320 : 480;
+  const separatorWidth = mediumLayout.matches || collapsedHistory ? 8 : 16;
+  let history = clamp(
+    preferredPaneWidths.history,
+    paneWidthLimits.history.min,
+    paneWidthLimits.history.max,
+  );
+  let inspector = clamp(
+    preferredPaneWidths.inspector,
+    paneWidthLimits.inspector.min,
+    paneWidthLimits.inspector.max,
+  );
+
+  if (mediumLayout.matches || collapsedHistory) {
+    inspector = clamp(
+      inspector,
+      paneWidthLimits.inspector.min,
+      Math.min(paneWidthLimits.inspector.max, shellWidth - 58 - separatorWidth - centerMinimum),
+    );
+  } else {
+    const combinedMaximum = shellWidth - separatorWidth - centerMinimum;
+    let overflow = history + inspector - combinedMaximum;
+    if (overflow > 0) {
+      const historyReduction = Math.min(overflow, history - paneWidthLimits.history.min);
+      history -= historyReduction;
+      overflow -= historyReduction;
+      inspector = Math.max(paneWidthLimits.inspector.min, inspector - overflow);
+    }
+  }
+
+  effectivePaneWidths = { history, inspector };
+  elements.appShell.style.setProperty("--history-width", `${history}px`);
+  elements.appShell.style.setProperty("--inspector-width", `${inspector}px`);
+  updateResizerValue("history");
+  updateResizerValue("inspector");
+}
+
+function paneBounds(pane) {
+  const limits = paneWidthLimits[pane];
+  const shellWidth = elements.appShell.clientWidth;
+  const centerMinimum = mediumLayout.matches ? 320 : 480;
+  const collapsedHistory = elements.appShell.classList.contains("history-collapsed");
+  const otherWidth = pane === "history"
+    ? effectivePaneWidths.inspector
+    : (mediumLayout.matches || collapsedHistory ? 58 : effectivePaneWidths.history);
+  const separatorWidth = mediumLayout.matches || collapsedHistory ? 8 : 16;
+  return {
+    min: limits.min,
+    max: Math.max(
+      limits.min,
+      Math.min(limits.max, shellWidth - otherWidth - separatorWidth - centerMinimum),
+    ),
+  };
+}
+
+function updateResizerValue(pane) {
+  const resizer = pane === "history" ? elements.historyResizer : elements.inspectorResizer;
+  const bounds = paneBounds(pane);
+  const width = Math.round(effectivePaneWidths[pane]);
+  resizer.setAttribute("aria-valuemin", String(bounds.min));
+  resizer.setAttribute("aria-valuemax", String(Math.round(bounds.max)));
+  resizer.setAttribute("aria-valuenow", String(width));
+  resizer.setAttribute("aria-valuetext", `${width} pixels wide`);
+}
+
+function setPaneWidth(pane, width, persist = false) {
+  const bounds = paneBounds(pane);
+  preferredPaneWidths[pane] = clamp(width, bounds.min, bounds.max);
+  applyPaneWidths();
+  if (persist) savePaneWidths();
+}
+
+function beginPaneResize(event, pane, resizer) {
+  if (event.button !== 0 || narrowLayout.matches) return;
+  event.preventDefault();
+  const startX = event.clientX;
+  const startWidth = effectivePaneWidths[pane];
+  const direction = pane === "history" ? 1 : -1;
+  resizer.setPointerCapture(event.pointerId);
+  resizer.classList.add("is-resizing");
+  document.body.classList.add("pane-resizing");
+
+  const move = (moveEvent) => {
+    setPaneWidth(pane, startWidth + ((moveEvent.clientX - startX) * direction));
+  };
+  const finish = () => {
+    resizer.classList.remove("is-resizing");
+    document.body.classList.remove("pane-resizing");
+    resizer.removeEventListener("pointermove", move);
+    resizer.removeEventListener("pointerup", finish);
+    resizer.removeEventListener("pointercancel", finish);
+    savePaneWidths();
+  };
+  resizer.addEventListener("pointermove", move);
+  resizer.addEventListener("pointerup", finish);
+  resizer.addEventListener("pointercancel", finish);
+}
+
+function resizePaneFromKeyboard(event, pane) {
+  if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+  event.preventDefault();
+  const bounds = paneBounds(pane);
+  const step = event.shiftKey ? 40 : 12;
+  let width = effectivePaneWidths[pane];
+  if (event.key === "Home") width = pane === "history" ? bounds.min : bounds.max;
+  if (event.key === "End") width = pane === "history" ? bounds.max : bounds.min;
+  if (event.key === "ArrowLeft") width += pane === "history" ? -step : step;
+  if (event.key === "ArrowRight") width += pane === "history" ? step : -step;
+  setPaneWidth(pane, width, true);
+}
 
 function userPrompt(prompt) {
   const messages = [...prompt].reverse();
@@ -458,6 +608,7 @@ function setHistoryCollapsed(collapsed) {
   const action = collapsed ? "Expand" : "Collapse";
   elements.historyToggle.setAttribute("aria-label", `${action} history`);
   elements.historyToggle.title = `${action} history`;
+  applyPaneWidths();
 }
 
 function closeResponsiveDrawer(restoreFocus = true) {
@@ -837,6 +988,18 @@ elements.openInspector.addEventListener("keydown", (event) => {
 elements.closeHistory.addEventListener("click", () => closeResponsiveDrawer());
 elements.closeInspector.addEventListener("click", () => closeResponsiveDrawer());
 elements.drawerBackdrop.addEventListener("click", () => closeResponsiveDrawer());
+elements.historyResizer.addEventListener("pointerdown", (event) => {
+  beginPaneResize(event, "history", elements.historyResizer);
+});
+elements.inspectorResizer.addEventListener("pointerdown", (event) => {
+  beginPaneResize(event, "inspector", elements.inspectorResizer);
+});
+elements.historyResizer.addEventListener("keydown", (event) => {
+  resizePaneFromKeyboard(event, "history");
+});
+elements.inspectorResizer.addEventListener("keydown", (event) => {
+  resizePaneFromKeyboard(event, "inspector");
+});
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && openDrawer) closeResponsiveDrawer();
   if (event.key === "Tab" && openDrawer) {
@@ -865,6 +1028,7 @@ document.addEventListener("keydown", (event) => {
 });
 narrowLayout.addEventListener("change", syncResponsiveLayout);
 mediumLayout.addEventListener("change", syncResponsiveLayout);
+window.addEventListener("resize", applyPaneWidths);
 
 async function initialize() {
   try {
@@ -887,4 +1051,5 @@ async function initialize() {
 }
 
 syncResponsiveLayout();
+applyPaneWidths();
 initialize();
