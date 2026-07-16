@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Agent UI</title>
+    <link rel="stylesheet" href="/static/styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand-mark" aria-hidden="true">A</div>
+      <div>
+        <strong>Agent UI</strong>
+        <span class="environment">Local evaluator</span>
+      </div>
+      <span id="connection-status" class="connection-status">Ready</span>
+    </header>
+
+    <main class="app-shell">
+      <aside class="history-panel" aria-labelledby="history-title">
+        <div class="panel-heading">
+          <div>
+            <span class="eyebrow">Sessions</span>
+            <h2 id="history-title">Recent runs</h2>
+          </div>
+          <span id="history-count" class="count">0</span>
+        </div>
+        <nav id="history-list" class="history-list" aria-label="Execution history"></nav>
+        <p id="history-empty" class="empty-copy">No runs yet</p>
+      </aside>
+
+      <section class="workspace" aria-live="polite">
+        <div id="task-browser" class="task-browser">
+          <div class="workspace-heading">
+            <div>
+              <span class="eyebrow">AutomationBench / Sales</span>
+              <h1>Choose a task</h1>
+            </div>
+            <label class="search-field">
+              <span class="sr-only">Search tasks</span>
+              <input id="task-search" type="search" placeholder="Search name or task ID" autocomplete="off">
+            </label>
+          </div>
+          <div class="task-layout">
+            <div id="task-list" class="task-list" role="listbox" aria-label="Sales tasks"></div>
+            <div id="task-preview" class="task-preview empty-preview">
+              <div class="empty-symbol" aria-hidden="true">+</div>
+              <h2>Select a sales task</h2>
+              <p>The prompt and fixed execution configuration will appear here.</p>
+            </div>
+          </div>
+        </div>
+
+        <article id="session-workspace" class="session-workspace" hidden>
+          <div class="session-heading">
+            <button id="back-to-tasks" class="quiet-button" type="button">Back to tasks</button>
+            <span id="session-status" class="status-badge">Running</span>
+          </div>
+          <div class="prompt-message">
+            <span class="message-label">Task</span>
+            <h1 id="session-task-name"></h1>
+            <code id="session-task-id"></code>
+            <p id="session-prompt"></p>
+          </div>
+          <div id="progress-block" class="progress-block">
+            <span class="activity-dot" aria-hidden="true"></span>
+            <div>
+              <strong id="progress-title">Starting execution</strong>
+              <p id="progress-copy">Preparing a fresh benchmark world.</p>
+            </div>
+          </div>
+          <section id="final-block" class="final-block" hidden>
+            <span class="message-label">Final response</span>
+            <p id="final-response"></p>
+            <div class="score-line">
+              <span>Partial credit</span>
+              <strong id="session-score">Unavailable</strong>
+            </div>
+          </section>
+        </article>
+      </section>
+
+      <aside class="inspector" aria-labelledby="inspector-title">
+        <div class="panel-heading">
+          <div>
+            <span class="eyebrow">Execution</span>
+            <h2 id="inspector-title">Configuration</h2>
+          </div>
+        </div>
+        <dl id="config-list" class="config-list">
+          <div><dt>Model</dt><dd>Set on run</dd></div>
+          <div><dt>Maximum steps</dt><dd>Set on run</dd></div>
+          <div><dt>Agent version</dt><dd>Set on run</dd></div>
+        </dl>
+        <div class="inspector-note">
+          <span class="note-rule"></span>
+          <p id="inspector-state">Select a task to review its prompt and start an execution.</p>
+        </div>
+      </aside>
+    </main>
+
+    <div id="toast" class="toast" role="status" hidden></div>
+    <script src="/static/app.js" defer></script>
+  </body>
+</html>
