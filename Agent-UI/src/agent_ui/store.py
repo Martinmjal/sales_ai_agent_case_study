@@ -12,6 +12,10 @@ class SessionNotFoundError(LookupError):
     """Raised when a session artifact cannot be found."""
 
 
+class ImmutableSessionError(RuntimeError):
+    """Raised when a terminal session artifact would be changed."""
+
+
 class SessionStore:
     def __init__(self, directory: Path):
         self.directory = directory
@@ -30,6 +34,15 @@ class SessionStore:
 
     def save(self, session: dict[str, Any]) -> None:
         destination = self.directory / session["artifact_filename"]
+        if destination.exists():
+            try:
+                current = json.loads(destination.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                current = None
+            if current and current.get("status") in {"Completed", "Stopped", "Failed"}:
+                raise ImmutableSessionError(
+                    f"Terminal session cannot be changed: {session['session_id']}"
+                )
         payload = json.dumps(session, indent=2, ensure_ascii=True, default=str) + "\n"
         descriptor, temporary_name = tempfile.mkstemp(
             dir=self.directory,
@@ -56,11 +69,38 @@ class SessionStore:
         sessions = []
         for path in self.directory.glob("*.json"):
             try:
-                sessions.append(json.loads(path.read_text(encoding="utf-8")))
+                session = json.loads(path.read_text(encoding="utf-8"))
             except (OSError, json.JSONDecodeError):
                 continue
+            if self._is_supported(session):
+                sessions.append(session)
         return sorted(
             sessions,
             key=lambda session: session["lifecycle"]["created_at"],
             reverse=True,
+        )
+
+    @staticmethod
+    def _is_supported(session: Any) -> bool:
+        if not isinstance(session, dict) or session.get("schema_version") != 1:
+            return False
+        lifecycle = session.get("lifecycle")
+        task = session.get("task")
+        agent = session.get("agent")
+        evaluation = session.get("evaluation")
+        return (
+            isinstance(session.get("session_id"), str)
+            and session.get("status") in {"Running", "Completed", "Stopped", "Failed"}
+            and isinstance(lifecycle, dict)
+            and isinstance(lifecycle.get("created_at"), str)
+            and isinstance(task, dict)
+            and isinstance(task.get("task_id"), str)
+            and isinstance(task.get("name"), str)
+            and isinstance(task.get("prompt"), list)
+            and isinstance(agent, dict)
+            and isinstance(agent.get("model"), str)
+            and isinstance(agent.get("max_steps"), int)
+            and isinstance(agent.get("agent_version"), str)
+            and isinstance(session.get("events"), list)
+            and (evaluation is None or isinstance(evaluation, dict))
         )

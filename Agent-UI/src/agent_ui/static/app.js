@@ -3,23 +3,31 @@ const state = {
   sessions: [],
   selectedTask: null,
   selectedSession: null,
+  activeSessionId: null,
   eventSource: null,
 };
 
 const elements = {
+  appShell: document.querySelector("#app-shell"),
   browser: document.querySelector("#task-browser"),
   config: document.querySelector("#config-list"),
   connection: document.querySelector("#connection-status"),
   finalBlock: document.querySelector("#final-block"),
   finalResponse: document.querySelector("#final-response"),
   historyCount: document.querySelector("#history-count"),
+  historyContent: document.querySelector("#history-content"),
   historyEmpty: document.querySelector("#history-empty"),
   historyList: document.querySelector("#history-list"),
+  historyPanel: document.querySelector("#history-panel"),
+  historySearch: document.querySelector("#history-search"),
+  historyToggle: document.querySelector("#history-toggle"),
+  inspector: document.querySelector("#inspector"),
   inspectorState: document.querySelector("#inspector-state"),
   preview: document.querySelector("#task-preview"),
   progressBlock: document.querySelector("#progress-block"),
   progressCopy: document.querySelector("#progress-copy"),
   progressTitle: document.querySelector("#progress-title"),
+  returnActive: document.querySelector("#return-active"),
   score: document.querySelector("#session-score"),
   search: document.querySelector("#task-search"),
   sessionStatus: document.querySelector("#session-status"),
@@ -125,32 +133,85 @@ async function startTask(task, button) {
 }
 
 function renderHistory() {
+  const needle = elements.historySearch.value.trim().toLowerCase();
+  const sessions = state.sessions.filter((session) => (
+    session.task_name.toLowerCase().includes(needle) || session.task_id.toLowerCase().includes(needle)
+  ));
   elements.historyCount.textContent = String(state.sessions.length);
-  elements.historyEmpty.hidden = state.sessions.length > 0;
+  elements.historyEmpty.hidden = sessions.length > 0;
+  elements.historyEmpty.textContent = state.sessions.length > 0 ? "No matching runs" : "No runs yet";
+  elements.returnActive.hidden = !state.activeSessionId || state.selectedSession?.session_id === state.activeSessionId;
   elements.historyList.replaceChildren();
-  for (const session of state.sessions) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "history-item";
-    if (session.session_id === state.selectedSession?.session_id) button.classList.add("active");
-    const name = document.createElement("strong");
-    const status = document.createElement("span");
-    name.textContent = session.task_name;
-    status.textContent = session.status;
-    button.append(name, status);
-    button.addEventListener("click", () => loadSession(session.session_id));
-    elements.historyList.append(button);
+  const groups = new Map([
+    ["Today", []],
+    ["Previous 7 days", []],
+    ["Older", []],
+  ]);
+  for (const session of sessions) groups.get(historyGroup(session.created_at)).push(session);
+  for (const [label, groupSessions] of groups) {
+    if (groupSessions.length === 0) continue;
+    const group = document.createElement("section");
+    group.className = "history-group";
+    const heading = document.createElement("h3");
+    heading.textContent = label;
+    group.append(heading);
+    for (const session of groupSessions) group.append(historyItem(session));
+    elements.historyList.append(group);
   }
+}
+
+function historyGroup(timestamp) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const created = new Date(timestamp);
+  created.setHours(0, 0, 0, 0);
+  const daysAgo = Math.floor((today - created) / 86400000);
+  if (daysAgo <= 0) return "Today";
+  return daysAgo <= 7 ? "Previous 7 days" : "Older";
+}
+
+function historyItem(session) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "history-item";
+  button.dataset.sessionId = session.session_id;
+  if (session.session_id === state.selectedSession?.session_id) button.classList.add("selected");
+  if (session.session_id === state.activeSessionId) button.classList.add("active-run");
+
+  const heading = document.createElement("span");
+  heading.className = "history-item-heading";
+  const name = document.createElement("strong");
+  const status = document.createElement("span");
+  status.className = "history-status";
+  name.textContent = session.task_name;
+  status.textContent = session.status;
+  heading.append(name, status);
+
+  const taskId = document.createElement("code");
+  taskId.textContent = session.task_id;
+  const details = document.createElement("span");
+  details.className = "history-details";
+  const score = session.partial_credit == null ? "No score" : `${Math.round(session.partial_credit * 100)}%`;
+  details.textContent = `${new Date(session.created_at).toLocaleString()} | ${score}`;
+  const sessionId = document.createElement("span");
+  sessionId.className = "history-session-id";
+  sessionId.textContent = session.session_id;
+  button.append(heading, taskId, details, sessionId);
+  button.addEventListener("click", () => loadSession(session.session_id));
+  return button;
 }
 
 async function refreshHistory() {
   const payload = await api("/api/sessions");
   state.sessions = payload.sessions;
+  state.activeSessionId = state.sessions.find((session) => session.status === "Running")?.session_id || null;
   renderHistory();
 }
 
 function renderSession(session) {
   state.selectedSession = session;
+  elements.sessionWorkspace.dataset.sessionId = session.session_id;
+  elements.inspector.dataset.sessionId = session.session_id;
   elements.browser.hidden = true;
   elements.sessionWorkspace.hidden = false;
   elements.sessionTaskName.textContent = session.task.name;
@@ -182,6 +243,7 @@ function renderSession(session) {
 
   elements.config.replaceChildren();
   const configItems = [
+    ["Session ID", session.session_id],
     ["Model", session.agent.model],
     ["Maximum steps", session.agent.max_steps],
     ["Agent version", session.agent.agent_version],
@@ -260,6 +322,18 @@ document.querySelector("#back-to-tasks").addEventListener("click", () => {
 });
 
 elements.search.addEventListener("input", () => renderTasks(elements.search.value));
+elements.historySearch.addEventListener("input", renderHistory);
+elements.returnActive.addEventListener("click", () => loadSession(state.activeSessionId));
+elements.historyToggle.addEventListener("click", () => {
+  const collapsed = elements.historyPanel.classList.toggle("collapsed");
+  elements.appShell.classList.toggle("history-collapsed", collapsed);
+  elements.historyContent.hidden = collapsed;
+  elements.historyToggle.textContent = collapsed ? ">" : "<";
+  elements.historyToggle.setAttribute("aria-expanded", String(!collapsed));
+  const action = collapsed ? "Expand" : "Collapse";
+  elements.historyToggle.setAttribute("aria-label", `${action} history`);
+  elements.historyToggle.title = `${action} history`;
+});
 
 async function initialize() {
   try {
@@ -269,6 +343,7 @@ async function initialize() {
     ]);
     state.tasks = taskPayload.tasks;
     state.sessions = sessionPayload.sessions;
+    state.activeSessionId = state.sessions.find((session) => session.status === "Running")?.session_id || null;
     renderTasks();
     renderHistory();
     elements.connection.textContent = `${state.tasks.length} tasks ready`;

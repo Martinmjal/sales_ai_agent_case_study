@@ -7,12 +7,14 @@ from threading import Thread
 from time import sleep
 
 from agent_ui.app import AgentConfig, create_app
+from agent_ui.store import ImmutableSessionError, SessionStore
 from fastapi.testclient import TestClient
 import httpx
 from langchain_core.messages import AIMessage
 from langchain_core.runnables import RunnableLambda
 from mock_agent.contract import EventKind, ExitStatus, RuntimeEvent, RuntimeOutcome
 from mock_agent.runtime import MockAgentRuntime
+import pytest
 import uvicorn
 
 
@@ -244,3 +246,55 @@ def test_execution_stream_resumes_after_disconnect_without_losing_events(tmp_pat
     assert [json.loads(event["data"])["sequence"] for event in resumed] == [1, 2, 3]
     assert completed["status"] == "Completed"
     assert [event["sequence"] for event in completed["events"]] == [1, 2, 3]
+
+
+def test_history_skips_unsupported_artifacts_and_terminal_sessions_are_immutable(
+    tmp_path,
+):
+    store = SessionStore(tmp_path)
+    terminal = store.create(
+        {
+            "schema_version": 1,
+            "session_id": "completed-session",
+            "status": "Completed",
+            "lifecycle": {
+                "created_at": "2026-07-15T12:00:00+00:00",
+                "updated_at": "2026-07-15T12:01:00+00:00",
+                "completed_at": "2026-07-15T12:01:00+00:00",
+                "terminal_error": None,
+            },
+            "task": {
+                "task_id": "sales.zoom_calendar_conflict",
+                "name": "Zoom Calendar Conflict",
+                "prompt": [{"role": "user", "content": "Resolve the conflict."}],
+            },
+            "agent": {
+                "model": "scripted-test",
+                "max_steps": 12,
+                "agent_version": "mock-agent/0.1.0",
+            },
+            "events": [],
+            "final_response": "Resolved.",
+            "evaluation": {"partial_credit": 1.0},
+            "usage": None,
+            "initial_world": {},
+            "final_world": {},
+        }
+    )
+    (tmp_path / "malformed.json").write_text("not json", encoding="utf-8")
+    (tmp_path / "unsupported.json").write_text(
+        json.dumps({"schema_version": 99, "session_id": "future-session"}),
+        encoding="utf-8",
+    )
+
+    changed = {**terminal, "status": "Failed"}
+    with pytest.raises(ImmutableSessionError):
+        store.save(changed)
+
+    with TestClient(create_app(sessions_dir=tmp_path)) as client:
+        history = client.get("/api/sessions")
+
+    assert history.status_code == 200
+    assert [session["session_id"] for session in history.json()["sessions"]] == [
+        "completed-session"
+    ]

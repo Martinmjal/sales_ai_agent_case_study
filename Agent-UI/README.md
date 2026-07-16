@@ -8,6 +8,11 @@ Running sessions expose a reconnectable SSE stream at `/api/sessions/{session_id
 The JSON artifact is the durable source of truth: clients load it first, then resume the stream
 after its latest sequence with `Last-Event-ID` or the `after` query parameter.
 
+The history drawer searches durable sessions by task name or canonical task ID, groups them in
+the browser's local timezone, and keeps the active run available while terminal history is viewed.
+Terminal artifacts are immutable once their final status is persisted; malformed and unsupported
+artifacts are ignored when history is materialized.
+
 ## Set up
 
 The mock agent uses the same `LIBRA_BASE_URL` and `LIBRA_INTERVIEW_API_KEY` configuration described
@@ -15,7 +20,11 @@ in `../mock-agent/README.md`. From this directory:
 
 ```bash
 uv sync
+uv run playwright install chromium
 ```
+
+The browser install is optional when Google Chrome is already installed in its standard macOS
+location.
 
 ## Run
 

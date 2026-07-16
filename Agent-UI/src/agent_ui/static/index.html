@@ -16,17 +16,27 @@
       <span id="connection-status" class="connection-status">Ready</span>
     </header>
 
-    <main class="app-shell">
-      <aside class="history-panel" aria-labelledby="history-title">
+    <main id="app-shell" class="app-shell">
+      <aside id="history-panel" class="history-panel" aria-labelledby="history-title">
         <div class="panel-heading">
-          <div>
+          <div class="history-title-copy">
             <span class="eyebrow">Sessions</span>
             <h2 id="history-title">Recent runs</h2>
           </div>
-          <span id="history-count" class="count">0</span>
+          <div class="history-heading-actions">
+            <span id="history-count" class="count">0</span>
+            <button id="history-toggle" class="icon-button" type="button" aria-label="Collapse history" aria-expanded="true" title="Collapse history">&lt;</button>
+          </div>
         </div>
-        <nav id="history-list" class="history-list" aria-label="Execution history"></nav>
-        <p id="history-empty" class="empty-copy">No runs yet</p>
+        <div id="history-content">
+          <button id="return-active" class="return-active" type="button" hidden>Return to active run</button>
+          <label class="history-search">
+            <span class="sr-only">Search execution history</span>
+            <input id="history-search" type="search" placeholder="Search history" autocomplete="off">
+          </label>
+          <nav id="history-list" class="history-list" aria-label="Execution history"></nav>
+          <p id="history-empty" class="empty-copy">No runs yet</p>
+        </div>
       </aside>
 
       <section class="workspace" aria-live="polite">
@@ -80,7 +90,7 @@
         </article>
       </section>
 
-      <aside class="inspector" aria-labelledby="inspector-title">
+      <aside id="inspector" class="inspector" aria-labelledby="inspector-title">
         <div class="panel-heading">
           <div>
             <span class="eyebrow">Execution</span>
