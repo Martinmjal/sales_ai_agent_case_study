@@ -29,10 +29,6 @@ from automationbench.tools import ALL_TOOLS
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 REPOSITORY_ROOT = PROJECT_ROOT.parent
-LIBRA_BASE_URL = (
-    "https://example.invalid/"
-    "api/projects/proj-default/openai/v1"
-)
 
 
 def make_task_tools(task: dict[str, Any], world: WorldState) -> list[BaseTool]:
@@ -113,11 +109,16 @@ def run_benchmark(
     world = WorldState(**copy.deepcopy(task["info"]["initial_state"]))
     tools = make_task_tools(task, world)
     if agent_model is None:
+        base_url = os.environ.get("LIBRA_BASE_URL")
+        if not base_url:
+            raise RuntimeError(
+                "Set LIBRA_BASE_URL in mock-agent/.env before running the benchmark"
+            )
         agent_model = ChatOpenAI(
             model=model_name,
             api_key=os.environ.get("LIBRA_INTERVIEW_API_KEY")
             or os.environ["OPENAI_API_KEY"],
-            base_url=LIBRA_BASE_URL,
+            base_url=base_url,
             use_responses_api=True,
         ).bind_tools(tools)
     graph = build_graph(agent_model, tools)
@@ -162,6 +163,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
+    load_dotenv(PROJECT_ROOT / ".env")
     load_dotenv(REPOSITORY_ROOT / ".env")
     task = get_zoom_calendar_conflict_task()
     result = run_benchmark(task, args.model, args.max_steps)

@@ -21,11 +21,15 @@ From this directory:
 uv sync
 ```
 
-Place your OpenAI API key in the repository-root `.env`:
+Copy the example environment file and fill in the interview API key and endpoint:
 
 ```bash
-LIBRA_INTERVIEW_API_KEY=replace-with-your-libra-api-key
+cp .env.example .env
 ```
+
+The runner also loads the repository-root `.env`, so an existing `OPENAI_API_KEY`
+there remains available as an API-key fallback. Keep both `.env` files local; they
+are excluded by the repository's `.gitignore`.
 
 ## Run the single benchmark task
 
