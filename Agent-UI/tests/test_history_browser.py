@@ -473,6 +473,99 @@ def record_activity_artifact(created_at):
     return artifact
 
 
+def correlated_record_activity_artifact(created_at):
+    artifact = record_activity_artifact(created_at)
+    artifact["session_id"] = "correlated-record-activity-session"
+    meeting = artifact["final_world"]["zoom"]["meetings"][0]
+    message = artifact["final_world"]["slack"]["messages"][0]
+    artifact["events"] = [
+        {
+            "sequence": 1,
+            "kind": "tool_call",
+            "correlation_id": "read-zoom",
+            "name": "zoom_find_meeting",
+            "arguments": {"meeting_id": 1234567890},
+        },
+        {
+            "sequence": 2,
+            "kind": "tool_result",
+            "correlation_id": "read-zoom",
+            "name": "zoom_find_meeting",
+            "result": {"meeting": meeting},
+        },
+        {
+            "sequence": 3,
+            "kind": "tool_call",
+            "correlation_id": "write-zoom",
+            "name": "zoom_update_meeting",
+            "arguments": {
+                "meeting_id": 1234567890,
+                "topic": meeting["topic"],
+                "start_time": meeting["start_time"],
+            },
+        },
+        {
+            "sequence": 4,
+            "kind": "tool_result",
+            "correlation_id": "write-zoom",
+            "name": "zoom_update_meeting",
+            "result": {"success": True, "meeting": meeting},
+        },
+        {
+            "sequence": 5,
+            "kind": "tool_call",
+            "correlation_id": "write-slack",
+            "name": "slack_send_channel_message",
+            "arguments": {"channel": "C_OPS", "text": message["text"]},
+        },
+        {
+            "sequence": 6,
+            "kind": "tool_result",
+            "correlation_id": "write-slack",
+            "name": "slack_send_channel_message",
+            "result": {"success": True, "message": message},
+        },
+    ]
+    artifact["evaluation"] = {
+        "partial_credit": 0.5,
+        "assertions": [
+            {
+                "type": "zoom_meeting_field_equals",
+                "passed": True,
+                "excluded": False,
+                "params": {
+                    "meeting_id": 1234567890,
+                    "field": "topic",
+                    "value": meeting["topic"],
+                },
+            },
+            {
+                "type": "zoom_meeting_field_equals",
+                "passed": False,
+                "excluded": False,
+                "params": {
+                    "meeting_id": 1234567890,
+                    "field": "start_time",
+                    "value": "2026-02-20T16:00:00Z",
+                },
+            },
+            {
+                "type": "slack_message_exists",
+                "passed": True,
+                "excluded": False,
+                "params": {"text_contains": "Scheduling conflict"},
+            },
+            {
+                "type": "slack_message_exists",
+                "passed": True,
+                "excluded": True,
+                "params": {"text_contains": "resolved"},
+            },
+        ],
+    }
+    return artifact
+
+
 def test_evaluator_collapses_world_activity_behind_a_concise_summary(tmp_path):
     artifact = record_activity_artifact(datetime.now(timezone.utc))
     SessionStore(tmp_path).create(artifact)
@@ -547,6 +640,80 @@ def test_evaluator_groups_world_activity_by_application_and_record(tmp_path):
         expect(technical_diff.locator("#world-diff .world-change").first).to_be_hidden()
         technical_diff.get_by_text("Technical state diff", exact=True).click()
         expect(technical_diff.locator("#world-diff .world-change")).to_have_count(3)
+        browser.close()
+
+
+def test_world_activity_connects_writes_and_assertions_to_source_evidence(tmp_path):
+    artifact = correlated_record_activity_artifact(datetime.now(timezone.utc))
+    SessionStore(tmp_path).create(artifact)
+    app = create_app(sessions_dir=tmp_path)
+
+    with live_server(app) as base_url, sync_playwright() as playwright:
+        launch_options = {"headless": True}
+        if CHROME.exists():
+            launch_options["executable_path"] = str(CHROME)
+        browser = playwright.chromium.launch(**launch_options)
+        page = browser.new_page(viewport={"width": 1440, "height": 900})
+        page.goto(base_url)
+        page.locator(
+            "[data-session-id='correlated-record-activity-session']"
+        ).click()
+        page.get_by_text("World changes", exact=True).click()
+
+        zoom = page.locator("[data-world-application='zoom']")
+        zoom.locator("summary").first.click()
+        expect(zoom.locator(".world-tool-reference")).to_have_text(
+            "Write · zoom_update_meeting"
+        )
+        expect(zoom.locator(".world-assertion-passed")).to_contain_text(
+            "Passed · zoom_meeting_field_equals"
+        )
+        expect(zoom.locator(".world-assertion-failed")).to_contain_text(
+            "Failed · zoom_meeting_field_equals"
+        )
+
+        zoom.locator(".world-tool-reference").click()
+        write = page.locator(
+            "[data-correlation-id='write-zoom'][data-trace-kind='tool_call']"
+        )
+        expect(write).to_have_attribute("open", "")
+        expect(write.locator("summary")).to_be_focused()
+        expect(page.locator("[data-correlation-id='read-zoom']")).to_have_count(1)
+
+        page.locator("#world-section").scroll_into_view_if_needed()
+        slack = page.locator("[data-world-application='slack']")
+        slack.locator("summary").first.click()
+        expect(slack.locator(".world-assertion-passed")).to_contain_text(
+            "Passed · slack_message_exists"
+        )
+        expect(slack.locator(".world-assertion-excluded")).to_contain_text(
+            "Pre-satisfied · excluded · slack_message_exists"
+        )
+        browser.close()
+
+
+def test_world_activity_explains_when_correlation_and_evaluation_are_unavailable(
+    tmp_path,
+):
+    artifact = record_activity_artifact(datetime.now(timezone.utc))
+    SessionStore(tmp_path).create(artifact)
+    app = create_app(sessions_dir=tmp_path)
+
+    with live_server(app) as base_url, sync_playwright() as playwright:
+        launch_options = {"headless": True}
+        if CHROME.exists():
+            launch_options["executable_path"] = str(CHROME)
+        browser = playwright.chromium.launch(**launch_options)
+        page = browser.new_page(viewport={"width": 1440, "height": 900})
+        page.goto(base_url)
+        page.locator("[data-session-id='record-activity-session']").click()
+        page.get_by_text("World changes", exact=True).click()
+        zoom = page.locator("[data-world-application='zoom']")
+        zoom.locator("summary").first.click()
+
+        expect(zoom).to_contain_text("Originating write unavailable · uncorrelated")
+        expect(zoom).to_contain_text("Assertion evidence unavailable")
+        expect(zoom.locator(".world-tool-reference")).to_have_count(0)
         browser.close()
 
 

@@ -383,7 +383,7 @@ function renderWorldEvidence(session) {
     `${records.size} ${records.size === 1 ? "record" : "records"}`,
     `${changes.length} ${changes.length === 1 ? "change" : "changes"}`,
   ].join(" · ");
-  renderWorldActivity(changes);
+  renderWorldActivity(changes, session);
   for (const change of changes) {
     const row = document.createElement("article");
     row.className = "world-change";
@@ -400,7 +400,7 @@ function renderWorldEvidence(session) {
   }
 }
 
-function renderWorldActivity(changes) {
+function renderWorldActivity(changes, session) {
   const applications = new Map();
   for (const change of changes) {
     const application = change.application
@@ -445,6 +445,7 @@ function renderWorldActivity(changes) {
       const identity = record.identity.map((value) => String(value)).join(" / ");
       heading.textContent = `${action} ${recordType}${identity ? ` ${identity}` : ""}`;
       article.append(heading);
+      renderRecordEvidence(article, record, session);
 
       for (const change of record.changes) {
         const field = document.createElement("div");
@@ -463,6 +464,94 @@ function renderWorldActivity(changes) {
     }
     elements.worldActivity.append(disclosure);
   }
+}
+
+function renderRecordEvidence(article, record, session) {
+  const evidence = document.createElement("div");
+  evidence.className = "world-record-evidence";
+  const origins = new Map();
+  const assertions = new Map();
+  for (const change of record.changes) {
+    if (change.origin?.correlation_id) {
+      origins.set(change.origin.correlation_id, change.origin);
+    }
+    for (const assertion of change.assertions || []) {
+      assertions.set(assertion.index, assertion);
+    }
+  }
+
+  if (origins.size === 1) {
+    const origin = [...origins.values()][0];
+    const reference = document.createElement("button");
+    reference.type = "button";
+    reference.className = "world-evidence-reference world-tool-reference";
+    reference.dataset.toolReference = origin.correlation_id;
+    reference.textContent = `Write · ${origin.tool_name}`;
+    reference.setAttribute(
+      "aria-label",
+      `Show ${origin.tool_name} in the Execution spine`,
+    );
+    reference.addEventListener("click", () => revealToolEvidence(origin.correlation_id));
+    evidence.append(reference);
+  } else {
+    const uncorrelated = document.createElement("span");
+    uncorrelated.className = "world-evidence-unavailable";
+    uncorrelated.textContent = "Originating write unavailable · uncorrelated";
+    evidence.append(uncorrelated);
+  }
+
+  if (!Array.isArray(session.evaluation?.assertions)) {
+    const unavailable = document.createElement("span");
+    unavailable.className = "world-evidence-unavailable";
+    unavailable.textContent = "Assertion evidence unavailable";
+    evidence.append(unavailable);
+  } else if (assertions.size === 0) {
+    const unmatched = document.createElement("span");
+    unmatched.className = "world-evidence-unavailable";
+    unmatched.textContent = "No matching scored assertions";
+    evidence.append(unmatched);
+  } else {
+    for (const assertion of [...assertions.values()].sort((left, right) => left.index - right.index)) {
+      const reference = document.createElement("button");
+      reference.type = "button";
+      reference.className = `world-evidence-reference world-assertion-${assertion.status}`;
+      reference.dataset.assertionReference = assertion.index;
+      reference.textContent = `${assertion.status_label} · ${assertion.type}`;
+      reference.setAttribute(
+        "aria-label",
+        `Show ${assertion.type} in Assertions: ${assertion.status_label}`,
+      );
+      reference.addEventListener("click", () => revealAssertionEvidence(assertion.index));
+      evidence.append(reference);
+    }
+  }
+  article.append(evidence);
+}
+
+function revealToolEvidence(correlationId) {
+  const target = [...elements.trace.querySelectorAll("[data-correlation-id]")]
+    .find((item) => item.dataset.correlationId === correlationId);
+  if (!target) {
+    showToast("Execution evidence for this write is unavailable.");
+    return;
+  }
+  if (target instanceof HTMLDetailsElement) target.open = true;
+  const focusTarget = target.querySelector("summary") || target;
+  focusTarget.focus();
+  target.scrollIntoView({ behavior: "smooth", block: "center" });
+  target.classList.add("trace-linked-evidence");
+  window.setTimeout(() => target.classList.remove("trace-linked-evidence"), 1800);
+}
+
+function revealAssertionEvidence(index) {
+  const target = elements.assertionList.querySelector(`[data-assertion-index="${index}"]`);
+  if (!target) {
+    showToast("Assertion evidence is unavailable.");
+    return;
+  }
+  target.open = true;
+  target.querySelector("summary").focus();
+  target.scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
 function humanizeWorldName(value) {
@@ -504,12 +593,13 @@ function renderEvaluationEvidence(session) {
     const scored = assertions.filter((assertion) => !assertion.excluded);
     const passed = scored.filter((assertion) => assertion.passed).length;
     elements.assertionTotal.textContent = `${passed} of ${scored.length} scored assertions passed`;
-    for (const assertion of assertions) {
+    for (const [index, assertion] of assertions.entries()) {
       const explicitlyExcluded = assertion.params?.excluded === true || assertion.params?.scored === false;
       const statusName = assertion.excluded ? "excluded" : assertion.passed ? "passed" : "failed";
       const item = document.createElement("details");
       item.className = `assertion-result assertion-${statusName}`;
       item.dataset.assertionStatus = statusName;
+      item.dataset.assertionIndex = index;
       const summary = document.createElement("summary");
       const name = document.createElement("strong");
       const status = document.createElement("span");
