@@ -25,6 +25,9 @@ const elements = {
   historySearch: document.querySelector("#history-search"),
   historyToggle: document.querySelector("#history-toggle"),
   inspector: document.querySelector("#inspector"),
+  inspectorContent: document.querySelector("#inspector-content"),
+  inspectorEmpty: document.querySelector("#inspector-empty"),
+  inspectorPrompt: document.querySelector("#inspector-prompt"),
   inspectorState: document.querySelector("#inspector-state"),
   preview: document.querySelector("#task-preview"),
   progressBlock: document.querySelector("#progress-block"),
@@ -40,12 +43,211 @@ const elements = {
   sessionWorkspace: document.querySelector("#session-workspace"),
   stopRun: document.querySelector("#stop-run"),
   taskList: document.querySelector("#task-list"),
+  toolCount: document.querySelector("#tool-count"),
+  toolDefinitions: document.querySelector("#tool-definitions"),
   toast: document.querySelector("#toast"),
+  trace: document.querySelector("#causal-trace"),
 };
 
 function userPrompt(prompt) {
   const messages = [...prompt].reverse();
   return (messages.find((message) => message.role === "user") || messages[0] || {}).content || "";
+}
+
+function displayValue(value) {
+  if (value == null) return "Unavailable";
+  return typeof value === "string" ? value : JSON.stringify(value, null, 2);
+}
+
+function nodeState(session, event, result) {
+  if (event.kind === "tool_call") {
+    if (result?.kind === "tool_error") return "failed";
+    if (result) return "completed";
+    return session.status === "Running" ? "running" : session.status.toLowerCase();
+  }
+  if (event.kind === "completion") return session.status.toLowerCase();
+  return "completed";
+}
+
+function traceNode(kind, title, stateName, correlationId) {
+  const node = document.createElement("article");
+  node.className = `trace-node trace-${kind} trace-state-${stateName}`;
+  node.dataset.traceKind = kind;
+  node.dataset.state = stateName;
+  if (correlationId) node.dataset.correlationId = correlationId;
+  node.setAttribute("aria-label", `${title}, ${stateName}`);
+
+  const heading = document.createElement("div");
+  heading.className = "trace-node-heading";
+  const label = document.createElement("strong");
+  label.textContent = title;
+  const stateLabel = document.createElement("span");
+  stateLabel.className = "trace-node-state";
+  stateLabel.textContent = stateName;
+  heading.append(label, stateLabel);
+  node.append(heading);
+  return node;
+}
+
+function addEvidence(node, label, value) {
+  if (value == null) return;
+  const row = document.createElement("div");
+  row.className = "trace-evidence";
+  const term = document.createElement("span");
+  const content = document.createElement("pre");
+  term.textContent = label;
+  content.textContent = displayValue(value);
+  row.append(term, content);
+  node.append(row);
+}
+
+function renderToolCall(session, call, result) {
+  const stateName = nodeState(session, call, result);
+  const disclosure = document.createElement("details");
+  disclosure.className = `trace-node trace-tool-call trace-state-${stateName}`;
+  disclosure.dataset.traceKind = "tool_call";
+  disclosure.dataset.correlationId = call.correlation_id;
+  disclosure.dataset.state = stateName;
+  disclosure.setAttribute("aria-label", `${call.name || "Tool call"}, ${stateName}`);
+  if (stateName === "failed") disclosure.open = true;
+
+  const summary = document.createElement("summary");
+  const name = document.createElement("strong");
+  const stateLabel = document.createElement("span");
+  name.textContent = call.name || "Tool call";
+  stateLabel.className = "trace-node-state";
+  stateLabel.textContent = stateName;
+  summary.append(name, stateLabel);
+  disclosure.append(summary);
+  addEvidence(disclosure, "Arguments", call.arguments);
+  addEvidence(disclosure, "Result", result?.result);
+  addEvidence(disclosure, "Error", result?.error);
+  addEvidence(disclosure, "Duration", result?.duration_ms == null ? null : `${result.duration_ms} ms`);
+  addEvidence(disclosure, "Correlation ID", call.correlation_id);
+  return disclosure;
+}
+
+function renderInspector(session) {
+  elements.inspectorEmpty.hidden = true;
+  elements.inspectorContent.hidden = false;
+  elements.inspectorPrompt.textContent = session.task.prompt
+    .map((message) => `${message.role}: ${displayValue(message.content)}`)
+    .join("\n\n");
+
+  const tools = session.task.tool_definitions || (session.task.tools || []).map((name) => ({ name }));
+  elements.toolCount.textContent = `${tools.length} available tools`;
+  elements.toolDefinitions.replaceChildren();
+  for (const tool of tools) {
+    const definition = document.createElement("section");
+    const name = document.createElement("strong");
+    const description = document.createElement("p");
+    const schema = document.createElement("pre");
+    name.textContent = tool.name;
+    description.textContent = tool.description || "No description provided.";
+    schema.textContent = displayValue(tool.input_schema || {});
+    definition.append(name, description, schema);
+    elements.toolDefinitions.append(definition);
+  }
+
+  elements.config.replaceChildren();
+  const configItems = [
+    ["Session ID", session.session_id],
+    ["Model", session.agent.model],
+    ["Maximum steps", session.agent.max_steps],
+    ["Agent version", session.agent.agent_version],
+  ];
+  for (const [label, value] of configItems) {
+    const row = document.createElement("div");
+    const term = document.createElement("dt");
+    const detail = document.createElement("dd");
+    term.textContent = label;
+    detail.textContent = value;
+    row.append(term, detail);
+    elements.config.append(row);
+  }
+
+  elements.trace.replaceChildren();
+  const events = [...session.events].sort((left, right) => left.sequence - right.sequence);
+  const results = new Map(
+    events
+      .filter((event) => ["tool_result", "tool_error"].includes(event.kind))
+      .map((event) => [event.correlation_id, event]),
+  );
+  const callsByParent = new Map();
+  const knownCalls = new Set();
+  const renderedCalls = new Set();
+  let hasCompletion = false;
+  for (const event of events.filter((item) => item.kind === "tool_call")) {
+    knownCalls.add(event.correlation_id);
+    const calls = callsByParent.get(event.parent_id) || [];
+    calls.push(event);
+    callsByParent.set(event.parent_id, calls);
+  }
+
+  for (const event of events) {
+    if (event.kind === "model_turn") {
+      const turn = traceNode("model_turn", "Assistant turn", nodeState(session, event), event.correlation_id);
+      addEvidence(turn, "Response", event.content);
+      addEvidence(turn, "Duration", event.duration_ms == null ? null : `${event.duration_ms} ms`);
+      elements.trace.append(turn);
+      const calls = callsByParent.get(event.correlation_id) || [];
+      if (calls.length > 0) {
+        const batch = document.createElement("div");
+        batch.className = calls.length > 1 ? "parallel-tool-batch" : "tool-batch";
+        batch.dataset.parentId = event.correlation_id;
+        batch.setAttribute("aria-label", calls.length > 1 ? "Parallel tool calls" : "Tool call");
+        for (const call of calls) {
+          batch.append(renderToolCall(session, call, results.get(call.correlation_id)));
+          renderedCalls.add(call.correlation_id);
+        }
+        elements.trace.append(batch);
+      }
+    } else if (event.kind === "tool_call" && !renderedCalls.has(event.correlation_id)) {
+      const batch = document.createElement("div");
+      batch.className = "tool-batch";
+      batch.append(renderToolCall(session, event, results.get(event.correlation_id)));
+      elements.trace.append(batch);
+      renderedCalls.add(event.correlation_id);
+    } else if (
+      ["tool_result", "tool_error"].includes(event.kind)
+      && !knownCalls.has(event.correlation_id)
+    ) {
+      const stateName = event.kind === "tool_error" ? "failed" : "completed";
+      const evidence = traceNode(
+        event.kind,
+        event.name || (event.kind === "tool_error" ? "Tool error" : "Tool result"),
+        stateName,
+        event.correlation_id,
+      );
+      addEvidence(evidence, "Result", event.result);
+      addEvidence(evidence, "Error", event.error);
+      addEvidence(evidence, "Duration", event.duration_ms == null ? null : `${event.duration_ms} ms`);
+      addEvidence(evidence, "Correlation ID", event.correlation_id);
+      elements.trace.append(evidence);
+    } else if (event.kind === "completion") {
+      hasCompletion = true;
+      const completion = traceNode("completion", "Final response", nodeState(session, event), event.correlation_id);
+      addEvidence(completion, "Response", session.final_response || "No final response was produced.");
+      elements.trace.append(completion);
+    }
+  }
+
+  if (!hasCompletion && session.status !== "Running") {
+    const outcome = traceNode(
+      "completion",
+      "Execution outcome",
+      session.status.toLowerCase(),
+      session.session_id,
+    );
+    addEvidence(outcome, "Response", session.final_response || "No final response was produced.");
+    addEvidence(outcome, "Terminal error", session.lifecycle.terminal_error);
+    elements.trace.append(outcome);
+  } else if (events.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "trace-empty";
+    empty.textContent = session.status === "Running" ? "Waiting for the first assistant turn." : "No runtime events were recorded.";
+    elements.trace.append(empty);
+  }
 }
 
 async function api(path, options) {
@@ -252,9 +454,7 @@ function renderSession(session) {
     elements.finalResponse.textContent = session.final_response || "No final response was produced.";
     const partial = session.evaluation?.partial_credit;
     elements.score.textContent = partial == null ? "Unavailable" : `${Math.round(partial * 100)}%`;
-    const errors = session.events
-      .filter((event) => event.kind === "tool_error" && event.error != null)
-      .map((event) => event.error);
+    const errors = [];
     if (session.lifecycle.terminal_error) errors.push(session.lifecycle.terminal_error);
     elements.errors.hidden = errors.length === 0;
     elements.errorList.replaceChildren();
@@ -265,23 +465,7 @@ function renderSession(session) {
     }
   }
 
-  elements.config.replaceChildren();
-  const configItems = [
-    ["Session ID", session.session_id],
-    ["Model", session.agent.model],
-    ["Maximum steps", session.agent.max_steps],
-    ["Agent version", session.agent.agent_version],
-  ];
-  for (const [label, value] of configItems) {
-    const row = document.createElement("div");
-    const term = document.createElement("dt");
-    const detail = document.createElement("dd");
-    term.textContent = label;
-    detail.textContent = value;
-    row.append(term, detail);
-    elements.config.append(row);
-  }
-  elements.inspectorState.textContent = running ? "Execution is owned by the local server." : `Session ${session.status.toLowerCase()} with a durable artifact.`;
+  renderInspector(session);
   renderHistory();
 }
 

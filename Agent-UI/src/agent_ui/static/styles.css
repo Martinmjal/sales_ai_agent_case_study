@@ -129,6 +129,8 @@ input:focus-visible {
 
 .inspector {
   border-left: 1px solid var(--line);
+  max-height: calc(100vh - 58px);
+  overflow-y: auto;
 }
 
 .panel-heading,
@@ -612,6 +614,178 @@ input:focus-visible {
 
 .config-list {
   margin: 20px 0 0;
+}
+
+.session-context,
+.trace-section {
+  margin-top: 20px;
+}
+
+.session-context h3,
+.trace-section h3 {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.context-disclosure {
+  border-top: 1px solid var(--line);
+}
+
+.context-disclosure:last-of-type {
+  border-bottom: 1px solid var(--line);
+}
+
+.context-disclosure summary,
+.trace-tool-call summary {
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.context-disclosure summary {
+  padding: 9px 0;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.context-disclosure pre,
+.tool-definitions pre,
+.trace-evidence pre {
+  max-width: 100%;
+  margin: 6px 0 10px;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font: 10px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.tool-definitions section {
+  padding: 8px 0 10px;
+}
+
+.tool-definitions section + section {
+  border-top: 1px solid var(--line);
+}
+
+.tool-definitions p {
+  margin: 4px 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.causal-trace {
+  position: relative;
+  display: grid;
+  gap: 9px;
+  padding-left: 16px;
+}
+
+.causal-trace::before {
+  position: absolute;
+  top: 5px;
+  bottom: 5px;
+  left: 4px;
+  width: 1px;
+  background: var(--line-strong);
+  content: "";
+}
+
+.trace-node,
+.parallel-tool-batch,
+.tool-batch {
+  min-width: 0;
+}
+
+.trace-node {
+  position: relative;
+  padding: 9px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--surface);
+}
+
+.trace-node::before {
+  position: absolute;
+  top: 15px;
+  left: -17px;
+  width: 13px;
+  height: 1px;
+  background: var(--line-strong);
+  content: "";
+}
+
+.trace-node-heading,
+.trace-tool-call summary {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.trace-node strong,
+.trace-tool-call summary strong {
+  min-width: 0;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.trace-node-state {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 750;
+  text-transform: capitalize;
+}
+
+.trace-evidence {
+  margin-top: 7px;
+}
+
+.trace-evidence > span {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.parallel-tool-batch,
+.tool-batch {
+  position: relative;
+  display: grid;
+  gap: 7px;
+  margin-left: 10px;
+}
+
+.parallel-tool-batch {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.trace-state-running {
+  border-left-color: var(--yellow);
+}
+
+.trace-state-completed {
+  border-left-color: var(--green);
+}
+
+.trace-state-stopped {
+  border-left-color: #73510a;
+  background: #fffaf0;
+}
+
+.trace-state-failed,
+.trace-state-interrupted {
+  border-left-color: #982f2a;
+  background: #fff8f7;
+}
+
+.trace-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
 }
 
 .config-list div {

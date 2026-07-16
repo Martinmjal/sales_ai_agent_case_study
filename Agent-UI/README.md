@@ -20,6 +20,13 @@ error evidence. On server startup, any persisted Running artifact without a live
 Interrupted and is never resumed or replayed automatically. Stopped, Failed, and Interrupted
 artifacts are terminal and immutable, and missing evaluation data is displayed as unavailable.
 
+The right inspector is the primary explanation of an execution. It preserves the session's full
+problem prompt and tool definitions, then renders assistant turns as a vertical causal spine.
+Calls sharing an assistant-turn parent are presented as parallel siblings, with each result or
+error reconnected by correlation ID. Compact disclosures retain arguments, results, errors,
+durations, and long structured values without duplicating tool evidence in the center workspace.
+The final response or terminal execution outcome closes the trace with an accessible state.
+
 ## Set up
 
 The mock agent uses the same `LIBRA_BASE_URL` and `LIBRA_INTERVIEW_API_KEY` configuration described

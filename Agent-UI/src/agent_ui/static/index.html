@@ -101,17 +101,30 @@
         <div class="panel-heading">
           <div>
             <span class="eyebrow">Execution</span>
-            <h2 id="inspector-title">Configuration</h2>
+            <h2 id="inspector-title">Causal trace</h2>
           </div>
         </div>
-        <dl id="config-list" class="config-list">
-          <div><dt>Model</dt><dd>Set on run</dd></div>
-          <div><dt>Maximum steps</dt><dd>Set on run</dd></div>
-          <div><dt>Agent version</dt><dd>Set on run</dd></div>
-        </dl>
-        <div class="inspector-note">
+        <div id="inspector-empty" class="inspector-note">
           <span class="note-rule"></span>
           <p id="inspector-state">Select a task to review its prompt and start an execution.</p>
+        </div>
+        <div id="inspector-content" hidden>
+          <section class="session-context" aria-labelledby="context-title">
+            <h3 id="context-title">Frozen context</h3>
+            <details class="context-disclosure" open>
+              <summary>Problem prompt</summary>
+              <pre id="inspector-prompt"></pre>
+            </details>
+            <details class="context-disclosure">
+              <summary id="tool-count">0 available tools</summary>
+              <div id="tool-definitions" class="tool-definitions"></div>
+            </details>
+            <dl id="config-list" class="config-list"></dl>
+          </section>
+          <section class="trace-section" aria-labelledby="trace-title">
+            <h3 id="trace-title">Execution spine</h3>
+            <div id="causal-trace" class="causal-trace"></div>
+          </section>
         </div>
       </aside>
     </main>
