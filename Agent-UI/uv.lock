@@ -28,7 +28,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "fastapi", specifier = ">=0.116,<1" },
-    { name = "mock-agent", directory = "../mock-agent" },
+    { name = "mock-agent", editable = "../mock-agent" },
     { name = "uvicorn", specifier = ">=0.30,<1" },
 ]
 
@@ -1054,7 +1054,7 @@ wheels = [
 [[package]]
 name = "mock-agent"
 version = "0.1.0"
-source = { directory = "../mock-agent" }
+source = { editable = "../mock-agent" }
 dependencies = [
     { name = "automation-bench" },
     { name = "openai" },

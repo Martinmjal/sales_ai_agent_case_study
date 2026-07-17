@@ -32,4 +32,4 @@ testpaths = ["tests"]
 
 [tool.uv.sources]
 automation-bench = { path = "../AutomationBench" }
-mock-agent = { path = "../mock-agent" }
+mock-agent = { path = "../mock-agent", editable = true }
