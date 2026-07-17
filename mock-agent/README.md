@@ -19,8 +19,9 @@ uv sync
 cp .env.example .env
 ```
 
-Set `LIBRA_BASE_URL` plus `LIBRA_INTERVIEW_API_KEY` (or `OPENAI_API_KEY`) in either
-`mock-agent/.env` or the repository-root `.env`.
+Set `LIBRA_BASE_URL` plus `LIBRA_INTERVIEW_API_KEY` in either `mock-agent/.env` or
+the repository-root `.env`. The dedicated key keeps Libra authentication separate from
+AutomationBench tools that may interpret `OPENAI_API_KEY` as a public OpenAI credential.
 
 ## Run
 

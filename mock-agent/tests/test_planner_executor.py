@@ -914,16 +914,26 @@ def test_runtime_finalizes_a_saturated_step_without_tools_then_reaches_review():
 
     assert outcome.status is ExitStatus.COMPLETED
     assert outcome.final_response == "Inspection completed."
-    executor_requests = [request for request in model.requests if request.role == "executor"]
-    assert [request.input[-1]["content"]["tool_turns_used"] for request in executor_requests] == [
+    executor_requests = [
+        request for request in model.requests if request.role == "executor"
+    ]
+    assert [
+        request.input[-1]["content"]["tool_turns_used"] for request in executor_requests
+    ] == [
         0,
         1,
         2,
         3,
         4,
     ]
-    assert [request.input[-1]["content"]["tool_turns_remaining"] for request in executor_requests] == [4, 3, 2, 1, 0]
-    assert all(request.input[-1]["content"]["reserved_outcome_policy"] for request in executor_requests)
+    assert [
+        request.input[-1]["content"]["tool_turns_remaining"]
+        for request in executor_requests
+    ] == [4, 3, 2, 1, 0]
+    assert all(
+        request.input[-1]["content"]["reserved_outcome_policy"]
+        for request in executor_requests
+    )
     assert executor_requests[-1].tools == ()
     assert any(event.kind is EventKind.REVIEW for event in outcome.events)
 
@@ -1037,6 +1047,37 @@ def test_runtime_corrects_an_invalid_review_once_then_reports_model_protocol_err
         sum(event.kind is EventKind.PROTOCOL_CORRECTION for event in outcome.events)
         == 1
     )
+
+
+def test_runtime_does_not_use_a_generic_openai_key_for_libra(monkeypatch):
+    monkeypatch.setenv("LIBRA_BASE_URL", "https://libra.example/openai/v1")
+    monkeypatch.delenv("LIBRA_INTERVIEW_API_KEY", raising=False)
+    monkeypatch.setenv("OPENAI_API_KEY", "not-a-libra-credential")
+
+    def reject_client_construction(**_):
+        raise AssertionError("generic OPENAI_API_KEY reached the Libra client")
+
+    monkeypatch.setattr("mock_agent.model.AsyncOpenAI", reject_client_construction)
+
+    outcome = asyncio.run(
+        PlannerExecutorRuntime(model_client=OpenAIModelClient()).run(
+            RuntimeRequest(
+                task_id="sales.zoom_calendar_conflict",
+                model_name="gpt-5.6-sol",
+            )
+        )
+    )
+
+    assert outcome.status is ExitStatus.FAILED
+    assert outcome.termination_reason is TerminationReason.MODEL_ERROR
+    model_error = next(
+        event for event in outcome.events if event.kind is EventKind.MODEL_ERROR
+    )
+    assert model_error.content == {
+        "error_type": "RuntimeError",
+        "message": "Set LIBRA_INTERVIEW_API_KEY before running the planner-executor",
+        "infrastructure_failure": False,
+    }
 
 
 def test_runtime_surfaces_two_provider_retries_then_continues():

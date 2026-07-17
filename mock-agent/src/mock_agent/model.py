@@ -177,9 +177,9 @@ class OpenAIModelClient:
         base_url = os.environ.get("LIBRA_BASE_URL")
         if not base_url:
             raise RuntimeError("Set LIBRA_BASE_URL before running the planner-executor")
-        api_key = os.environ.get("LIBRA_INTERVIEW_API_KEY") or os.environ.get(
-            "OPENAI_API_KEY"
-        )
+        api_key = os.environ.get("LIBRA_INTERVIEW_API_KEY")
         if not api_key:
-            raise RuntimeError("Set LIBRA_INTERVIEW_API_KEY or OPENAI_API_KEY")
+            raise RuntimeError(
+                "Set LIBRA_INTERVIEW_API_KEY before running the planner-executor"
+            )
         return AsyncOpenAI(api_key=api_key, base_url=base_url, max_retries=0)

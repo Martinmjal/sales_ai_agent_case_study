@@ -61,7 +61,8 @@ LIBRA_INTERVIEW_API_KEY=replace-with-your-libra-api-key
 LIBRA_BASE_URL=https://replace-with-your-libra-endpoint.example/api/projects/replace-with-project/openai/v1
 ```
 
-`OPENAI_API_KEY` is accepted as the API-key fallback. Then, from this directory:
+Use the dedicated Libra variable; `OPENAI_API_KEY` is reserved for tools that intentionally call
+the public OpenAI API. Then, from this directory:
 
 ```bash
 uv sync
