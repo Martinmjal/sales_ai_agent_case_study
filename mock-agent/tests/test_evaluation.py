@@ -1,6 +1,8 @@
 import json
+import os
 from pathlib import Path
 
+from mock_agent import evaluation
 from mock_agent.contract import (
     EventKind,
     ExitStatus,
@@ -224,6 +226,43 @@ def test_evaluation_replaces_infrastructure_attempts_and_resumes_missing_runs(
     ]
 
 
+def test_evaluation_command_loads_project_credentials(tmp_path, monkeypatch):
+    project = tmp_path / "mock-agent"
+    project.mkdir()
+    (tmp_path / ".env").write_text(
+        "LIBRA_INTERVIEW_API_KEY=repository-key\n", encoding="utf-8"
+    )
+    (project / ".env").write_text(
+        "LIBRA_BASE_URL=https://libra.example/v1\n", encoding="utf-8"
+    )
+    monkeypatch.delenv("LIBRA_INTERVIEW_API_KEY", raising=False)
+    monkeypatch.delenv("LIBRA_BASE_URL", raising=False)
+    monkeypatch.setattr(evaluation, "PROJECT_ROOT", project, raising=False)
+    monkeypatch.setattr(evaluation, "REPOSITORY_ROOT", tmp_path, raising=False)
+    manifest, config = _inputs(tmp_path)
+
+    class Runtime:
+        async def run(self, request, **_):
+            assert os.environ["LIBRA_INTERVIEW_API_KEY"] == "repository-key"
+            assert os.environ["LIBRA_BASE_URL"] == "https://libra.example/v1"
+            return _outcome("credentials-loaded")
+
+    main(
+        [
+            "run",
+            "--manifest",
+            str(manifest),
+            "--config",
+            str(config),
+            "--repetitions",
+            "1",
+            "--artifacts-dir",
+            str(tmp_path / "artifacts"),
+        ],
+        runtime_factory=Runtime,
+    )
+
+
 def test_report_is_configuration_isolated_statistically_correct_and_byte_stable(
     tmp_path,
 ):
@@ -233,6 +272,7 @@ def test_report_is_configuration_isolated_statistically_correct_and_byte_stable(
     def write_artifact(
         filename,
         *,
+        task_id=TASK_ID,
         identity,
         repetition,
         partial,
@@ -258,7 +298,7 @@ def test_report_is_configuration_isolated_statistically_correct_and_byte_stable(
             "artifact_type": "agent_evaluation_run",
             "schema_version": 1,
             "configuration": configuration,
-            "task_id": TASK_ID,
+            "task_id": task_id,
             "repetition": repetition,
             "run_id": f"{identity}-{repetition}",
             "timing": {"duration_ms": duration},
@@ -333,6 +373,20 @@ def test_report_is_configuration_isolated_statistically_correct_and_byte_stable(
         tool_error=False,
         reason="goal_completed",
     )
+    write_artifact(
+        "second-task.json",
+        task_id="sales.contract_renewal_coordinator",
+        identity="config-a",
+        repetition=1,
+        partial=0.5,
+        strict=0.0,
+        tokens=40,
+        duration=400,
+        turns=4,
+        tool_calls=8,
+        tool_error=False,
+        reason="goal_completed",
+    )
     markdown_path = tmp_path / "report.md"
     json_path = tmp_path / "report.json"
     command = [
@@ -349,9 +403,14 @@ def test_report_is_configuration_isolated_statistically_correct_and_byte_stable(
     first_markdown = markdown_path.read_bytes()
     first_json = json_path.read_bytes()
     report = json.loads(first_json)
-    group = report["groups"][0]
+    group = next(
+        item
+        for item in report["groups"]
+        if item["configuration"]["identity"] == "config-a"
+        and item["task_id"] == TASK_ID
+    )
 
-    assert len(report["groups"]) == 2
+    assert len(report["groups"]) == 3
     assert group["configuration"]["identity"] == "config-a"
     assert group["coverage"] == {"repetitions": [1, 2, 3], "scorable_count": 3}
     assert group["strict_completion"] == {"count": 2, "percentage": 66.667}
@@ -374,6 +433,17 @@ def test_report_is_configuration_isolated_statistically_correct_and_byte_stable(
         "budget_exhausted": 1,
         "goal_completed": 2,
     }
+    panel = report["panels"][0]
+    assert panel["configuration"]["identity"] == "config-a"
+    assert panel["coverage"] == {"scorable_count": 4, "task_count": 2}
+    assert panel["strict_completion"] == {"count": 2, "percentage": 50.0}
+    assert panel["partial_credit"] == {
+        "maximum": 1.0,
+        "mean": 0.5,
+        "minimum": 0.0,
+        "sample_standard_deviation": 0.408,
+    }
+    assert panel["tokens"] == {"maximum": 100, "median": 30.0, "minimum": 10}
     markdown = first_markdown.decode()
     for heading in (
         "## Configuration",
@@ -384,8 +454,27 @@ def test_report_is_configuration_isolated_statistically_correct_and_byte_stable(
         "## Run Artifacts",
     ):
         assert heading in markdown
+    assert "| `config-a` | 2 | 4 | 2/4 (50.000%) |" in markdown
     assert all(name in markdown for name in ("a.json", "m.json", "z.json"))
 
     main(command)
     assert markdown_path.read_bytes() == first_markdown
     assert json_path.read_bytes() == first_json
+
+    filtered_json_path = tmp_path / "filtered-report.json"
+    main(
+        [
+            *command[:-1],
+            str(filtered_json_path),
+            "--task-id",
+            "sales.contract_renewal_coordinator",
+        ]
+    )
+    filtered_report = json.loads(filtered_json_path.read_text())
+    assert [group["task_id"] for group in filtered_report["groups"]] == [
+        "sales.contract_renewal_coordinator"
+    ]
+    assert filtered_report["panels"][0]["coverage"] == {
+        "scorable_count": 1,
+        "task_count": 1,
+    }

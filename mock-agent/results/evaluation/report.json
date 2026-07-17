@@ -1,0 +1,458 @@
+{
+  "groups": [
+    {
+      "artifacts": [
+        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-contract_renewal_coordinator_r001.json",
+        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-contract_renewal_coordinator_r002.json",
+        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-contract_renewal_coordinator_r003.json",
+        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-contract_renewal_coordinator_r004.json",
+        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-contract_renewal_coordinator_r005.json",
+        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-contract_renewal_coordinator_r006.json",
+        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-contract_renewal_coordinator_r007.json",
+        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-contract_renewal_coordinator_r008.json",
+        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-contract_renewal_coordinator_r009.json",
+        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-contract_renewal_coordinator_r010.json"
+      ],
+      "configuration": {
+        "evaluation_protocol_version": "sales-panel/v1",
+        "execution_limits": {
+          "executor_tool_turns_per_attempt": 4,
+          "logical_model_calls": 30,
+          "plan_steps": 6,
+          "provider_retries": 2,
+          "replans": 1,
+          "reserved_outcome_calls_per_saturated_attempt": 1,
+          "step_retries": 1
+        },
+        "harness_version": "planner-executor/0.3.0",
+        "identity": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c",
+        "model": "gpt-5.6-sol",
+        "prompt_version": "planner-executor-prompts/v2"
+      },
+      "coverage": {
+        "repetitions": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10
+        ],
+        "scorable_count": 10
+      },
+      "duration_ms": {
+        "maximum": 380652.741,
+        "median": 293766.82200000004,
+        "minimum": 145932.256
+      },
+      "model_turns": {
+        "maximum": 27,
+        "median": 17.0
+      },
+      "partial_credit": {
+        "maximum": 0.75,
+        "mean": 0.087,
+        "minimum": 0.0,
+        "sample_standard_deviation": 0.236
+      },
+      "runs_containing_tool_errors": 10,
+      "strict_completion": {
+        "count": 0,
+        "percentage": 0.0
+      },
+      "task_id": "sales.contract_renewal_coordinator",
+      "termination_reasons": {
+        "budget_exhausted": 9,
+        "goal_completed": 1
+      },
+      "tokens": {
+        "maximum": 184732,
+        "median": 146748.0,
+        "minimum": 123609
+      },
+      "tool_calls": {
+        "maximum": 84,
+        "median": 61.0
+      }
+    },
+    {
+      "artifacts": [
+        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-cross_platform_account_health_score_r001.json",
+        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-cross_platform_account_health_score_r002.json",
+        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-cross_platform_account_health_score_r003.json",
+        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-cross_platform_account_health_score_r004.json",
+        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-cross_platform_account_health_score_r005.json",
+        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-cross_platform_account_health_score_r006.json",
+        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-cross_platform_account_health_score_r007.json",
+        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-cross_platform_account_health_score_r008.json",
+        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-cross_platform_account_health_score_r009.json",
+        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-cross_platform_account_health_score_r010.json"
+      ],
+      "configuration": {
+        "evaluation_protocol_version": "sales-panel/v1",
+        "execution_limits": {
+          "executor_tool_turns_per_attempt": 4,
+          "logical_model_calls": 30,
+          "plan_steps": 6,
+          "provider_retries": 2,
+          "replans": 1,
+          "reserved_outcome_calls_per_saturated_attempt": 1,
+          "step_retries": 1
+        },
+        "harness_version": "planner-executor/0.3.0",
+        "identity": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c",
+        "model": "gpt-5.6-sol",
+        "prompt_version": "planner-executor-prompts/v2"
+      },
+      "coverage": {
+        "repetitions": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10
+        ],
+        "scorable_count": 10
+      },
+      "duration_ms": {
+        "maximum": 517770.334,
+        "median": 198262.782,
+        "minimum": 117918.766
+      },
+      "model_turns": {
+        "maximum": 29,
+        "median": 13.0
+      },
+      "partial_credit": {
+        "maximum": 0.9,
+        "mean": 0.15,
+        "minimum": 0.0,
+        "sample_standard_deviation": 0.324
+      },
+      "runs_containing_tool_errors": 10,
+      "strict_completion": {
+        "count": 0,
+        "percentage": 0.0
+      },
+      "task_id": "sales.cross_platform_account_health_score",
+      "termination_reasons": {
+        "budget_exhausted": 8,
+        "goal_completed": 2
+      },
+      "tokens": {
+        "maximum": 217058,
+        "median": 104342.5,
+        "minimum": 59637
+      },
+      "tool_calls": {
+        "maximum": 92,
+        "median": 44.5
+      }
+    },
+    {
+      "artifacts": [
+        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-demo_scheduling_r001.json",
+        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-demo_scheduling_r002.json",
+        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-demo_scheduling_r003.json",
+        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-demo_scheduling_r004.json",
+        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-demo_scheduling_r005.json",
+        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-demo_scheduling_r006.json",
+        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-demo_scheduling_r007.json",
+        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-demo_scheduling_r008.json",
+        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-demo_scheduling_r009.json",
+        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-demo_scheduling_r010.json"
+      ],
+      "configuration": {
+        "evaluation_protocol_version": "sales-panel/v1",
+        "execution_limits": {
+          "executor_tool_turns_per_attempt": 4,
+          "logical_model_calls": 30,
+          "plan_steps": 6,
+          "provider_retries": 2,
+          "replans": 1,
+          "reserved_outcome_calls_per_saturated_attempt": 1,
+          "step_retries": 1
+        },
+        "harness_version": "planner-executor/0.3.0",
+        "identity": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c",
+        "model": "gpt-5.6-sol",
+        "prompt_version": "planner-executor-prompts/v2"
+      },
+      "coverage": {
+        "repetitions": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10
+        ],
+        "scorable_count": 10
+      },
+      "duration_ms": {
+        "maximum": 376629.447,
+        "median": 162968.6845,
+        "minimum": 23286.454
+      },
+      "model_turns": {
+        "maximum": 20,
+        "median": 13.0
+      },
+      "partial_credit": {
+        "maximum": 0.0,
+        "mean": 0.0,
+        "minimum": 0.0,
+        "sample_standard_deviation": 0.0
+      },
+      "runs_containing_tool_errors": 8,
+      "strict_completion": {
+        "count": 0,
+        "percentage": 0.0
+      },
+      "task_id": "sales.demo_scheduling",
+      "termination_reasons": {
+        "budget_exhausted": 8,
+        "model_protocol_error": 2
+      },
+      "tokens": {
+        "maximum": 173776,
+        "median": 61572.0,
+        "minimum": 6988
+      },
+      "tool_calls": {
+        "maximum": 50,
+        "median": 23.0
+      }
+    },
+    {
+      "artifacts": [
+        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-event_to_opportunity_pipeline_r001.json",
+        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-event_to_opportunity_pipeline_r002.json",
+        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-event_to_opportunity_pipeline_r003.json",
+        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-event_to_opportunity_pipeline_r004.json",
+        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-event_to_opportunity_pipeline_r005.json",
+        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-event_to_opportunity_pipeline_r006.json",
+        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-event_to_opportunity_pipeline_r007.json",
+        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-event_to_opportunity_pipeline_r008.json",
+        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-event_to_opportunity_pipeline_r009.json",
+        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-event_to_opportunity_pipeline_r010.json"
+      ],
+      "configuration": {
+        "evaluation_protocol_version": "sales-panel/v1",
+        "execution_limits": {
+          "executor_tool_turns_per_attempt": 4,
+          "logical_model_calls": 30,
+          "plan_steps": 6,
+          "provider_retries": 2,
+          "replans": 1,
+          "reserved_outcome_calls_per_saturated_attempt": 1,
+          "step_retries": 1
+        },
+        "harness_version": "planner-executor/0.3.0",
+        "identity": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c",
+        "model": "gpt-5.6-sol",
+        "prompt_version": "planner-executor-prompts/v2"
+      },
+      "coverage": {
+        "repetitions": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10
+        ],
+        "scorable_count": 10
+      },
+      "duration_ms": {
+        "maximum": 518289.606,
+        "median": 226984.39,
+        "minimum": 124396.431
+      },
+      "model_turns": {
+        "maximum": 29,
+        "median": 23.0
+      },
+      "partial_credit": {
+        "maximum": 1.0,
+        "mean": 0.85,
+        "minimum": 0.5,
+        "sample_standard_deviation": 0.143
+      },
+      "runs_containing_tool_errors": 0,
+      "strict_completion": {
+        "count": 1,
+        "percentage": 10.0
+      },
+      "task_id": "sales.event_to_opportunity_pipeline",
+      "termination_reasons": {
+        "budget_exhausted": 1,
+        "goal_completed": 9
+      },
+      "tokens": {
+        "maximum": 152034,
+        "median": 112585.5,
+        "minimum": 85647
+      },
+      "tool_calls": {
+        "maximum": 28,
+        "median": 20.0
+      }
+    },
+    {
+      "artifacts": [
+        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-full_sales_cycle_orchestrator_r001.json",
+        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-full_sales_cycle_orchestrator_r002.json",
+        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-full_sales_cycle_orchestrator_r003.json",
+        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-full_sales_cycle_orchestrator_r004.json",
+        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-full_sales_cycle_orchestrator_r005.json",
+        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-full_sales_cycle_orchestrator_r006.json",
+        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-full_sales_cycle_orchestrator_r007.json",
+        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-full_sales_cycle_orchestrator_r008.json",
+        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-full_sales_cycle_orchestrator_r009.json",
+        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-full_sales_cycle_orchestrator_r010.json"
+      ],
+      "configuration": {
+        "evaluation_protocol_version": "sales-panel/v1",
+        "execution_limits": {
+          "executor_tool_turns_per_attempt": 4,
+          "logical_model_calls": 30,
+          "plan_steps": 6,
+          "provider_retries": 2,
+          "replans": 1,
+          "reserved_outcome_calls_per_saturated_attempt": 1,
+          "step_retries": 1
+        },
+        "harness_version": "planner-executor/0.3.0",
+        "identity": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c",
+        "model": "gpt-5.6-sol",
+        "prompt_version": "planner-executor-prompts/v2"
+      },
+      "coverage": {
+        "repetitions": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10
+        ],
+        "scorable_count": 10
+      },
+      "duration_ms": {
+        "maximum": 376414.777,
+        "median": 263483.1945,
+        "minimum": 122744.545
+      },
+      "model_turns": {
+        "maximum": 30,
+        "median": 19.0
+      },
+      "partial_credit": {
+        "maximum": 1.0,
+        "mean": 0.388,
+        "minimum": 0.0,
+        "sample_standard_deviation": 0.502
+      },
+      "runs_containing_tool_errors": 9,
+      "strict_completion": {
+        "count": 3,
+        "percentage": 30.0
+      },
+      "task_id": "sales.full_sales_cycle_orchestrator",
+      "termination_reasons": {
+        "budget_exhausted": 7,
+        "goal_completed": 3
+      },
+      "tokens": {
+        "maximum": 209884,
+        "median": 156335.0,
+        "minimum": 94486
+      },
+      "tool_calls": {
+        "maximum": 49,
+        "median": 24.0
+      }
+    }
+  ],
+  "panels": [
+    {
+      "configuration": {
+        "evaluation_protocol_version": "sales-panel/v1",
+        "execution_limits": {
+          "executor_tool_turns_per_attempt": 4,
+          "logical_model_calls": 30,
+          "plan_steps": 6,
+          "provider_retries": 2,
+          "replans": 1,
+          "reserved_outcome_calls_per_saturated_attempt": 1,
+          "step_retries": 1
+        },
+        "harness_version": "planner-executor/0.3.0",
+        "identity": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c",
+        "model": "gpt-5.6-sol",
+        "prompt_version": "planner-executor-prompts/v2"
+      },
+      "coverage": {
+        "scorable_count": 50,
+        "task_count": 5
+      },
+      "duration_ms": {
+        "maximum": 518289.606,
+        "median": 251361.595,
+        "minimum": 23286.454
+      },
+      "model_turns": {
+        "maximum": 30,
+        "median": 17.0
+      },
+      "partial_credit": {
+        "maximum": 1.0,
+        "mean": 0.295,
+        "minimum": 0.0,
+        "sample_standard_deviation": 0.418
+      },
+      "runs_containing_tool_errors": 37,
+      "strict_completion": {
+        "count": 4,
+        "percentage": 8.0
+      },
+      "termination_reasons": {
+        "budget_exhausted": 33,
+        "goal_completed": 15,
+        "model_protocol_error": 2
+      },
+      "tokens": {
+        "maximum": 217058,
+        "median": 124028.5,
+        "minimum": 6988
+      },
+      "tool_calls": {
+        "maximum": 92,
+        "median": 27.5
+      }
+    }
+  ],
+  "schema_version": 1
+}

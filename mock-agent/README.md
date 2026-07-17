@@ -65,23 +65,24 @@ scoring. It requires no model API key.
 
 ## Offline evaluation
 
-Copy and freeze the example inputs before a panel run. The manifest contains only canonical task
-IDs; evaluator metadata stays outside the runtime request and model context.
+The final owner-preregistered panel and frozen configuration are checked in as
+`evaluation/manifest.json` and `evaluation/config.json`. Evaluator metadata stays outside the
+runtime request and model context.
 
 ```bash
-cp evaluation/config.example.json evaluation/config.json
-cp evaluation/manifest.example.json evaluation/manifest.json
 uv run mock-agent-eval run \
   --manifest evaluation/manifest.json \
   --config evaluation/config.json \
   --repetitions 10 \
-  --artifacts-dir results/evaluation
+  --artifacts-dir results/evaluation \
+  --sessions-dir ../sessions
 ```
 
 The evaluator runs sequentially with a fresh runtime/world for every attempt. Each agent
 observation is written immediately, agent failures remain scorable, exhausted transient endpoint
 attempts are replaced, and rerunning the same command skips completed configuration/task/repetition
-pairs.
+pairs. Each scorable execution also becomes a complete Agent-UI history artifact; a missing UI
+copy is reconstructed from its evaluation artifact during resumption without another model call.
 
 Generate byte-stable Markdown and JSON reports offline:
 
@@ -89,8 +90,17 @@ Generate byte-stable Markdown and JSON reports offline:
 uv run mock-agent-eval report \
   --artifacts-dir results/evaluation \
   --markdown results/evaluation/report.md \
-  --json results/evaluation/report.json
+  --json results/evaluation/report.json \
+  --task-id sales.contract_renewal_coordinator \
+  --task-id sales.event_to_opportunity_pipeline \
+  --task-id sales.full_sales_cycle_orchestrator \
+  --task-id sales.cross_platform_account_health_score \
+  --task-id sales.demo_scheduling
 ```
 
-The checked-in manifest is a development example, not a claim that its task is held out. Replace
-it with the owner-preregistered Sales panel before the final evaluation.
+Reports include configuration-wide panel statistics and per-task sample sizes, strict completion,
+partial-credit variation, efficiency, termination evidence, and links to every persisted run.
+Repeated `--task-id` options select a reproducible subset without deleting observations. The
+checked-in final report covers the owner-selected first five tasks (50 runs); all 61 completed
+traces remain available, including the later observations excluded from that aggregate. The
+`.example.json` inputs remain available as a one-task development template.
