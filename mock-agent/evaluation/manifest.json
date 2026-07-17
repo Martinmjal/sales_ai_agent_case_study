@@ -1,0 +1,16 @@
+{
+  "panel_id": "sales-heldout-2026-07-17",
+  "preregistered_by": "repository-owner",
+  "tasks": [
+    "sales.contract_renewal_coordinator",
+    "sales.event_to_opportunity_pipeline",
+    "sales.full_sales_cycle_orchestrator",
+    "sales.cross_platform_account_health_score",
+    "sales.demo_scheduling",
+    "sales.chatgpt_proposal_customization",
+    "sales.docusign_contract_send",
+    "sales.sheets_multi_channel_campaign_router",
+    "sales.email_zoom_fuzzy",
+    "sales.overdue_followup_flag"
+  ]
+}
