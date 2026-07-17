@@ -83,15 +83,16 @@ def _inputs(tmp_path: Path):
         json.dumps(
             {
                 "model": "scripted-model",
-                "harness_version": "planner-executor/0.2.0",
-                "prompt_version": "planner-executor-prompts/v1",
+                "harness_version": "planner-executor/0.3.0",
+                "prompt_version": "planner-executor-prompts/v2",
                 "evaluation_protocol_version": "sales-panel/v1",
                 "execution_limits": {
                     "plan_steps": 6,
-                    "executor_turns_per_attempt": 4,
+                    "executor_tool_turns_per_attempt": 4,
+                    "reserved_outcome_calls_per_saturated_attempt": 1,
                     "step_retries": 1,
                     "replans": 1,
-                    "logical_model_calls": 24,
+                    "logical_model_calls": 30,
                     "provider_retries": 2,
                 },
             }

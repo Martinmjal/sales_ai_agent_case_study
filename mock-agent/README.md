@@ -34,11 +34,24 @@ usage, final response, termination reason, and final simulated world.
 
 ## Runtime behavior
 
-Plans contain at most six steps. Each step attempt receives four executor turns, one rejected
-step may be retried, one plan may be replaced, and a run receives at most 24 logical model calls.
-Accepted transcripts become structured evidence; failed attempts retain structured side-effect
-records. Provider retries, protocol correction, tool errors, cancellation, budget exhaustion,
-and completion are emitted as correlated events and return scorable outcomes.
+The planner receives only the task prompt and declared public tools. It creates the smallest
+cohesive plan (at most six steps), and every evidence requirement must name declared source tools.
+The stateless reviewer receives the full current plan, completed evidence, and the current outcome
+so discoveries can invalidate pending work without discarding completed evidence or side effects.
+
+Each step attempt has four tool-capable executor turns. If those turns are saturated without a
+valid outcome, one reserved finalization call runs with tools disabled and must report completed
+actions, exact sourced evidence, unresolved requirements, and errors. The reserved call is skipped
+when an earlier turn returns a valid outcome. One rejected step may be retried, one plan may be
+replaced, and all planner, executor, reserved-finalization, reviewer, and correction calls share a
+30 logical-model-call limit. Provider retries are separately limited to two.
+
+The frozen limits are recorded in the first trace event and in evaluation configuration. Tool
+payloads that report `success: false` or a non-null top-level `error` become correlated
+`TOOL_ERROR` events while retaining the raw payload. Accepted transcripts become structured
+evidence; failed writes and reads remain distinguishable from successful side effects. Provider
+retries, protocol correction, cancellation, budget exhaustion, and completion are also emitted as
+correlated events and return scorable outcomes.
 
 ## Verify
 

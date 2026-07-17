@@ -63,6 +63,10 @@ class RequiredValue(BaseModel):
     value: int
 
 
+def plan_evidence(requirement, *source_tools):
+    return [{"requirement": requirement, "source_tools": list(source_tools)}]
+
+
 def test_runtime_completes_a_blind_planned_task_with_real_tools_and_scoring():
     model = ScriptedModel(
         [
@@ -73,14 +77,21 @@ def test_runtime_completes_a_blind_planned_task_with_real_tools_and_scoring():
                         {
                             "id": "inspect",
                             "objective": "Inspect the policy and conflicting meetings.",
-                            "required_evidence": ["Policy, Zoom, and calendar records"],
+                            "required_evidence": plan_evidence(
+                                "Policy, Zoom, and calendar records",
+                                "google_sheets_get_many_rows",
+                                "zoom_list_meetings",
+                                "google_calendar_find_event",
+                            ),
                         },
                         {
                             "id": "resolve",
                             "objective": "Reschedule the lower-priority meeting and notify operations.",
-                            "required_evidence": [
-                                "Updated Zoom record and Slack message"
-                            ],
+                            "required_evidence": plan_evidence(
+                                "Updated Zoom record and Slack message",
+                                "zoom_update_meeting",
+                                "slack_send_channel_message",
+                            ),
                         },
                     ],
                 }
@@ -194,6 +205,17 @@ def test_runtime_completes_a_blind_planned_task_with_real_tools_and_scoring():
     assert outcome.final_response == "Conflict resolved and operations notified."
     assert outcome.score["partial_credit"] == 1.0
     assert outcome.score["task_completed_correctly"] == 1.0
+    assert outcome.events[0].content == {
+        "execution_limits": {
+            "plan_steps": 6,
+            "executor_tool_turns_per_attempt": 4,
+            "reserved_outcome_calls_per_saturated_attempt": 1,
+            "step_retries": 1,
+            "replans": 1,
+            "logical_model_calls": 30,
+            "provider_retries": 2,
+        }
+    }
     assert observed == list(outcome.events)
     assert [event.sequence for event in outcome.events] == list(
         range(1, len(outcome.events) + 1)
@@ -247,7 +269,9 @@ def test_runtime_returns_structured_argument_errors_to_the_executor():
                         {
                             "id": "inspect",
                             "objective": "Find the meeting.",
-                            "required_evidence": ["A meeting lookup result"],
+                            "required_evidence": plan_evidence(
+                                "A meeting lookup result", "zoom_list_meetings"
+                            ),
                         }
                     ],
                 }
@@ -293,7 +317,7 @@ def test_runtime_returns_structured_argument_errors_to_the_executor():
     assert retry_context[0]["error"]["details"][0]["location"] == ["type"]
 
 
-def test_runtime_returns_tool_exceptions_for_model_driven_recovery():
+def test_runtime_normalizes_tool_failures_for_model_driven_recovery():
     model = ScriptedModel(
         [
             ModelReply(
@@ -303,13 +327,28 @@ def test_runtime_returns_tool_exceptions_for_model_driven_recovery():
                         {
                             "id": "reschedule",
                             "objective": "Reschedule the conflicting meeting.",
-                            "required_evidence": ["Updated Zoom record"],
+                            "required_evidence": plan_evidence(
+                                "Updated Zoom record", "zoom_update_meeting"
+                            ),
                         }
                     ],
                 }
             ),
             ModelReply(
                 tool_calls=(
+                    ToolCall(
+                        id="failed-write",
+                        name="zoom_update_meeting",
+                        arguments={
+                            "meeting_id": 9999999999,
+                            "topic": "Must not be created",
+                        },
+                    ),
+                    ToolCall(
+                        id="failed-read",
+                        name="google_sheets_get_spreadsheet_by_id",
+                        arguments={"spreadsheet_id": "missing"},
+                    ),
                     ToolCall(
                         id="bad-date",
                         name="zoom_update_meeting",
@@ -364,19 +403,30 @@ def test_runtime_returns_tool_exceptions_for_model_driven_recovery():
     )
 
     assert outcome.status is ExitStatus.COMPLETED
-    error_event = next(
+    error_events = [
         event for event in outcome.events if event.kind is EventKind.TOOL_ERROR
-    )
-    assert error_event.correlation_id == "bad-date"
-    assert error_event.error["type"] == "tool_exception"
+    ]
+    assert [(event.correlation_id, event.error["type"]) for event in error_events] == [
+        ("failed-write", "tool_reported_error"),
+        ("failed-read", "tool_reported_error"),
+        ("bad-date", "tool_exception"),
+    ]
+    assert error_events[0].result["success"] is False
+    assert error_events[1].result == {
+        "error": "Spreadsheet with id 'missing' not found"
+    }
     recovery_context = model.requests[2].input[-1]["content"]["local_transcript"]
-    assert recovery_context[0]["tool_call_id"] == "bad-date"
-    assert recovery_context[0]["error"]["type"] == "tool_exception"
+    assert [item["error"]["type"] for item in recovery_context] == [
+        "tool_reported_error",
+        "tool_reported_error",
+        "tool_exception",
+    ]
+    assert [item["side_effect"] for item in recovery_context] == [True, False, True]
     assert [
         event.correlation_id
         for event in outcome.events
         if event.kind is EventKind.TOOL_CALL
-    ] == ["bad-date", "corrected-update"]
+    ] == ["failed-write", "failed-read", "bad-date", "corrected-update"]
 
 
 def test_runtime_uses_the_direct_responses_api_without_exposing_private_fields():
@@ -388,7 +438,9 @@ def test_runtime_uses_the_direct_responses_api_without_exposing_private_fields()
                     {
                         "id": "inspect",
                         "objective": "Inspect the available evidence.",
-                        "required_evidence": ["A grounded result"],
+                        "required_evidence": plan_evidence(
+                            "A grounded result", "zoom_list_meetings"
+                        ),
                     }
                 ],
             },
@@ -420,6 +472,8 @@ def test_runtime_uses_the_direct_responses_api_without_exposing_private_fields()
     assert outcome.usage["total_tokens"] == 9
     assert len(responses.calls) == 3
     assert all(call["store"] is False for call in responses.calls)
+    planner_call = responses.calls[0]
+    assert planner_call["tools"]
     executor_call = responses.calls[1]
     assert executor_call["model"] == "gpt-5.6-sol"
     assert executor_call["tools"]
@@ -442,7 +496,9 @@ def test_runtime_corrects_a_direct_responses_schema_parse_failure():
                     {
                         "id": "inspect",
                         "objective": "Inspect the task.",
-                        "required_evidence": ["A grounded result"],
+                        "required_evidence": plan_evidence(
+                            "A grounded result", "zoom_list_meetings"
+                        ),
                     }
                 ],
             },
@@ -491,7 +547,9 @@ def test_runtime_retries_a_rejected_step_with_prior_context_without_replaying_ac
                         {
                             "id": "resolve",
                             "objective": "Reschedule the lower-priority Zoom meeting.",
-                            "required_evidence": ["The updated meeting record"],
+                            "required_evidence": plan_evidence(
+                                "The updated meeting record", "zoom_update_meeting"
+                            ),
                         }
                     ],
                 }
@@ -581,12 +639,16 @@ def test_runtime_replans_once_with_completed_evidence_and_the_failed_step_record
                         {
                             "id": "reschedule",
                             "objective": "Reschedule the lower-priority meeting.",
-                            "required_evidence": ["Updated Zoom record"],
+                            "required_evidence": plan_evidence(
+                                "Updated Zoom record", "zoom_update_meeting"
+                            ),
                         },
                         {
                             "id": "notify-v1",
                             "objective": "Notify operations.",
-                            "required_evidence": ["Slack confirmation"],
+                            "required_evidence": plan_evidence(
+                                "Slack confirmation", "slack_send_channel_message"
+                            ),
                         },
                     ],
                 }
@@ -655,12 +717,16 @@ def test_runtime_replans_once_with_completed_evidence_and_the_failed_step_record
                         {
                             "id": "notify-v2",
                             "objective": "Send the grounded operations notification.",
-                            "required_evidence": ["Slack confirmation"],
+                            "required_evidence": plan_evidence(
+                                "Slack confirmation", "slack_send_channel_message"
+                            ),
                         },
                         {
                             "id": "finish",
                             "objective": "Confirm the preserved resolution evidence.",
-                            "required_evidence": ["Accepted resolution evidence"],
+                            "required_evidence": plan_evidence(
+                                "Accepted resolution evidence", "zoom_list_meetings"
+                            ),
                         },
                     ],
                 }
@@ -724,21 +790,25 @@ def test_runtime_replans_once_with_completed_evidence_and_the_failed_step_record
     planner_requests = [
         request for request in model.requests if request.role == "planner"
     ]
+    assert all(request.tools for request in planner_requests)
+    replan_review = next(
+        request
+        for request in model.requests
+        if request.role == "reviewer"
+        and request.input[-1]["content"]["step"]["id"] == "notify-v1"
+    )
+    assert [
+        step["id"]
+        for step in replan_review.input[-1]["content"]["current_plan"]["steps"]
+    ] == ["reschedule", "notify-v1"]
     replan_context = planner_requests[1].input[-1]["content"]
-    assert replan_context["completed_steps"] == [
-        {
-            "step_id": "reschedule",
-            "summary": "The Zoom meeting was rescheduled.",
-            "evidence": [
-                {
-                    "fact": "Meeting 1234567890 has the rescheduled topic.",
-                    "source_call_id": "update",
-                }
-            ],
-            "actions": ["Updated Zoom meeting"],
-            "errors": [],
-        }
-    ]
+    completed_step = replan_context["completed_steps"][0]
+    assert completed_step["step_id"] == "reschedule"
+    assert completed_step["evidence"][0]["source_call_id"] == "update"
+    completed_side_effect = completed_step["side_effects"][0]
+    assert completed_side_effect["tool_call_id"] == "update"
+    assert completed_side_effect["name"] == "zoom_update_meeting"
+    assert completed_side_effect["result"]["success"] is True
     failed_step = replan_context["failed_step"]
     assert failed_step["step"]["id"] == "notify-v1"
     assert failed_step["useful_facts"] == [
@@ -778,7 +848,7 @@ def test_runtime_replans_once_with_completed_evidence_and_the_failed_step_record
     assert replan_event.sequence < plan_events[1].sequence
 
 
-def test_runtime_returns_a_scorable_budget_exhausted_outcome_at_the_turn_limit():
+def test_runtime_finalizes_a_saturated_step_without_tools_then_reaches_review():
     replies = [
         ModelReply(
             content={
@@ -787,7 +857,9 @@ def test_runtime_returns_a_scorable_budget_exhausted_outcome_at_the_turn_limit()
                     {
                         "id": "inspect",
                         "objective": "Inspect the meeting.",
-                        "required_evidence": ["A grounded record"],
+                        "required_evidence": plan_evidence(
+                            "A grounded record", "zoom_list_meetings"
+                        ),
                     }
                 ],
             }
@@ -797,17 +869,42 @@ def test_runtime_returns_a_scorable_budget_exhausted_outcome_at_the_turn_limit()
         ModelReply(
             tool_calls=(
                 ToolCall(
-                    id=f"unknown-{turn}",
-                    name="not_a_declared_tool",
+                    id=f"meeting-{turn}",
+                    name="zoom_list_meetings",
                     arguments={},
                 ),
             )
         )
         for turn in range(4)
     )
+    replies.extend(
+        [
+            ModelReply(
+                content={
+                    "summary": "The meeting was inspected.",
+                    "evidence": [
+                        {
+                            "fact": "The meeting record was returned.",
+                            "source_call_id": "meeting-3",
+                        }
+                    ],
+                    "actions": [],
+                    "unresolved_requirements": [],
+                    "errors": [],
+                }
+            ),
+            ModelReply(
+                content={
+                    "decision": "goal_completed",
+                    "final_response": "Inspection completed.",
+                }
+            ),
+        ]
+    )
+    model = ScriptedModel(replies)
 
     outcome = asyncio.run(
-        PlannerExecutorRuntime(model_client=ScriptedModel(replies)).run(
+        PlannerExecutorRuntime(model_client=model).run(
             RuntimeRequest(
                 task_id="sales.zoom_calendar_conflict",
                 model_name="scripted-test",
@@ -815,22 +912,20 @@ def test_runtime_returns_a_scorable_budget_exhausted_outcome_at_the_turn_limit()
         )
     )
 
-    assert outcome.status is ExitStatus.STOPPED
-    assert outcome.termination_reason is TerminationReason.BUDGET_EXHAUSTED
-    assert outcome.score is not None
-    assert [
-        event.error["type"]
-        for event in outcome.events
-        if event.kind is EventKind.TOOL_ERROR
-    ] == ["unknown_tool"] * 4
-    assert [event.kind for event in outcome.events[-2:]] == [
-        EventKind.BUDGET_EXHAUSTED,
-        EventKind.COMPLETION,
+    assert outcome.status is ExitStatus.COMPLETED
+    assert outcome.final_response == "Inspection completed."
+    executor_requests = [request for request in model.requests if request.role == "executor"]
+    assert [request.input[-1]["content"]["tool_turns_used"] for request in executor_requests] == [
+        0,
+        1,
+        2,
+        3,
+        4,
     ]
-    assert outcome.events[-2].content == {
-        "budget": "executor_turns_per_attempt",
-        "limit": 4,
-    }
+    assert [request.input[-1]["content"]["tool_turns_remaining"] for request in executor_requests] == [4, 3, 2, 1, 0]
+    assert all(request.input[-1]["content"]["reserved_outcome_policy"] for request in executor_requests)
+    assert executor_requests[-1].tools == ()
+    assert any(event.kind is EventKind.REVIEW for event in outcome.events)
 
 
 def test_runtime_corrects_an_invalid_plan_once_then_reports_model_protocol_error():
@@ -838,14 +933,29 @@ def test_runtime_corrects_an_invalid_plan_once_then_reports_model_protocol_error
         {
             "id": f"step-{index}",
             "objective": f"Objective {index}",
-            "required_evidence": [f"Evidence {index}"],
+            "required_evidence": plan_evidence(
+                f"Evidence {index}", "zoom_list_meetings"
+            ),
         }
         for index in range(7)
     ]
     model = ScriptedModel(
         [
+            ModelReply(
+                content={
+                    "goal": "Use an undeclared source.",
+                    "steps": [
+                        {
+                            "id": "inspect",
+                            "objective": "Inspect the task.",
+                            "required_evidence": plan_evidence(
+                                "Grounded evidence", "not_a_declared_tool"
+                            ),
+                        }
+                    ],
+                }
+            ),
             ModelReply(content={"goal": "Too many steps", "steps": seven_steps}),
-            ModelReply(content={"goal": "No steps", "steps": []}),
         ]
     )
 
@@ -865,7 +975,7 @@ def test_runtime_corrects_an_invalid_plan_once_then_reports_model_protocol_error
     correction = model.requests[1].input[-1]["content"]["protocol_correction"]
     assert correction["role"] == "planner"
     assert correction["attempt"] == 2
-    assert correction["errors"]
+    assert correction["errors"][0]["type"] == "undeclared_evidence_source"
     assert [event.kind for event in outcome.events] == [
         EventKind.PLANNING,
         EventKind.PROTOCOL_CORRECTION,
@@ -884,7 +994,9 @@ def test_runtime_corrects_an_invalid_review_once_then_reports_model_protocol_err
                         {
                             "id": "inspect",
                             "objective": "Inspect the task.",
-                            "required_evidence": ["A grounded result"],
+                            "required_evidence": plan_evidence(
+                                "A grounded result", "zoom_list_meetings"
+                            ),
                         }
                     ],
                 }
@@ -938,7 +1050,9 @@ def test_runtime_surfaces_two_provider_retries_then_continues():
                     {
                         "id": "inspect",
                         "objective": "Inspect the available evidence.",
-                        "required_evidence": ["A grounded result"],
+                        "required_evidence": plan_evidence(
+                            "A grounded result", "zoom_list_meetings"
+                        ),
                     }
                 ],
             },
@@ -1038,7 +1152,9 @@ def test_runtime_cancels_after_completing_the_active_tool_batch():
                         {
                             "id": "inspect",
                             "objective": "Inspect policy and meetings.",
-                            "required_evidence": ["Policy and meeting records"],
+                            "required_evidence": plan_evidence(
+                                "Policy and meeting records", "zoom_list_meetings"
+                            ),
                         }
                     ],
                 }
@@ -1106,12 +1222,16 @@ def test_runtime_exhausts_the_single_step_retry_budget():
                         {
                             "id": "inspect-first",
                             "objective": "Inspect the first source.",
-                            "required_evidence": ["Grounded evidence"],
+                            "required_evidence": plan_evidence(
+                                "Grounded evidence", "zoom_list_meetings"
+                            ),
                         },
                         {
                             "id": "inspect-second",
                             "objective": "Inspect the second source.",
-                            "required_evidence": ["Grounded evidence"],
+                            "required_evidence": plan_evidence(
+                                "Grounded evidence", "zoom_list_meetings"
+                            ),
                         },
                     ],
                 }
@@ -1151,7 +1271,9 @@ def test_runtime_exhausts_the_single_replan_budget():
                 {
                     "id": step_id,
                     "objective": "Resolve the conflict.",
-                    "required_evidence": ["Grounded evidence"],
+                    "required_evidence": plan_evidence(
+                        "Grounded evidence", "zoom_list_meetings"
+                    ),
                 }
             ],
         }
@@ -1191,7 +1313,7 @@ def test_runtime_exhausts_the_single_replan_budget():
     assert budget_event.content == {"budget": "replans", "limit": 1}
 
 
-def test_runtime_stops_before_the_twenty_fifth_logical_model_call():
+def test_runtime_stops_before_the_thirty_first_logical_model_call():
     def six_step_plan(prefix):
         return {
             "goal": "Inspect all required evidence.",
@@ -1199,7 +1321,9 @@ def test_runtime_stops_before_the_twenty_fifth_logical_model_call():
                 {
                     "id": f"{prefix}-{index}",
                     "objective": f"Inspect item {index}.",
-                    "required_evidence": [f"Evidence {index}"],
+                    "required_evidence": plan_evidence(
+                        f"Evidence {index}", "zoom_list_meetings"
+                    ),
                 }
                 for index in range(6)
             ],
@@ -1228,6 +1352,24 @@ def test_runtime_stops_before_the_twenty_fifth_logical_model_call():
                 ModelReply(content={"decision": "step_completed"}),
             ]
         )
+    replies.extend(
+        ModelReply(
+            tool_calls=(
+                ToolCall(
+                    id=f"saturated-{turn}",
+                    name="zoom_list_meetings",
+                    arguments={},
+                ),
+            )
+        )
+        for turn in range(4)
+    )
+    replies.extend(
+        [
+            ModelReply(content={**outcome_record, "unresolved_requirements": []}),
+            ModelReply(content={"decision": "retry_step", "feedback": "Retry."}),
+        ]
+    )
     model = ScriptedModel(replies)
 
     outcome = asyncio.run(
@@ -1241,8 +1383,8 @@ def test_runtime_stops_before_the_twenty_fifth_logical_model_call():
 
     assert outcome.status is ExitStatus.STOPPED
     assert outcome.termination_reason is TerminationReason.BUDGET_EXHAUSTED
-    assert len(model.requests) == 24
+    assert len(model.requests) == 30
     budget_event = next(
         event for event in outcome.events if event.kind is EventKind.BUDGET_EXHAUSTED
     )
-    assert budget_event.content == {"budget": "logical_model_calls", "limit": 24}
+    assert budget_event.content == {"budget": "logical_model_calls", "limit": 30}

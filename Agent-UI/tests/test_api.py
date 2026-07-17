@@ -42,7 +42,12 @@ def scripted_runtime():
                             {
                                 "id": "inspect",
                                 "objective": "Inspect the task.",
-                                "required_evidence": ["A grounded result"],
+                                "required_evidence": [
+                                    {
+                                        "requirement": "A grounded result",
+                                        "source_tools": ["zoom_list_meetings"],
+                                    }
+                                ],
                             }
                         ],
                     },

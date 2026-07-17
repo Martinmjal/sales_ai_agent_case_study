@@ -306,7 +306,11 @@ function reducePlanEvents(events) {
         steps: (content.steps || []).map((step) => ({
           id: step.id,
           objective: step.objective,
-          requiredEvidence: Array.isArray(step.required_evidence) ? step.required_evidence : [],
+          requiredEvidence: Array.isArray(step.required_evidence)
+            ? step.required_evidence.map((item) =>
+                typeof item === "string" ? item : item.requirement,
+              )
+            : [],
           state: "pending",
         })),
       });

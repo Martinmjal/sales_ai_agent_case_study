@@ -17,7 +17,7 @@ from uuid import uuid4
 from mock_agent.catalog import TaskCatalog
 from mock_agent.contract import AgentRuntime, EventKind, RuntimeOutcome, RuntimeRequest
 from mock_agent.model import OpenAIModelClient
-from mock_agent.planner_executor import PlannerExecutorRuntime
+from mock_agent.planner_executor import EXECUTION_LIMITS, PlannerExecutorRuntime
 
 
 RuntimeFactory = Callable[[], AgentRuntime]
@@ -62,6 +62,8 @@ def _load_inputs(manifest_path: Path, config_path: Path) -> tuple[list[str], dic
     missing = [field for field in CONFIGURATION_FIELDS if field not in config]
     if missing:
         raise ValueError(f"Configuration is missing: {', '.join(missing)}")
+    if config["execution_limits"] != EXECUTION_LIMITS:
+        raise ValueError(f"Execution limits must equal the frozen limits: {EXECUTION_LIMITS}")
     canonical = json.dumps(config, sort_keys=True, separators=(",", ":"))
     return tasks, {**config, "identity": sha256(canonical.encode()).hexdigest()}
 

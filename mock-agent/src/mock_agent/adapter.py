@@ -8,7 +8,7 @@ from typing import Any, get_type_hints
 
 from automationbench.rubric import partial_credit, task_completed_correctly
 from automationbench.schema.world import WorldState
-from automationbench.tools import ALL_TOOLS
+from automationbench.tools import ALL_TOOLS, TOOL_METADATA
 from pydantic import BaseModel, ValidationError, create_model
 
 from mock_agent.catalog import PromptMessage, TaskCatalog, TaskDefinition
@@ -19,6 +19,7 @@ class ToolSpec:
     name: str
     description: str
     input_schema: dict[str, Any]
+    side_effect: bool = False
 
 
 @dataclass(frozen=True)
@@ -68,6 +69,23 @@ class ToolDispatcher:
                     result = json.loads(result)
                 except json.JSONDecodeError:
                     pass
+            if isinstance(result, dict) and (
+                result.get("success") is False
+                or ("error" in result and result["error"] is not None)
+            ):
+                reported_error = result.get("error")
+                return ToolResult(
+                    value=result,
+                    error={
+                        "type": "tool_reported_error",
+                        "message": (
+                            str(reported_error)
+                            if reported_error is not None
+                            else "Tool returned success=false."
+                        ),
+                        "reported_error": reported_error,
+                    },
+                )
             return ToolResult(value=result)
         except Exception as error:
             return ToolResult(
@@ -118,6 +136,7 @@ class AutomationBenchAdapter:
                 name=name,
                 description=functions[name].__doc__ or name,
                 input_schema=validators[name].model_json_schema(),
+                side_effect=TOOL_METADATA.get(functions[name], {}).get("type") == "write",
             )
             for name in definition.summary.tools
         )

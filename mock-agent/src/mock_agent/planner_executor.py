@@ -23,9 +23,19 @@ from mock_agent.contract import (
 from mock_agent.model import ModelClient, ModelReply, ModelRequest, ProviderFailure
 
 
-PLANNER_PROMPT = """planner/v1
-Create a linear plan of at most six steps. Each step needs a stable ID, one objective,
-and explicit observable completion evidence. Use only the supplied task and tools.
+EXECUTION_LIMITS = {
+    "plan_steps": 6,
+    "executor_tool_turns_per_attempt": 4,
+    "reserved_outcome_calls_per_saturated_attempt": 1,
+    "step_retries": 1,
+    "replans": 1,
+    "logical_model_calls": 30,
+    "provider_retries": 2,
+}
+PLANNER_PROMPT = """planner/v2
+Create the smallest cohesive linear plan, with at most six steps. Each step needs a stable ID,
+one objective, and explicit observable completion evidence. Every evidence requirement must name
+one or more supplied source tools capable of producing it. Use only the supplied task and tools.
 """
 REPLAN_PROMPT = (
     PLANNER_PROMPT
@@ -34,15 +44,27 @@ Treat completed steps as immutable and return only remaining work. Never repeat 
 as side_effects_must_not_repeat in the failed-step record.
 """
 )
-EXECUTOR_PROMPT = """executor/v1
+EXECUTOR_PROMPT = """executor/v2
 Execute only the current step. Use declared tools for evidence or actions. You may call
 multiple tools in one turn. When done, return exact evidence with source call IDs.
 On retry, keep the local transcript intact, apply planner feedback, and do not repeat a
 successful side effect merely because the step was rejected.
 """
-REVIEWER_PROMPT = """reviewer/v1
+EXECUTOR_FINALIZATION_PROMPT = """executor-finalization/v1
+Return the StepOutcome for the current step using only the supplied transcript. Tools are
+disabled. Report completed actions, exact evidence with source call IDs, unresolved
+requirements, and errors. Do not request another tool.
+"""
+RESERVED_OUTCOME_POLICY = {
+    "trigger": "after_four_tool_capable_turns_without_a_valid_outcome",
+    "tools_enabled": False,
+    "purpose": "return_step_outcome_from_the_existing_transcript",
+}
+REVIEWER_PROMPT = """reviewer/v2
 Review the step outcome against its required evidence. Decide step_completed,
-retry_step, replan, or goal_completed. Only goal_completed may return the final response.
+retry_step, replan, or goal_completed. Compare newly accepted evidence with the full current plan
+and choose replan when it makes pending work incomplete or invalid. Only goal_completed may return
+the final response.
 """
 
 
@@ -74,15 +96,22 @@ class RunCancelled(RuntimeError):
         super().__init__(f"Cancelled at {boundary}")
 
 
+class PlanEvidence(BaseModel):
+    requirement: str
+    source_tools: list[str] = Field(min_length=1)
+
+
 class PlanStep(BaseModel):
     id: str
     objective: str
-    required_evidence: list[str] = Field(min_length=1)
+    required_evidence: list[PlanEvidence] = Field(min_length=1)
 
 
 class Plan(BaseModel):
     goal: str
-    steps: list[PlanStep] = Field(min_length=1, max_length=6)
+    steps: list[PlanStep] = Field(
+        min_length=1, max_length=EXECUTION_LIMITS["plan_steps"]
+    )
 
     @model_validator(mode="after")
     def unique_step_ids(self):
@@ -100,7 +129,12 @@ class StepOutcome(BaseModel):
     summary: str
     evidence: list[Evidence]
     actions: list[str]
+    unresolved_requirements: list[str] = Field(default_factory=list)
     errors: list[str]
+
+
+class FinalStepOutcome(StepOutcome):
+    unresolved_requirements: list[str]
 
 
 class Review(BaseModel):
@@ -160,8 +194,10 @@ class PlannerExecutorRuntime:
             nonlocal logical_model_calls
             if cancellation.is_cancelled:
                 raise RunCancelled("model_boundary")
-            if logical_model_calls == 24:
-                raise BudgetExhausted("logical_model_calls", 24)
+            if logical_model_calls >= EXECUTION_LIMITS["logical_model_calls"]:
+                raise BudgetExhausted(
+                    "logical_model_calls", EXECUTION_LIMITS["logical_model_calls"]
+                )
             logical_model_calls += 1
             started = monotonic()
             try:
@@ -196,56 +232,103 @@ class PlannerExecutorRuntime:
             model_request: ModelRequest,
             response_model: type[BaseModel],
             parent_id: str,
+            semantic_validator=None,
         ) -> tuple[BaseModel, ModelReply, float]:
             current_request = model_request
             for attempt in (1, 2):
                 reply, duration = await ask(current_request)
                 try:
-                    return response_model.model_validate(reply.content), reply, duration
+                    parsed = response_model.model_validate(reply.content)
                 except ValidationError as error:
                     errors = error.errors(include_url=False, include_input=False)
-                    if attempt == 2:
-                        raise ModelProtocolError(model_request.role, errors) from error
-                    correction = {
-                        "role": model_request.role,
-                        "attempt": 2,
-                        "invalid_output": reply.content,
-                        "errors": errors,
-                    }
-                    correction_id = str(uuid4())
-                    await emit(
-                        EventKind.PROTOCOL_CORRECTION,
-                        correction_id,
-                        parent_id=parent_id,
-                        content=correction,
-                    )
-                    current_request = replace(
-                        current_request,
-                        input=current_request.input
-                        + (
-                            {
-                                "role": "user",
-                                "content": {"protocol_correction": correction},
-                            },
-                        ),
-                    )
+                else:
+                    errors = semantic_validator(parsed) if semantic_validator else []
+                    if not errors:
+                        return parsed, reply, duration
+                if attempt == 2:
+                    raise ModelProtocolError(model_request.role, errors)
+                correction = {
+                    "role": model_request.role,
+                    "attempt": 2,
+                    "invalid_output": reply.content,
+                    "errors": errors,
+                }
+                correction_id = str(uuid4())
+                await emit(
+                    EventKind.PROTOCOL_CORRECTION,
+                    correction_id,
+                    parent_id=parent_id,
+                    content=correction,
+                )
+                current_request = replace(
+                    current_request,
+                    input=current_request.input
+                    + (
+                        {
+                            "role": "user",
+                            "content": {"protocol_correction": correction},
+                        },
+                    ),
+                )
             raise AssertionError("unreachable")
+
+        declared_tool_names = {tool.name for tool in task.tools}
+        tool_side_effects = {tool.name: tool.side_effect for tool in task.tools}
+
+        def validate_plan_sources(value: Plan) -> list[dict[str, Any]]:
+            errors = []
+            for step_index, step in enumerate(value.steps):
+                for evidence_index, evidence in enumerate(step.required_evidence):
+                    undeclared = sorted(set(evidence.source_tools) - declared_tool_names)
+                    if undeclared:
+                        errors.append(
+                            {
+                                "type": "undeclared_evidence_source",
+                                "location": [
+                                    "steps",
+                                    step_index,
+                                    "required_evidence",
+                                    evidence_index,
+                                    "source_tools",
+                                ],
+                                "message": f"Undeclared source tools: {undeclared}",
+                            }
+                        )
+            return errors
+
+        def successful_side_effects(transcript):
+            return [
+                {
+                    "tool_call_id": item["tool_call_id"],
+                    "name": item["name"],
+                    "arguments": item["arguments"],
+                    "result": item["result"],
+                }
+                for item in transcript
+                if item["error"] is None and item["side_effect"]
+            ]
 
         prompt = tuple(
             {"role": item.role, "content": item.content} for item in task.prompt
         )
         try:
-            await emit(EventKind.PLANNING, run_id)
+            await emit(
+                EventKind.PLANNING,
+                run_id,
+                content={"execution_limits": dict(EXECUTION_LIMITS)},
+            )
             plan, reply, duration = await ask_validated(
                 ModelRequest(
                     role="planner",
                     model_name=request.model_name,
                     instructions=PLANNER_PROMPT,
                     input=prompt,
+                    tools=task.tools,
                     response_model=Plan,
                 ),
                 Plan,
                 run_id,
+                validate_plan_sources,
             )
             plan_id = str(uuid4())
             await emit(
@@ -279,7 +362,9 @@ class PlannerExecutorRuntime:
                 replanned = False
                 while True:
                     outcome = None
-                    for _ in range(4):
+                    for tool_turn in range(
+                        EXECUTION_LIMITS["executor_tool_turns_per_attempt"]
+                    ):
                         executor_input = prompt + (
                             {
                                 "role": "user",
@@ -287,9 +372,15 @@ class PlannerExecutorRuntime:
                                     "goal": plan.goal,
                                     "current_step": step.model_dump(),
                                     "accepted_evidence": list(accepted),
-                                    "local_transcript": transcript,
+                                    "local_transcript": list(transcript),
                                     "previous_outcome": previous_outcome,
                                     "review_feedback": review_feedback,
+                                    "tool_turns_used": tool_turn,
+                                    "tool_turns_remaining": EXECUTION_LIMITS[
+                                        "executor_tool_turns_per_attempt"
+                                    ]
+                                    - tool_turn,
+                                    "reserved_outcome_policy": RESERVED_OUTCOME_POLICY,
                                 },
                             },
                         )
@@ -341,6 +432,7 @@ class PlannerExecutorRuntime:
                                     "arguments": call.arguments,
                                     "result": result.value,
                                     "error": result.error,
+                                    "side_effect": tool_side_effects.get(call.name, False),
                                 }
                             )
                             await emit(
@@ -356,7 +448,61 @@ class PlannerExecutorRuntime:
                         if cancellation.is_cancelled:
                             raise RunCancelled("tool_batch_boundary")
                     if outcome is None:
-                        raise BudgetExhausted("executor_turns_per_attempt", 4)
+                        finalization_input = prompt + (
+                            {
+                                "role": "user",
+                                "content": {
+                                    "goal": plan.goal,
+                                    "current_step": step.model_dump(),
+                                    "accepted_evidence": list(accepted),
+                                    "local_transcript": list(transcript),
+                                    "previous_outcome": previous_outcome,
+                                    "review_feedback": review_feedback,
+                                    "tool_turns_used": EXECUTION_LIMITS[
+                                        "executor_tool_turns_per_attempt"
+                                    ],
+                                    "tool_turns_remaining": 0,
+                                    "reserved_outcome_policy": RESERVED_OUTCOME_POLICY,
+                                    "finalize_without_tools": True,
+                                },
+                            },
+                        )
+                        finalization, duration = await ask(
+                            ModelRequest(
+                                role="executor",
+                                model_name=request.model_name,
+                                instructions=EXECUTOR_FINALIZATION_PROMPT,
+                                input=finalization_input,
+                                response_model=FinalStepOutcome,
+                            )
+                        )
+                        turn_id = str(uuid4())
+                        await emit(
+                            EventKind.EXECUTOR_TURN,
+                            turn_id,
+                            parent_id=step.id,
+                            content=finalization.content,
+                            usage=finalization.usage or None,
+                            duration_ms=duration,
+                            metadata={**finalization.metadata, "reserved_outcome": True},
+                        )
+                        if finalization.tool_calls:
+                            raise ModelProtocolError(
+                                "executor",
+                                [
+                                    {
+                                        "type": "reserved_outcome_tool_call",
+                                        "message": "Reserved outcome calls cannot request tools.",
+                                    }
+                                ],
+                            )
+                        try:
+                            outcome = FinalStepOutcome.model_validate(finalization.content)
+                        except ValidationError as error:
+                            raise ModelProtocolError(
+                                "executor",
+                                error.errors(include_url=False, include_input=False),
+                            ) from error
 
                     review, review_reply, duration = await ask_validated(
                         ModelRequest(
@@ -372,6 +518,7 @@ class PlannerExecutorRuntime:
                                         "step": step.model_dump(),
                                         "outcome": outcome.model_dump(),
                                         "accepted_evidence": list(accepted),
+                                        "current_plan": plan.model_dump(),
                                     },
                                 },
                             ),
@@ -395,8 +542,10 @@ class PlannerExecutorRuntime:
                         final_response = review.final_response
                         break
                     if review.decision == "retry_step":
-                        if step_retries == 1:
-                            raise BudgetExhausted("step_retries", 1)
+                        if step_retries >= EXECUTION_LIMITS["step_retries"]:
+                            raise BudgetExhausted(
+                                "step_retries", EXECUTION_LIMITS["step_retries"]
+                            )
                         step_retries += 1
                         retries += 1
                         previous_outcome = outcome.model_dump()
@@ -412,8 +561,8 @@ class PlannerExecutorRuntime:
                         )
                         continue
                     if review.decision == "replan":
-                        if replans == 1:
-                            raise BudgetExhausted("replans", 1)
+                        if replans >= EXECUTION_LIMITS["replans"]:
+                            raise BudgetExhausted("replans", EXECUTION_LIMITS["replans"])
                         failed_step = {
                             "step": step.model_dump(),
                             "summary": outcome.summary,
@@ -421,22 +570,16 @@ class PlannerExecutorRuntime:
                                 item.model_dump() for item in outcome.evidence
                             ],
                             "performed_actions": outcome.actions,
-                            "side_effects_must_not_repeat": [
-                                {
-                                    "tool_call_id": item["tool_call_id"],
-                                    "name": item["name"],
-                                    "arguments": item["arguments"],
-                                    "result": item["result"],
-                                }
-                                for item in transcript
-                                if item["error"] is None
-                            ],
+                            "side_effects_must_not_repeat": successful_side_effects(
+                                transcript
+                            ),
                             "errors": outcome.errors,
                             "tool_errors": [
                                 {
                                     "tool_call_id": item["tool_call_id"],
                                     "name": item["name"],
                                     "error": item["error"],
+                                    "side_effect": item["side_effect"],
                                 }
                                 for item in transcript
                                 if item["error"] is not None
@@ -469,10 +612,12 @@ class PlannerExecutorRuntime:
                                         },
                                     },
                                 ),
+                                tools=task.tools,
                                 response_model=Plan,
                             ),
                             Plan,
                             replan_id,
+                            validate_plan_sources,
                         )
                         plan_id = str(uuid4())
                         await emit(
@@ -500,6 +645,7 @@ class PlannerExecutorRuntime:
                                 item.model_dump() for item in outcome.evidence
                             ],
                             "actions": outcome.actions,
+                            "side_effects": successful_side_effects(transcript),
                             "errors": outcome.errors,
                         }
                     )
