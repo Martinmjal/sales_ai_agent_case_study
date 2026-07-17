@@ -1,5 +1,7 @@
 const state = {
   tasks: [],
+  runtimes: [],
+  selectedRuntimeId: null,
   sessions: [],
   selectedTask: null,
   selectedSession: null,
@@ -45,6 +47,11 @@ const elements = {
   progressBlock: document.querySelector("#progress-block"),
   progressCopy: document.querySelector("#progress-copy"),
   progressTitle: document.querySelector("#progress-title"),
+  planBlock: document.querySelector("#structured-plan"),
+  planEmpty: document.querySelector("#plan-empty"),
+  planGenerations: document.querySelector("#plan-generations"),
+  planGoal: document.querySelector("#plan-goal"),
+  planSummary: document.querySelector("#plan-summary"),
   finalWorld: document.querySelector("#final-world-snapshot"),
   rawSession: document.querySelector("#raw-session-json"),
   reasoningEvidence: document.querySelector("#reasoning-evidence"),
@@ -56,9 +63,11 @@ const elements = {
   sessionTaskId: document.querySelector("#session-task-id"),
   sessionTaskName: document.querySelector("#session-task-name"),
   sessionPrompt: document.querySelector("#session-prompt"),
+  sessionRuntimeLabel: document.querySelector("#session-runtime-label"),
   sessionWorkspace: document.querySelector("#session-workspace"),
   stopRun: document.querySelector("#stop-run"),
   taskList: document.querySelector("#task-list"),
+  runtimePicker: document.querySelector("#runtime-picker"),
   toolCount: document.querySelector("#tool-count"),
   toolDefinitions: document.querySelector("#tool-definitions"),
   toast: document.querySelector("#toast"),
@@ -243,6 +252,175 @@ function nodeState(session, event, result) {
   if (["protocol_error", "model_error"].includes(event.kind)) return "failed";
   if (["budget_exhausted", "cancellation"].includes(event.kind)) return "stopped";
   return "completed";
+}
+
+function sessionRuntime(session) {
+  if (session.runtime?.label && session.runtime?.version) return session.runtime;
+  const version = session.agent?.agent_version || "Unknown";
+  return {
+    id: session.agent?.runtime_id || "legacy",
+    label: session.agent?.runtime_label || version,
+    version: session.agent?.runtime_version || version,
+  };
+}
+
+function reducePlanEvents(events) {
+  const plans = [];
+  const reviews = new Map();
+  let activeStep = null;
+
+  const currentPlan = () => plans.at(-1);
+  const findStep = (stepId) => {
+    for (const plan of [...plans].reverse()) {
+      const step = plan.steps.find((item) => item.id === stepId);
+      if (step) return step;
+    }
+    return null;
+  };
+  const supersedePending = (plan) => {
+    if (!plan) return;
+    for (const step of plan.steps) {
+      if (step.state === "pending") step.state = "superseded";
+    }
+  };
+  const failActive = () => {
+    if (activeStep && ["active", "retrying"].includes(activeStep.state)) {
+      activeStep.state = "failed";
+    }
+    activeStep = null;
+  };
+
+  for (const event of [...events].sort((left, right) => left.sequence - right.sequence)) {
+    if (event.kind === "plan_created") {
+      const previous = currentPlan();
+      if (previous) {
+        failActive();
+        supersedePending(previous);
+        previous.current = false;
+      }
+      const content = event.content || {};
+      plans.push({
+        id: event.correlation_id,
+        goal: content.goal || "Goal unavailable",
+        current: true,
+        steps: (content.steps || []).map((step) => ({
+          id: step.id,
+          objective: step.objective,
+          requiredEvidence: Array.isArray(step.required_evidence) ? step.required_evidence : [],
+          state: "pending",
+        })),
+      });
+    } else if (event.kind === "step_started") {
+      const step = findStep(event.content?.id || event.correlation_id);
+      if (step) {
+        failActive();
+        step.state = "active";
+        activeStep = step;
+      }
+    } else if (event.kind === "review") {
+      const step = findStep(event.parent_id);
+      reviews.set(event.correlation_id, step);
+      const decision = event.content?.decision;
+      if (step && ["step_completed", "goal_completed"].includes(decision)) {
+        step.state = "completed";
+        if (activeStep === step) activeStep = null;
+      } else if (step && decision === "retry_step") {
+        step.state = "retrying";
+        activeStep = step;
+      } else if (step && decision === "replan") {
+        step.state = "failed";
+        if (activeStep === step) activeStep = null;
+      }
+    } else if (event.kind === "step_retry") {
+      const step = findStep(event.correlation_id);
+      if (step) {
+        step.state = "retrying";
+        activeStep = step;
+      }
+    } else if (event.kind === "replan") {
+      const failed = reviews.get(event.parent_id);
+      if (failed && failed.state !== "completed") failed.state = "failed";
+      failActive();
+      supersedePending(currentPlan());
+    } else if (["cancellation", "budget_exhausted", "protocol_error", "model_error"].includes(event.kind)) {
+      failActive();
+    } else if (event.kind === "completion") {
+      if (event.content?.status === "completed") {
+        if (activeStep) activeStep.state = "completed";
+        activeStep = null;
+        supersedePending(currentPlan());
+      } else {
+        failActive();
+      }
+    }
+  }
+  return { plans };
+}
+
+function renderPlan(session) {
+  const reduced = reducePlanEvents(session.events || []);
+  const hasPlan = reduced.plans.length > 0;
+  const runtime = sessionRuntime(session);
+  const emptyIsKnown = runtime.id === "mock-baseline"
+    || session.status !== "Running"
+    || (session.events || []).some((event) => event.kind !== "planning");
+  elements.planBlock.hidden = !hasPlan && !emptyIsKnown;
+  elements.planEmpty.hidden = hasPlan;
+  elements.planGoal.hidden = !hasPlan;
+  elements.planGenerations.hidden = !hasPlan;
+  elements.planGenerations.replaceChildren();
+  if (!hasPlan) {
+    elements.planSummary.textContent = runtime.label;
+    elements.planGoal.textContent = "";
+    return;
+  }
+
+  const latestPlan = reduced.plans.at(-1);
+  const steps = reduced.plans.flatMap((plan) => plan.steps);
+  const completed = steps.filter((step) => step.state === "completed").length;
+  elements.planGoal.textContent = latestPlan.goal;
+  elements.planSummary.textContent = `${completed} of ${steps.length} completed`;
+
+  reduced.plans.forEach((plan, planIndex) => {
+    const generation = document.createElement("section");
+    generation.className = `plan-generation ${plan.current ? "current" : "previous"}`;
+    generation.dataset.planId = plan.id;
+    if (reduced.plans.length > 1) {
+      const label = document.createElement("h3");
+      label.textContent = plan.current
+        ? `Replacement plan ${planIndex + 1}`
+        : `Plan ${planIndex + 1} history`;
+      generation.append(label);
+    }
+    const list = document.createElement("ol");
+    list.className = "plan-step-list";
+    for (const step of plan.steps) {
+      const item = document.createElement("li");
+      item.className = `plan-step plan-step-${step.state}`;
+      item.dataset.planStepId = step.id;
+      item.dataset.state = step.state;
+      const heading = document.createElement("div");
+      heading.className = "plan-step-heading";
+      const objective = document.createElement("strong");
+      objective.textContent = step.objective;
+      const status = document.createElement("span");
+      status.className = "plan-step-status";
+      status.textContent = step.state;
+      heading.append(objective, status);
+      item.append(heading);
+      const evidence = document.createElement("ul");
+      evidence.className = "plan-evidence";
+      for (const requirement of step.requiredEvidence) {
+        const entry = document.createElement("li");
+        entry.textContent = requirement;
+        evidence.append(entry);
+      }
+      item.append(evidence);
+      list.append(item);
+    }
+    generation.append(list);
+    elements.planGenerations.append(generation);
+  });
 }
 
 function traceNode(kind, title, stateName, correlationId) {
@@ -684,6 +862,8 @@ function renderInspector(session) {
   elements.config.replaceChildren();
   const configItems = [
     ["Session ID", session.session_id],
+    ["Runtime", sessionRuntime(session).label],
+    ["Runtime version", sessionRuntime(session).version],
     ["Model", session.agent.model],
     ["Maximum steps", session.agent.max_steps],
     ["Agent version", session.agent.agent_version],
@@ -913,6 +1093,29 @@ function renderTasks(query = "") {
   }
 }
 
+function renderRuntimePicker(payload) {
+  state.runtimes = payload.runtimes;
+  state.selectedRuntimeId = payload.default_runtime_id;
+  elements.runtimePicker.replaceChildren();
+  for (const runtime of state.runtimes) {
+    const option = document.createElement("option");
+    option.value = runtime.id;
+    option.textContent = runtime.label;
+    option.title = `${runtime.label} · ${runtime.version}`;
+    elements.runtimePicker.append(option);
+  }
+  elements.runtimePicker.value = state.selectedRuntimeId;
+  syncRuntimePicker();
+}
+
+function syncRuntimePicker() {
+  const active = Boolean(state.activeSessionId);
+  elements.runtimePicker.disabled = active;
+  elements.runtimePicker.title = active
+    ? "The runtime is frozen for the active session"
+    : "Choose the runtime for the next session";
+}
+
 function selectTask(task) {
   state.selectedTask = task;
   renderTasks(elements.search.value);
@@ -951,9 +1154,13 @@ async function startTask(task, button) {
     const summary = await api("/api/sessions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ task_id: task.task_id }),
+      body: JSON.stringify({
+        task_id: task.task_id,
+        runtime_id: state.selectedRuntimeId,
+      }),
     });
     state.activeSessionId = summary.session_id;
+    syncRuntimePicker();
     await loadSession(summary.session_id);
     await refreshHistory();
   } catch (error) {
@@ -1024,7 +1231,7 @@ function historyItem(session) {
   const details = document.createElement("span");
   details.className = "history-details";
   const score = session.partial_credit == null ? "No score" : `${Math.round(session.partial_credit * 100)}%`;
-  details.textContent = `${new Date(session.created_at).toLocaleString()} | ${score}`;
+  details.textContent = `${session.runtime_label} · ${new Date(session.created_at).toLocaleString()} | ${score}`;
   const sessionId = document.createElement("span");
   sessionId.className = "history-session-id";
   sessionId.textContent = session.session_id;
@@ -1037,6 +1244,7 @@ async function refreshHistory() {
   const payload = await api("/api/sessions");
   state.sessions = payload.sessions;
   state.activeSessionId = state.sessions.find((session) => session.status === "Running")?.session_id || null;
+  syncRuntimePicker();
   renderHistory();
 }
 
@@ -1049,8 +1257,10 @@ function renderSession(session) {
   elements.sessionTaskName.textContent = session.task.name;
   elements.sessionTaskId.textContent = session.task.task_id;
   elements.sessionPrompt.textContent = userPrompt(session.task.prompt);
+  elements.sessionRuntimeLabel.textContent = sessionRuntime(session).label;
   elements.sessionStatus.textContent = session.status;
   elements.sessionStatus.className = `status-badge ${session.status.toLowerCase()}`;
+  renderPlan(session);
 
   const running = session.status === "Running";
   const stopping = state.stoppingSessionId === session.session_id;
@@ -1183,6 +1393,9 @@ document.querySelector("#back-to-tasks").addEventListener("click", () => {
 });
 
 elements.search.addEventListener("input", () => renderTasks(elements.search.value));
+elements.runtimePicker.addEventListener("change", () => {
+  state.selectedRuntimeId = elements.runtimePicker.value;
+});
 elements.historySearch.addEventListener("input", renderHistory);
 elements.returnActive.addEventListener("click", () => loadSession(state.activeSessionId));
 elements.stopRun.addEventListener("click", stopActiveRun);
@@ -1264,17 +1477,24 @@ window.addEventListener("resize", applyPaneWidths);
 
 async function initialize() {
   try {
-    const [taskPayload, sessionPayload] = await Promise.all([
+    const [taskPayload, runtimePayload, sessionPayload] = await Promise.all([
       api("/api/tasks"),
+      api("/api/runtimes"),
       api("/api/sessions"),
     ]);
     state.tasks = taskPayload.tasks;
     state.sessions = sessionPayload.sessions;
     state.activeSessionId = state.sessions.find((session) => session.status === "Running")?.session_id || null;
+    renderRuntimePicker(runtimePayload);
+    const active = state.sessions.find((session) => session.status === "Running");
+    if (active?.runtime_id) {
+      state.selectedRuntimeId = active.runtime_id;
+      elements.runtimePicker.value = active.runtime_id;
+    }
+    syncRuntimePicker();
     renderTasks();
     renderHistory();
     elements.connection.textContent = `${state.tasks.length} tasks ready`;
-    const active = state.sessions.find((session) => session.status === "Running");
     if (active) await loadSession(active.session_id);
   } catch (error) {
     elements.connection.textContent = "Unavailable";

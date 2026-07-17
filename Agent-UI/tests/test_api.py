@@ -6,7 +6,13 @@ from threading import Event
 from threading import Thread
 from time import sleep
 
-from agent_ui.app import AgentConfig, create_app
+from agent_ui.app import (
+    BASELINE_RUNTIME_ID,
+    DEFAULT_RUNTIME_ID,
+    AgentConfig,
+    RuntimeRegistration,
+    create_app,
+)
 from agent_ui.store import ImmutableSessionError, SessionStore
 from fastapi.testclient import TestClient
 import httpx
@@ -280,6 +286,12 @@ def test_evaluator_can_run_a_catalog_task_and_reopen_its_artifact(tmp_path):
     assert artifact["final_response"] == "Scripted final response."
     assert artifact["evaluation"] is not None
     assert artifact["lifecycle"]["termination_reason"] == "goal_completed"
+    assert artifact["runtime"] == {
+        "id": "custom",
+        "label": "Custom agent",
+        "version": "planner-executor/0.2.0",
+    }
+    assert artifact["agent"]["agent_version"] == artifact["runtime"]["version"]
     assert {
         "schema_version",
         "session_id",
@@ -295,6 +307,145 @@ def test_evaluator_can_run_a_catalog_task_and_reopen_its_artifact(tmp_path):
     files = list(tmp_path.glob("*.json"))
     assert len(files) == 1
     assert json.loads(files[0].read_text()) == artifact
+
+
+def test_runtime_registry_validates_selection_and_defaults_to_custom(tmp_path):
+    runtime = BlockingRuntime()
+    app = create_app(runtime=runtime, sessions_dir=tmp_path)
+
+    with TestClient(app) as client:
+        registry = client.get("/api/runtimes")
+        invalid = client.post(
+            "/api/sessions",
+            json={
+                "task_id": "sales.zoom_calendar_conflict",
+                "runtime_id": "not-registered",
+            },
+        )
+        started = client.post(
+            "/api/sessions",
+            json={"task_id": "sales.zoom_calendar_conflict"},
+        )
+        assert runtime.started.wait(timeout=2)
+        artifact = client.get(f"/api/sessions/{started.json()['session_id']}").json()
+        runtime.release.set()
+
+    assert registry.status_code == 200
+    assert registry.json() == {
+        "default_runtime_id": DEFAULT_RUNTIME_ID,
+        "runtimes": [
+            {
+                "id": DEFAULT_RUNTIME_ID,
+                "label": "Custom agent",
+                "version": "planner-executor/0.2.0",
+            },
+            {
+                "id": BASELINE_RUNTIME_ID,
+                "label": "Mock/baseline agent",
+                "version": "baseline/0.1.0",
+            },
+        ],
+    }
+    assert invalid.status_code == 422
+    assert "Unknown runtime ID: not-registered" in invalid.json()["detail"]
+    assert started.status_code == 202
+    assert artifact["runtime"]["id"] == DEFAULT_RUNTIME_ID
+    assert len(list(tmp_path.glob("*.json"))) == 1
+
+
+def test_runtime_selection_is_frozen_per_session_and_persisted_in_history(tmp_path):
+    custom = BlockingRuntime()
+    baseline = PacedRuntime()
+    registry = {
+        DEFAULT_RUNTIME_ID: RuntimeRegistration(
+            runtime_id=DEFAULT_RUNTIME_ID,
+            label="Custom agent",
+            version="custom/test-1",
+            runtime=custom,
+        ),
+        BASELINE_RUNTIME_ID: RuntimeRegistration(
+            runtime_id=BASELINE_RUNTIME_ID,
+            label="Mock/baseline agent",
+            version="baseline/test-2",
+            runtime=baseline,
+        ),
+    }
+    app = create_app(runtime_registry=registry, sessions_dir=tmp_path)
+
+    with TestClient(app) as client:
+        first = client.post(
+            "/api/sessions",
+            json={
+                "task_id": "sales.zoom_calendar_conflict",
+                "runtime_id": DEFAULT_RUNTIME_ID,
+            },
+        )
+        assert custom.started.wait(timeout=2)
+        rejected = client.post(
+            "/api/sessions",
+            json={
+                "task_id": "sales.multi_hop_lookup",
+                "runtime_id": BASELINE_RUNTIME_ID,
+            },
+        )
+        running = client.get(f"/api/sessions/{first.json()['session_id']}").json()
+        custom.release.set()
+        for _ in range(100):
+            completed = client.get(
+                f"/api/sessions/{first.json()['session_id']}"
+            ).json()
+            if completed["status"] == "Completed":
+                break
+            sleep(0.01)
+
+        second = client.post(
+            "/api/sessions",
+            json={
+                "task_id": "sales.multi_hop_lookup",
+                "runtime_id": BASELINE_RUNTIME_ID,
+            },
+        )
+        for _ in range(100):
+            baseline_artifact = client.get(
+                f"/api/sessions/{second.json()['session_id']}"
+            ).json()
+            if baseline_artifact["status"] == "Completed":
+                break
+            sleep(0.01)
+        summaries = client.get("/api/sessions").json()["sessions"]
+
+    assert rejected.status_code == 409
+    assert running["runtime"] == {
+        "id": DEFAULT_RUNTIME_ID,
+        "label": "Custom agent",
+        "version": "custom/test-1",
+    }
+    assert completed["runtime"] == running["runtime"]
+    assert baseline_artifact["runtime"] == {
+        "id": BASELINE_RUNTIME_ID,
+        "label": "Mock/baseline agent",
+        "version": "baseline/test-2",
+    }
+    assert baseline_artifact["agent"]["agent_version"] == "baseline/test-2"
+    assert {
+        summary["session_id"]: (
+            summary["runtime_id"],
+            summary["runtime_label"],
+            summary["runtime_version"],
+        )
+        for summary in summaries
+    } == {
+        first.json()["session_id"]: (
+            DEFAULT_RUNTIME_ID,
+            "Custom agent",
+            "custom/test-1",
+        ),
+        second.json()["session_id"]: (
+            BASELINE_RUNTIME_ID,
+            "Mock/baseline agent",
+            "baseline/test-2",
+        ),
+    }
 
 
 def test_second_execution_is_rejected_while_one_is_running(tmp_path):

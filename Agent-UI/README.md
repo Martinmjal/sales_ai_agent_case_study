@@ -8,6 +8,16 @@ Running sessions expose a reconnectable SSE stream at `/api/sessions/{session_id
 The JSON artifact is the durable source of truth: clients load it first, then resume the stream
 after its latest sequence with `Last-Event-ID` or the `after` query parameter.
 
+The top-right agent picker selects either the default **Custom agent** planner-executor or the
+framework-free **Mock/baseline agent** for the next session. The server validates that selection
+against a fixed registry and freezes the runtime ID, label, and version into the artifact before
+execution. The picker is disabled while a session is active.
+
+Custom-agent `plan_created`, step, review, retry, replan, cancellation, budget, and completion
+events reduce into one structured plan in the center workspace. Replaced work remains visible as
+completed, failed, or superseded history. The same reducer rebuilds the final plan solely from a
+historical artifact; runtimes without plan events display `No structured plan`.
+
 The history drawer searches durable sessions by task name or canonical task ID, groups them in
 the browser's local timezone, and keeps the active run available while terminal history is viewed.
 Terminal artifacts are immutable once their final status is persisted; malformed and unsupported
@@ -67,13 +77,14 @@ location.
 uv run agent-ui
 ```
 
-Open `http://127.0.0.1:8000`. The configured model, maximum steps, and agent version are frozen into
-each session and displayed in the interface. They remain server-side settings; optional overrides
-are `AGENT_MODEL`, `AGENT_MAX_STEPS`, and `AGENT_VERSION`.
+Open `http://127.0.0.1:8000`. The configured model, maximum steps, selected runtime, and runtime
+version are frozen into each session and displayed in the interface. Model and budget remain
+server-side settings; optional overrides are `AGENT_MODEL`, `AGENT_MAX_STEPS`, and
+`AGENT_VERSION` (the custom runtime version).
 
-The framework-free planner-executor is the sole runtime. Recovery, provider retries, protocol
-correction, cancellation, budget exhaustion, and completion are retained as ordered durable
-events in each session artifact.
+Both registered runtimes are framework-free and execute through the same `AgentRuntime` boundary.
+Recovery, provider retries, protocol correction, cancellation, budget exhaustion, and completion
+are retained as ordered durable events in each session artifact.
 
 ## Verify
 

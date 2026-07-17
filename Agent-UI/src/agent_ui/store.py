@@ -92,6 +92,7 @@ class SessionStore:
         lifecycle = session.get("lifecycle")
         task = session.get("task")
         agent = session.get("agent")
+        runtime = session.get("runtime")
         evaluation = session.get("evaluation")
         return (
             isinstance(session.get("session_id"), str)
@@ -107,6 +108,15 @@ class SessionStore:
             and isinstance(agent.get("model"), str)
             and isinstance(agent.get("max_steps"), int)
             and isinstance(agent.get("agent_version"), str)
+            and (
+                runtime is None
+                or (
+                    isinstance(runtime, dict)
+                    and isinstance(runtime.get("id"), str)
+                    and isinstance(runtime.get("label"), str)
+                    and isinstance(runtime.get("version"), str)
+                )
+            )
             and isinstance(session.get("events"), list)
             and (evaluation is None or isinstance(evaluation, dict))
         )

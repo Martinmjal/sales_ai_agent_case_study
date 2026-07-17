@@ -111,6 +111,149 @@ class LiveTraceRuntime:
         )
 
 
+class LivePlanRuntime:
+    def __init__(self):
+        self.started = Event()
+        self.release_retry = Event()
+        self.retrying = Event()
+        self.release_replan = Event()
+        self.replanned = Event()
+        self.release_finish = Event()
+
+    async def run(self, request, *, event_sink=None, cancellation=None):
+        events = []
+
+        async def emit(kind, correlation_id, **values):
+            event = RuntimeEvent(
+                sequence=len(events) + 1,
+                kind=kind,
+                timestamp="2026-07-17T12:00:00+00:00",
+                run_id="live-plan",
+                correlation_id=correlation_id,
+                **values,
+            )
+            events.append(event)
+            await event_sink(event)
+
+        initial_steps = [
+            {
+                "id": "inspect",
+                "objective": "Inspect the current account state.",
+                "required_evidence": ["A grounded account record"],
+            },
+            {
+                "id": "update",
+                "objective": "Apply the requested account update.",
+                "required_evidence": ["A successful update result"],
+            },
+            {
+                "id": "notify",
+                "objective": "Notify the account owner.",
+                "required_evidence": ["A delivered notification"],
+            },
+        ]
+        await emit(
+            EventKind.PLAN_CREATED,
+            "plan-original",
+            content={"goal": "Resolve the original account request.", "steps": initial_steps},
+        )
+        await emit(
+            EventKind.STEP_STARTED,
+            "inspect",
+            parent_id="plan-original",
+            content=initial_steps[0],
+        )
+        self.started.set()
+        await asyncio.to_thread(self.release_retry.wait)
+
+        await emit(
+            EventKind.REVIEW,
+            "review-retry",
+            parent_id="inspect",
+            content={"decision": "retry_step", "feedback": "Inspect once more."},
+        )
+        await emit(
+            EventKind.STEP_RETRY,
+            "inspect",
+            parent_id="review-retry",
+            content={"attempt": 2, "feedback": "Inspect once more."},
+        )
+        self.retrying.set()
+        await asyncio.to_thread(self.release_replan.wait)
+
+        await emit(
+            EventKind.REVIEW,
+            "review-inspect-complete",
+            parent_id="inspect",
+            content={"decision": "step_completed"},
+        )
+        await emit(
+            EventKind.STEP_STARTED,
+            "update",
+            parent_id="plan-original",
+            content=initial_steps[1],
+        )
+        await emit(
+            EventKind.REVIEW,
+            "review-replan",
+            parent_id="update",
+            content={"decision": "replan", "feedback": "Use a safer update path."},
+        )
+        await emit(
+            EventKind.REPLAN,
+            "replan-1",
+            parent_id="review-replan",
+            content={"completed_steps": [{"step_id": "inspect"}]},
+        )
+        replacement = {
+            "id": "safe-update",
+            "objective": "Apply the update through the safe path.",
+            "required_evidence": ["A verified safe update result"],
+        }
+        await emit(
+            EventKind.PLAN_CREATED,
+            "plan-replacement",
+            parent_id="replan-1",
+            content={
+                "goal": "Resolve the account request through the safe path.",
+                "steps": [replacement],
+            },
+        )
+        await emit(
+            EventKind.STEP_STARTED,
+            "safe-update",
+            parent_id="plan-replacement",
+            content=replacement,
+        )
+        self.replanned.set()
+        await asyncio.to_thread(self.release_finish.wait)
+
+        await emit(
+            EventKind.REVIEW,
+            "review-goal",
+            parent_id="safe-update",
+            content={
+                "decision": "goal_completed",
+                "final_response": "The safe update is complete.",
+            },
+        )
+        await emit(
+            EventKind.COMPLETION,
+            "live-plan",
+            content={"status": "completed", "termination_reason": "goal_completed"},
+        )
+        return RuntimeOutcome(
+            status=ExitStatus.COMPLETED,
+            task_id=request.task_id,
+            run_id="live-plan",
+            events=tuple(events),
+            final_response="The safe update is complete.",
+            world_state={},
+            score={"partial_credit": 1.0, "assertions": []},
+            usage={"input_tokens": 20, "output_tokens": 8, "total_tokens": 28},
+        )
+
+
 def session_artifact(session_id, task_id, name, created_at, status, score=None):
     timestamp = created_at.isoformat()
     return {
@@ -948,6 +1091,133 @@ def test_running_causal_trace_recovers_after_refresh_and_continues(tmp_path):
         expect(
             page.locator(f"[data-session-id='{session_id}'] .history-status")
         ).to_have_text("Completed")
+        browser.close()
+
+
+def test_agent_picker_and_live_plan_reducer_replay_the_durable_final_state(tmp_path):
+    runtime = LivePlanRuntime()
+    app = create_app(runtime=runtime, sessions_dir=tmp_path)
+
+    with live_server(app) as base_url, sync_playwright() as playwright:
+        launch_options = {"headless": True}
+        if CHROME.exists():
+            launch_options["executable_path"] = str(CHROME)
+        browser = playwright.chromium.launch(**launch_options)
+        page = browser.new_page(viewport={"width": 1440, "height": 900})
+        page.goto(base_url)
+
+        picker = page.get_by_label("Agent runtime")
+        expect(picker).to_have_value("custom")
+        expect(picker.locator("option")).to_have_text(
+            ["Custom agent", "Mock/baseline agent"]
+        )
+        response = page.request.post(
+            f"{base_url}/api/sessions",
+            data={
+                "task_id": "sales.multi_hop_lookup",
+                "runtime_id": "custom",
+            },
+        )
+        session_id = response.json()["session_id"]
+        assert runtime.started.wait(timeout=2)
+        page.reload()
+
+        expect(picker).to_be_disabled()
+        expect(page.locator("#structured-plan")).to_have_count(1)
+        expect(page.locator("[data-plan-step-id='inspect']")).to_have_attribute(
+            "data-state", "active"
+        )
+        expect(page.locator(".plan-step-pending")).to_have_count(2)
+
+        runtime.release_retry.set()
+        assert runtime.retrying.wait(timeout=2)
+        expect(page.locator("[data-plan-step-id='inspect']")).to_have_attribute(
+            "data-state", "retrying"
+        )
+
+        runtime.release_replan.set()
+        assert runtime.replanned.wait(timeout=2)
+        expect(page.locator("#structured-plan")).to_have_count(1)
+        expect(page.locator("#plan-goal")).to_have_text(
+            "Resolve the account request through the safe path."
+        )
+        expect(page.locator("[data-plan-step-id='inspect']")).to_have_attribute(
+            "data-state", "completed"
+        )
+        expect(page.locator("[data-plan-step-id='update']")).to_have_attribute(
+            "data-state", "failed"
+        )
+        expect(page.locator("[data-plan-step-id='notify']")).to_have_attribute(
+            "data-state", "superseded"
+        )
+        expect(page.locator("[data-plan-step-id='safe-update']")).to_have_attribute(
+            "data-state", "active"
+        )
+
+        runtime.release_finish.set()
+        expect(page.locator("#session-status")).to_have_text("Completed")
+        expect(page.locator("[data-plan-step-id='safe-update']")).to_have_attribute(
+            "data-state", "completed"
+        )
+        expect(picker).to_be_enabled()
+
+        page.reload()
+        page.locator(f"[data-session-id='{session_id}']").click()
+        expect(page.locator("#structured-plan")).to_have_count(1)
+        expect(page.locator("#plan-goal")).to_have_text(
+            "Resolve the account request through the safe path."
+        )
+        expect(page.locator("[data-plan-step-id='inspect']")).to_have_attribute(
+            "data-state", "completed"
+        )
+        expect(page.locator("[data-plan-step-id='update']")).to_have_attribute(
+            "data-state", "failed"
+        )
+        expect(page.locator("[data-plan-step-id='notify']")).to_have_attribute(
+            "data-state", "superseded"
+        )
+        expect(page.locator("[data-plan-step-id='safe-update']")).to_have_attribute(
+            "data-state", "completed"
+        )
+        expect(page.locator("#structured-plan")).to_contain_text(
+            "A verified safe update result"
+        )
+        browser.close()
+
+
+def test_runtime_without_plan_events_renders_a_concise_empty_plan_state(tmp_path):
+    artifact = session_artifact(
+        "baseline-session",
+        "sales.multi_hop_lookup",
+        "Multi Hop Lookup",
+        datetime.now(timezone.utc),
+        "Completed",
+        0.5,
+    )
+    artifact["runtime"] = {
+        "id": "mock-baseline",
+        "label": "Mock/baseline agent",
+        "version": "baseline/0.1.0",
+    }
+    artifact["agent"]["agent_version"] = "baseline/0.1.0"
+    SessionStore(tmp_path).create(artifact)
+    app = create_app(sessions_dir=tmp_path)
+
+    with live_server(app) as base_url, sync_playwright() as playwright:
+        launch_options = {"headless": True}
+        if CHROME.exists():
+            launch_options["executable_path"] = str(CHROME)
+        browser = playwright.chromium.launch(**launch_options)
+        page = browser.new_page(viewport={"width": 1440, "height": 900})
+        page.goto(base_url)
+        page.locator("[data-session-id='baseline-session']").click()
+
+        expect(page.locator("#structured-plan")).to_be_visible()
+        expect(page.locator("#plan-empty")).to_have_text("No structured plan")
+        expect(page.locator("#plan-summary")).to_have_text("Mock/baseline agent")
+        expect(page.locator("#session-runtime-label")).to_have_text(
+            "Mock/baseline agent"
+        )
         browser.close()
 
 

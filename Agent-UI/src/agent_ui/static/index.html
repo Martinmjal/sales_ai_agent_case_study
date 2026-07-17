@@ -9,7 +9,7 @@
   <body>
     <header class="topbar">
       <div class="brand-mark" aria-hidden="true">A</div>
-      <div>
+      <div class="brand-copy">
         <strong>Agent UI</strong>
         <span class="environment">Local evaluator</span>
       </div>
@@ -17,7 +17,13 @@
         <button id="open-history" class="quiet-button" type="button" aria-label="Open session history" aria-controls="history-panel" aria-expanded="false">Sessions</button>
         <button id="open-inspector" class="quiet-button" type="button" aria-label="Open evaluator inspector" aria-controls="inspector" aria-expanded="false">Inspector</button>
       </div>
-      <span id="connection-status" class="connection-status">Ready</span>
+      <div class="topbar-actions">
+        <label class="agent-picker">
+          <span>Agent</span>
+          <select id="runtime-picker" aria-label="Agent runtime"></select>
+        </label>
+        <span id="connection-status" class="connection-status">Ready</span>
+      </div>
     </header>
 
     <main id="app-shell" class="app-shell">
@@ -82,6 +88,7 @@
             <button id="back-to-tasks" class="quiet-button" type="button">Back to tasks</button>
             <div class="session-actions">
               <button id="stop-run" class="stop-button" type="button" hidden>Stop run</button>
+              <span id="session-runtime-label" class="runtime-badge"></span>
               <span id="session-status" class="status-badge">Running</span>
             </div>
           </div>
@@ -91,6 +98,18 @@
             <code id="session-task-id"></code>
             <p id="session-prompt"></p>
           </div>
+          <section id="structured-plan" class="structured-plan" aria-labelledby="plan-title" hidden>
+            <div class="plan-heading">
+              <div>
+                <span class="message-label">Execution plan</span>
+                <h2 id="plan-title">Structured plan</h2>
+              </div>
+              <span id="plan-summary" class="plan-summary"></span>
+            </div>
+            <p id="plan-goal" class="plan-goal"></p>
+            <div id="plan-generations" class="plan-generations"></div>
+            <p id="plan-empty" class="plan-empty" hidden>No structured plan</p>
+          </section>
           <div id="progress-block" class="progress-block">
             <span class="activity-dot" aria-hidden="true"></span>
             <div>

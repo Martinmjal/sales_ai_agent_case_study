@@ -7,7 +7,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 from uuid import uuid4
 
 from fastapi import FastAPI, Header, HTTPException, Query, status
@@ -16,6 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from mock_agent.adapter import AutomationBenchAdapter
+from mock_agent.baseline import BaselineRuntime
 from mock_agent.catalog import TaskCatalog, TaskDefinition, UnknownTaskError
 from mock_agent.contract import (
     AgentRuntime,
@@ -33,6 +34,9 @@ from agent_ui.world_diff import world_change_evidence
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 STATIC_DIRECTORY = Path(__file__).resolve().parent / "static"
+DEFAULT_RUNTIME_ID = "custom"
+BASELINE_RUNTIME_ID = "mock-baseline"
+BASELINE_RUNTIME_VERSION = "baseline/0.1.0"
 
 
 @dataclass(frozen=True)
@@ -42,8 +46,24 @@ class AgentConfig:
     agent_version: str = "planner-executor/0.2.0"
 
 
+@dataclass(frozen=True)
+class RuntimeRegistration:
+    runtime_id: str
+    label: str
+    version: str
+    runtime: AgentRuntime
+
+    def payload(self) -> dict[str, str]:
+        return {
+            "id": self.runtime_id,
+            "label": self.label,
+            "version": self.version,
+        }
+
+
 class CreateSessionRequest(BaseModel):
     task_id: str
+    runtime_id: str = DEFAULT_RUNTIME_ID
 
 
 class ActiveSessionError(RuntimeError):
@@ -52,6 +72,10 @@ class ActiveSessionError(RuntimeError):
 
 class SessionNotRunningError(RuntimeError):
     """Raised when execution control targets a session without a live owner."""
+
+
+class UnknownRuntimeError(LookupError):
+    """Raised when a session requests a runtime outside the fixed registry."""
 
 
 def _now() -> str:
@@ -88,6 +112,7 @@ def _tool_definitions(
 
 def _summary(session: dict[str, Any]) -> dict[str, Any]:
     evaluation = session.get("evaluation") or {}
+    runtime = _session_runtime(session)
     return {
         "session_id": session["session_id"],
         "created_at": session["lifecycle"]["created_at"],
@@ -95,6 +120,28 @@ def _summary(session: dict[str, Any]) -> dict[str, Any]:
         "task_id": session["task"]["task_id"],
         "task_name": session["task"]["name"],
         "partial_credit": evaluation.get("partial_credit"),
+        "runtime_id": runtime["id"],
+        "runtime_label": runtime["label"],
+        "runtime_version": runtime["version"],
+    }
+
+
+def _session_runtime(session: dict[str, Any]) -> dict[str, str]:
+    runtime = session.get("runtime")
+    if isinstance(runtime, dict) and all(
+        isinstance(runtime.get(key), str) for key in ("id", "label", "version")
+    ):
+        return {
+            "id": runtime["id"],
+            "label": runtime["label"],
+            "version": runtime["version"],
+        }
+    agent = session.get("agent") or {}
+    version = str(agent.get("agent_version") or "Unknown")
+    return {
+        "id": str(agent.get("runtime_id") or "legacy"),
+        "label": str(agent.get("runtime_label") or version),
+        "version": str(agent.get("runtime_version") or version),
     }
 
 
@@ -102,13 +149,22 @@ class ExecutionManager:
     def __init__(
         self,
         *,
-        runtime: AgentRuntime,
+        runtimes: Mapping[str, RuntimeRegistration],
+        default_runtime_id: str,
         catalog: TaskCatalog,
         adapter: AutomationBenchAdapter,
         store: SessionStore,
         config: AgentConfig,
     ) -> None:
-        self.runtime = runtime
+        self.runtimes = dict(runtimes)
+        self.default_runtime_id = default_runtime_id
+        if default_runtime_id not in self.runtimes:
+            raise ValueError("The default runtime must exist in the runtime registry")
+        if any(
+            key != registration.runtime_id
+            for key, registration in self.runtimes.items()
+        ):
+            raise ValueError("Runtime registry keys must match registration IDs")
         self.catalog = catalog
         self.adapter = adapter
         self.store = store
@@ -119,7 +175,13 @@ class ExecutionManager:
         self._cancellations: dict[str, CancellationSignal] = {}
         self._background_tasks: set[asyncio.Task[None]] = set()
 
-    async def start(self, task_id: str) -> dict[str, Any]:
+    async def start(self, task_id: str, runtime_id: str) -> dict[str, Any]:
+        registration = self.runtimes.get(runtime_id)
+        if registration is None:
+            allowed = ", ".join(self.runtimes)
+            raise UnknownRuntimeError(
+                f"Unknown runtime ID: {runtime_id}. Allowed values: {allowed}"
+            )
         async with self._lock:
             if self._active_session_id is not None:
                 active = self.store.read(self._active_session_id)
@@ -128,7 +190,7 @@ class ExecutionManager:
                 self._active_session_id = None
 
             task = self.catalog.get_task(task_id)
-            session = self.store.create(self._new_session(task))
+            session = self.store.create(self._new_session(task, registration))
             self._active_session_id = session["session_id"]
             self._event_locks[session["session_id"]] = asyncio.Lock()
             self._cancellations[session["session_id"]] = CancellationSignal()
@@ -162,7 +224,9 @@ class ExecutionManager:
             )
             self.store.save(session)
 
-    def _new_session(self, task: TaskDefinition) -> dict[str, Any]:
+    def _new_session(
+        self, task: TaskDefinition, registration: RuntimeRegistration
+    ) -> dict[str, Any]:
         created_at = _now()
         task_payload = _task_payload(task)
         task_payload.update(
@@ -183,7 +247,12 @@ class ExecutionManager:
                 "termination_reason": None,
             },
             "task": task_payload,
-            "agent": asdict(self.config),
+            "agent": {
+                "model": self.config.model,
+                "max_steps": self.config.max_steps,
+                "agent_version": registration.version,
+            },
+            "runtime": registration.payload(),
             "events": [],
             "final_response": None,
             "evaluation": None,
@@ -203,8 +272,9 @@ class ExecutionManager:
                 self.store.save(session)
 
         session = self.store.read(session_id)
+        runtime = self.runtimes[session["runtime"]["id"]].runtime
         try:
-            outcome = await self.runtime.run(
+            outcome = await runtime.run(
                 RuntimeRequest(
                     task_id=session["task"]["task_id"],
                     model_name=self.config.model,
@@ -286,21 +356,45 @@ class ExecutionManager:
 def create_app(
     *,
     runtime: AgentRuntime | None = None,
+    runtime_registry: Mapping[str, RuntimeRegistration] | None = None,
     sessions_dir: Path | None = None,
     config: AgentConfig | None = None,
 ) -> FastAPI:
     catalog = TaskCatalog.from_sales_dataset()
     adapter = AutomationBenchAdapter(catalog=catalog)
+    resolved_config = config or AgentConfig()
+    if runtime is not None and runtime_registry is not None:
+        raise ValueError("Pass either runtime or runtime_registry, not both")
+    if runtime_registry is None:
+        model_client = OpenAIModelClient()
+        runtime_registry = {
+            DEFAULT_RUNTIME_ID: RuntimeRegistration(
+                runtime_id=DEFAULT_RUNTIME_ID,
+                label="Custom agent",
+                version=resolved_config.agent_version,
+                runtime=runtime
+                or PlannerExecutorRuntime(
+                    model_client=model_client,
+                    adapter=adapter,
+                ),
+            ),
+            BASELINE_RUNTIME_ID: RuntimeRegistration(
+                runtime_id=BASELINE_RUNTIME_ID,
+                label="Mock/baseline agent",
+                version=BASELINE_RUNTIME_VERSION,
+                runtime=BaselineRuntime(
+                    model_client=model_client,
+                    adapter=adapter,
+                ),
+            ),
+        }
     manager = ExecutionManager(
-        runtime=runtime
-        or PlannerExecutorRuntime(
-            model_client=OpenAIModelClient(),
-            adapter=adapter,
-        ),
+        runtimes=runtime_registry,
+        default_runtime_id=DEFAULT_RUNTIME_ID,
         catalog=catalog,
         adapter=adapter,
         store=SessionStore(sessions_dir or REPOSITORY_ROOT / "sessions"),
-        config=config or AgentConfig(),
+        config=resolved_config,
     )
 
     @asynccontextmanager
@@ -324,12 +418,23 @@ def create_app(
             ]
         }
 
+    @app.get("/api/runtimes")
+    async def list_runtimes() -> dict[str, Any]:
+        return {
+            "default_runtime_id": manager.default_runtime_id,
+            "runtimes": [
+                registration.payload() for registration in manager.runtimes.values()
+            ],
+        }
+
     @app.post("/api/sessions", status_code=status.HTTP_202_ACCEPTED)
     async def create_session(request: CreateSessionRequest) -> dict[str, Any]:
         try:
-            return await manager.start(request.task_id)
+            return await manager.start(request.task_id, request.runtime_id)
         except UnknownTaskError as error:
             raise HTTPException(status_code=404, detail=str(error)) from error
+        except UnknownRuntimeError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
         except ActiveSessionError as error:
             raise HTTPException(
                 status_code=409,

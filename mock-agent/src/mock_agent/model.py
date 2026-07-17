@@ -85,10 +85,13 @@ class OpenAIModelClient:
         retries = []
         for attempt in range(3):
             try:
-                response = await client.responses.parse(
-                    **values,
-                    text_format=request.response_model,
-                )
+                if request.response_model is None:
+                    response = await client.responses.create(**values)
+                else:
+                    response = await client.responses.parse(
+                        **values,
+                        text_format=request.response_model,
+                    )
                 break
             except ValidationError as error:
                 return ModelReply(
@@ -125,7 +128,11 @@ class OpenAIModelClient:
                 )
             )
         parsed = getattr(response, "output_parsed", None)
-        content = parsed.model_dump(mode="json") if parsed is not None else None
+        content = (
+            parsed.model_dump(mode="json")
+            if parsed is not None
+            else getattr(response, "output_text", None)
+        )
         usage = getattr(response, "usage", None)
         usage_values = {
             key: int(getattr(usage, key, 0) or 0)

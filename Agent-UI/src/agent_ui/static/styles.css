@@ -41,7 +41,8 @@ body {
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
   letter-spacing: 0;
 }
@@ -52,6 +53,7 @@ button {
 
 button:focus-visible,
 input:focus-visible,
+select:focus-visible,
 summary:focus-visible {
   outline: 3px solid rgb(198 77 52 / 28%);
   outline-offset: 2px;
@@ -100,8 +102,39 @@ summary:focus-visible {
   font-size: 11px;
 }
 
-.connection-status {
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
   margin-left: auto;
+}
+
+.agent-picker {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.agent-picker select {
+  width: 158px;
+  height: 32px;
+  padding: 0 28px 0 9px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  color: var(--ink);
+  background: var(--surface);
+}
+
+.agent-picker select:disabled {
+  cursor: not-allowed;
+  color: var(--muted);
+  background: var(--surface-muted);
+}
+
+.connection-status {
   color: var(--green);
   font-size: 12px;
   font-weight: 650;
@@ -540,6 +573,20 @@ body.pane-resizing {
   gap: 10px;
 }
 
+.runtime-badge {
+  max-width: 180px;
+  overflow: hidden;
+  padding: 5px 8px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--muted);
+  background: var(--surface-muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .stop-button {
   min-height: 30px;
   padding: 0 10px;
@@ -629,6 +676,150 @@ body.pane-resizing {
   font-size: 15px;
   line-height: 1.75;
   white-space: pre-wrap;
+}
+
+.structured-plan {
+  margin-top: 34px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-muted);
+  box-shadow: var(--shadow);
+}
+
+.plan-heading,
+.plan-step-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.plan-heading h2 {
+  margin: 4px 0 0;
+  font-size: 17px;
+}
+
+.plan-summary {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.plan-goal {
+  margin: 16px 0 0;
+  color: #343835;
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.5;
+}
+
+.plan-generation h3 {
+  margin: 20px 0 8px;
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.plan-step-list {
+  margin: 18px 0 0;
+  padding-left: 26px;
+}
+
+.plan-step {
+  padding: 11px 12px;
+  border-left: 3px solid var(--line-strong);
+  color: var(--ink);
+}
+
+.plan-step + .plan-step {
+  margin-top: 8px;
+}
+
+.plan-step::marker {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.plan-step-heading strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.plan-step-status {
+  flex: 0 0 auto;
+  padding: 3px 6px;
+  border-radius: 999px;
+  color: var(--muted);
+  background: #e9ebe9;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.plan-step-active {
+  border-left-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.plan-step-active .plan-step-status {
+  color: var(--accent-deep);
+  background: #f6d8cf;
+}
+
+.plan-step-completed {
+  border-left-color: var(--green);
+}
+
+.plan-step-completed .plan-step-status {
+  color: var(--green);
+  background: var(--green-soft);
+}
+
+.plan-step-retrying {
+  border-left-color: var(--yellow);
+  background: var(--yellow-soft);
+}
+
+.plan-step-retrying .plan-step-status {
+  color: var(--yellow);
+  background: #f5dfad;
+}
+
+.plan-step-failed {
+  border-left-color: #a73a32;
+  background: #fff7f6;
+}
+
+.plan-step-failed .plan-step-status {
+  color: #982f2a;
+  background: #fde9e7;
+}
+
+.plan-step-superseded {
+  opacity: 0.68;
+}
+
+.plan-step-superseded .plan-step-heading strong {
+  text-decoration: line-through;
+}
+
+.plan-evidence {
+  margin: 7px 0 0;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.plan-empty {
+  margin: 16px 0 0;
+  color: var(--muted);
 }
 
 .progress-block {
@@ -1281,6 +1472,19 @@ body.pane-resizing {
     margin-left: auto;
   }
 
+  .topbar-actions {
+    gap: 8px;
+    margin-left: 0;
+  }
+
+  .agent-picker > span {
+    display: none;
+  }
+
+  .agent-picker select {
+    width: 112px;
+  }
+
   .drawer-controls .quiet-button {
     padding: 7px 8px;
   }
@@ -1374,6 +1578,23 @@ body.pane-resizing {
   .connection-status,
   .environment {
     display: none;
+  }
+
+  .brand-copy {
+    display: none;
+  }
+
+  .topbar {
+    gap: 6px;
+    padding: 0 12px;
+  }
+
+  .agent-picker select {
+    width: 106px;
+  }
+
+  .structured-plan {
+    padding: 16px 13px;
   }
 }
 
