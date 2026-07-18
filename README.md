@@ -90,6 +90,16 @@ A total of 12 hours, distributed across five days, excluding unattended evaluati
 
 The main setup for the harness was the right level of simplicity to not over-engineer the agent, given the amount of features that a case study should have. For instance not including a memory and exposing the tools directly rather than enabling MCP servers, and also enforcing prompt versioning at a more production grade level. Even guardrails, those details were skipped just to give focus on the control loop and the context management of the agent. In terms of the testing component, the main trade-off was whether to heavily invest time on a benchmark design or try to import an existing one, building my agent around the tasks and level of complexity that the benchmark requested. 
 
+## Evaluation results and learnings (Deep evaluation details available at HARNESS_BENCHMARK_CONCLUSSION.md)
+
+The submitted evaluation ran the final `plan-state/1.0.0` agent ten times on each of five Sales tasks, producing 50 scorable observations from fresh simulated worlds. The agent achieved strict completion on 18 runs (36%) and a mean partial-credit score of 0.681 (Score ranges between 0 and 1) more details can be found in. It terminated with `goal_completed` on 38 runs and an honest `partial` result on 12. The complete methodology, coverage validation, per-task statistics, and links to every run artifact are available in the [final evaluation report](results/evaluation/plan-state-v1-five-task/report.md).
+
+The main lesson was that orchestration was not the largest remaining constraint. Forty-six of the 50 runs contained at least one tool error, yet many still earned substantial partial credit or completed successfully. The plan-state loop generally preserved progress and recovered without repeating successful side effects, while recurring failures came from constructing queries for large, noisy tool sets and changing strategy after rejected calls. This is why schema-aware query construction and error-directed recovery would be my first improvements before adding memory, subagents, or more orchestration layers.
+
+## Example run
+
+The [`sales.zoom_calendar_conflict` example](results/runs/3260560e-e3ac-4cbe-abeb-b5abb92f0a47.json) is the real current-runtime task shown in the video, it goes from initial prompt through official scoring. The agent inspected the meeting-priority policy and both conflicting records, preserved the higher-priority Calendar event, renamed the lower-priority Zoom meeting, and posted the required Slack summary. It encountered tool errors during execution, recovered through the same continuous loop, terminated with `goal_completed`, and received an official strict-completion score of 1.0. The artifact contains the complete task and tool snapshot, plan transitions, correlated model and tool trace, final response, initial and final worlds, and assertion-level scoring evidence.
+
 ## Quick start
 
 The project requires Python 3.13 and [`uv`](https://docs.astral.sh/uv/). It is one installable Python project with one lockfile and one command namespace.
