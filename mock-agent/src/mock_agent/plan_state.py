@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from enum import Enum
 from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
@@ -7,7 +8,12 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_vali
 
 MAX_PLAN_STEPS = 6
 NonEmptyString = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
-StepState = Literal["pending", "active", "completed"]
+StepState = Literal["pending", "active", "completed", "failed", "superseded"]
+
+
+class ActiveStepDisposition(str, Enum):
+    FAILED = "failed"
+    SUPERSEDED = "superseded"
 
 
 class ImmutableModel(BaseModel):
@@ -61,6 +67,9 @@ class SuccessfulToolCall(ImmutableModel):
     call_id: NonEmptyString
     step_id: NonEmptyString
     tool_name: NonEmptyString
+    arguments: Any = None
+    result: Any = None
+    side_effect: bool = False
 
 
 class PlanState(ImmutableModel):
@@ -97,6 +106,30 @@ class Finish(ImmutableModel):
     final_response: NonEmptyString
 
 
+class RunFinalization(ImmutableModel):
+    outcome: Literal["partial", "blocked"]
+    final_response: NonEmptyString
+
+
+class PlanRevision(ImmutableModel):
+    plan_revision: int = Field(ge=1)
+    invalidation_reason: NonEmptyString
+    active_step_disposition: ActiveStepDisposition
+    replacement_steps: tuple[PlanStepDraft, ...] = Field(
+        min_length=1, max_length=MAX_PLAN_STEPS
+    )
+
+    @model_validator(mode="after")
+    def unique_replacement_ids(self) -> PlanRevision:
+        identifiers = []
+        for step in self.replacement_steps:
+            identifiers.append(step.id)
+            identifiers.extend(item.id for item in step.required_evidence)
+        if len(identifiers) != len(set(identifiers)):
+            raise ValueError("Replacement step and evidence IDs must be unique")
+        return self
+
+
 ERROR_MESSAGES = {
     "undeclared_evidence_source": "Plan evidence names tools that are not available.",
     "active_step_exists": "A step is already active.",
@@ -110,6 +143,8 @@ ERROR_MESSAGES = {
     "unknown_or_unsuccessful_source_call": "Evidence must reference a successful tool call.",
     "incompatible_source_tool": "The source tool is not allowed for this evidence requirement.",
     "incomplete_plan": "The plan cannot finish while required steps remain incomplete.",
+    "no_active_step": "A plan revision requires an active step.",
+    "duplicate_plan_identifier": "Replacement plan IDs must be globally unique.",
 }
 
 
@@ -154,6 +189,21 @@ def create_plan_state(
     )
 
 
+def _validate_evidence_sources(
+    steps: tuple[PlanStepDraft, ...], *, declared_tools: set[str] | frozenset[str]
+) -> None:
+    for step in steps:
+        for requirement in step.required_evidence:
+            undeclared = sorted(set(requirement.source_tools) - set(declared_tools))
+            if undeclared:
+                raise PlanStateError(
+                    "undeclared_evidence_source",
+                    step_id=step.id,
+                    requirement_id=requirement.id,
+                    undeclared_tools=undeclared,
+                )
+
+
 def activate_next_step(state: PlanState) -> PlanState:
     if state.active_step_id is not None:
         raise PlanStateError(
@@ -195,6 +245,64 @@ def record_successful_tool_call(
         update={
             "revision": state.revision + 1,
             "successful_tool_calls": state.successful_tool_calls + (call,),
+        }
+    )
+
+
+def revise_plan(
+    state: PlanState,
+    action: PlanRevision,
+    *,
+    declared_tools: set[str] | frozenset[str],
+) -> PlanState:
+    if action.plan_revision != state.revision:
+        raise PlanStateError(
+            "stale_plan_revision",
+            expected_revision=state.revision,
+            received_revision=action.plan_revision,
+        )
+    if state.active_step_id is None:
+        raise PlanStateError("no_active_step")
+
+    _validate_evidence_sources(
+        action.replacement_steps,
+        declared_tools=declared_tools,
+    )
+    existing_ids = {state.goal.id}
+    for step in state.steps:
+        existing_ids.add(step.id)
+        existing_ids.update(item.id for item in step.required_evidence)
+    replacement_ids = set()
+    for step in action.replacement_steps:
+        replacement_ids.add(step.id)
+        replacement_ids.update(item.id for item in step.required_evidence)
+    duplicates = sorted(existing_ids & replacement_ids)
+    if duplicates:
+        raise PlanStateError("duplicate_plan_identifier", identifiers=duplicates)
+
+    retained_steps = []
+    for step in state.steps:
+        if step.id == state.active_step_id:
+            retained_steps.append(
+                step.model_copy(update={"state": action.active_step_disposition.value})
+            )
+        elif step.state == "pending":
+            retained_steps.append(step.model_copy(update={"state": "superseded"}))
+        else:
+            retained_steps.append(step)
+    retained_steps.extend(
+        PlanStep(
+            id=step.id,
+            objective=step.objective,
+            required_evidence=step.required_evidence,
+        )
+        for step in action.replacement_steps
+    )
+    return state.model_copy(
+        update={
+            "revision": state.revision + 1,
+            "steps": tuple(retained_steps),
+            "active_step_id": None,
         }
     )
 
@@ -275,7 +383,9 @@ def complete_step(state: PlanState, action: CompleteStep) -> PlanState:
 
 
 def finish(state: PlanState, action: Finish) -> str:
-    incomplete = [step.id for step in state.steps if step.state != "completed"]
+    incomplete = [
+        step.id for step in state.steps if step.state in {"pending", "active"}
+    ]
     if incomplete:
         raise PlanStateError(
             "incomplete_plan",

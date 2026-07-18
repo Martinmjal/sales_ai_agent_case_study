@@ -1,17 +1,16 @@
 # Mock Agent
 
-A framework-free planner-executor and minimal comparison baseline for the AutomationBench Sales
-dataset.
+A framework-free plan-state agent and evaluation-only comparison baseline for the AutomationBench
+Sales dataset.
 
 The runtime exposes the `AgentRuntime` contract, keeps benchmark identity, assertions, expected
 values, raw world state, and scoring behind a blind adapter, and sends only prompt messages,
 public tool schemas, observed tool results, accepted evidence, and execution budgets to the model.
 It uses the OpenAI Responses API directly.
 
-`PlannerExecutorRuntime` provides the default structured planning, review, retry, and replanning
-flow. `PlanStateRuntime` is an opt-in structured-plan runtime with one continuous execution loop
-and local evidence-backed control actions. The smaller `BaselineRuntime` is a direct model/tool
-loop with no plan events. All three implement the same `AgentRuntime` request, event, cancellation,
+`PlanStateRuntime` is the sole submission runtime. It uses one continuous execution loop and local
+evidence-backed control actions. The smaller `BaselineRuntime` is a direct model/tool loop kept for
+evaluation comparisons only. Both implement the same `AgentRuntime` request, event, cancellation,
 and outcome contract without LangChain or LangGraph.
 
 ## Set up
@@ -39,15 +38,14 @@ usage, final response, termination reason, and final simulated world.
 
 The planner receives only the task prompt and declared public tools. It creates the smallest
 cohesive plan (at most six steps), and every evidence requirement must name declared source tools.
-The stateless reviewer receives the full current plan, completed evidence, and the current outcome
-so discoveries can invalidate pending work without discarding completed evidence or side effects.
+The executor then uses one continuous loop. Each turn contains either a sequential batch of
+business calls or one harness control: `complete_step`, `revise_plan`, or `finish`.
 
-Each step attempt has four tool-capable executor turns. If those turns are saturated without a
-valid outcome, one reserved finalization call runs with tools disabled and must report completed
-actions, exact sourced evidence, unresolved requirements, and errors. The reserved call is skipped
-when an earlier turn returns a valid outcome. One rejected step may be retried, one plan may be
-replaced, and all planner, executor, reserved-finalization, reviewer, and correction calls share a
-30 logical-model-call limit. Provider retries are separately limited to two.
+Typed transitions preserve completed steps, accepted evidence, and the successful call ledger.
+Plan revision explicitly fails or supersedes the active step and replaces only remaining work.
+One run-level budget owns model turns, tool calls, plan revisions, the deadline, no-progress
+detection, and a single tools-disabled partial/blocked finalizer. Provider retries are separately
+limited to two and remain visible in the trace.
 
 The frozen limits are recorded in the first trace event and in evaluation configuration. Tool
 payloads that report `success: false` or a non-null top-level `error` become correlated
@@ -56,10 +54,10 @@ evidence; failed writes and reads remain distinguishable from successful side ef
 retries, protocol correction, cancellation, budget exhaustion, and completion are also emitted as
 correlated events and return scorable outcomes.
 
-## Plan-state runtime
+## Plan-state controls
 
-The optional `PlanStateRuntime` makes one tool-disabled structured planning call, activates the
-first step, and then exposes business tools plus two harness controls to one model loop.
+`PlanStateRuntime` makes one tool-disabled structured planning call, activates the first step, and
+then exposes business tools plus three harness controls to one model loop.
 `complete_step` must cite the current plan revision and map every requirement ID to a factual claim
 and a compatible successful call made for that step. `finish(outcome="completed")` is accepted only
 after all required steps are complete and carries the final response.
@@ -68,9 +66,9 @@ Business calls execute through the same validating dispatcher and in the same em
 default runtime. A turn that mixes business and control calls executes nothing and returns a
 structured correction observation. Stale revisions, unknown steps, failed or invented calls, and
 incompatible evidence remain recoverable observations. The runtime emits `plan_created`,
-`step_started`, `step_completed`, and `completion` without reviewer, retry, replan, `StepOutcome`,
-or reserved-finalization calls. The Agent UI registers it as **Plan-state agent** while keeping the
-planner-executor **Custom agent** as the default.
+`step_started`, `step_completed`, `step_failed`, `step_superseded`, `plan_revised`, and `completion`
+without reviewer calls, retry loops, or per-step finalization. The Agent UI registers it as the
+single **Custom agent** submission runtime.
 
 ## Verify
 

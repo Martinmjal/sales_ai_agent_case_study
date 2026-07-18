@@ -155,7 +155,10 @@ class LivePlanRuntime:
         await emit(
             EventKind.PLAN_CREATED,
             "plan-original",
-            content={"goal": "Resolve the original account request.", "steps": initial_steps},
+            content={
+                "goal": "Resolve the original account request.",
+                "steps": initial_steps,
+            },
         )
         await emit(
             EventKind.STEP_STARTED,
@@ -198,6 +201,24 @@ class LivePlanRuntime:
             "review-replan",
             parent_id="update",
             content={"decision": "replan", "feedback": "Use a safer update path."},
+        )
+        await emit(
+            EventKind.STEP_FAILED,
+            "update",
+            parent_id="plan-original",
+            content={"step_id": "update", "reason": "Use a safer update path."},
+        )
+        await emit(
+            EventKind.STEP_SUPERSEDED,
+            "notify",
+            parent_id="plan-original",
+            content={"step_id": "notify", "reason": "Remaining work was replaced."},
+        )
+        await emit(
+            EventKind.PLAN_REVISED,
+            "plan-revision-1",
+            parent_id="plan-original",
+            content={"previous_revision": 4, "revision": 5},
         )
         await emit(
             EventKind.REPLAN,
@@ -1108,9 +1129,7 @@ def test_agent_picker_and_live_plan_reducer_replay_the_durable_final_state(tmp_p
 
         picker = page.get_by_label("Agent runtime")
         expect(picker).to_have_value("custom")
-        expect(picker.locator("option")).to_have_text(
-            ["Custom agent", "Plan-state agent", "Mock/baseline agent"]
-        )
+        expect(picker.locator("option")).to_have_text(["Custom agent"])
         response = page.request.post(
             f"{base_url}/api/sessions",
             data={
@@ -1154,6 +1173,9 @@ def test_agent_picker_and_live_plan_reducer_replay_the_durable_final_state(tmp_p
             "data-state", "active"
         )
         expect(page.locator("[data-trace-kind='step_completed']")).to_have_count(1)
+        expect(page.locator("[data-trace-kind='step_failed']")).to_have_count(1)
+        expect(page.locator("[data-trace-kind='step_superseded']")).to_have_count(1)
+        expect(page.locator("[data-trace-kind='plan_revised']")).to_have_count(1)
 
         runtime.release_finish.set()
         expect(page.locator("#session-status")).to_have_text("Completed")

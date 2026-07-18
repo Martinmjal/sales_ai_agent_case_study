@@ -16,7 +16,6 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from mock_agent.adapter import AutomationBenchAdapter
-from mock_agent.baseline import BaselineRuntime
 from mock_agent.catalog import TaskCatalog, TaskDefinition, UnknownTaskError
 from mock_agent.contract import (
     AgentRuntime,
@@ -26,8 +25,8 @@ from mock_agent.contract import (
     RuntimeRequest,
 )
 from mock_agent.model import OpenAIModelClient
-from mock_agent.planner_executor import PlannerExecutorRuntime
 from mock_agent.plan_state_runtime import PlanStateRuntime
+from mock_agent.runtime_support import RunBudget
 
 from agent_ui.store import SessionNotFoundError, SessionStore
 from agent_ui.world_diff import world_change_evidence
@@ -36,17 +35,14 @@ from agent_ui.world_diff import world_change_evidence
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 STATIC_DIRECTORY = Path(__file__).resolve().parent / "static"
 DEFAULT_RUNTIME_ID = "custom"
-PLAN_STATE_RUNTIME_ID = "plan-state"
-PLAN_STATE_RUNTIME_VERSION = "plan-state/0.1.0"
-BASELINE_RUNTIME_ID = "mock-baseline"
-BASELINE_RUNTIME_VERSION = "baseline/0.1.0"
+SUBMISSION_RUNTIME_VERSION = "plan-state/1.0.0"
 
 
 @dataclass(frozen=True)
 class AgentConfig:
     model: str = "gpt-5.6-sol"
-    max_steps: int = 12
-    agent_version: str = "planner-executor/0.2.0"
+    max_steps: int = 30
+    agent_version: str = SUBMISSION_RUNTIME_VERSION
 
 
 @dataclass(frozen=True)
@@ -247,6 +243,7 @@ class ExecutionManager:
                 "updated_at": created_at,
                 "completed_at": None,
                 "terminal_error": None,
+                "evaluation_error": None,
                 "termination_reason": None,
             },
             "task": task_payload,
@@ -306,6 +303,7 @@ class ExecutionManager:
                     "updated_at": completed_at,
                     "completed_at": completed_at,
                     "terminal_error": outcome.terminal_error,
+                    "evaluation_error": outcome.evaluation_error,
                     "termination_reason": outcome.termination_reason.value
                     if outcome.termination_reason
                     else None,
@@ -376,27 +374,10 @@ def create_app(
                 label="Custom agent",
                 version=resolved_config.agent_version,
                 runtime=runtime
-                or PlannerExecutorRuntime(
+                or PlanStateRuntime(
                     model_client=model_client,
                     adapter=adapter,
-                ),
-            ),
-            PLAN_STATE_RUNTIME_ID: RuntimeRegistration(
-                runtime_id=PLAN_STATE_RUNTIME_ID,
-                label="Plan-state agent",
-                version=PLAN_STATE_RUNTIME_VERSION,
-                runtime=PlanStateRuntime(
-                    model_client=model_client,
-                    adapter=adapter,
-                ),
-            ),
-            BASELINE_RUNTIME_ID: RuntimeRegistration(
-                runtime_id=BASELINE_RUNTIME_ID,
-                label="Mock/baseline agent",
-                version=BASELINE_RUNTIME_VERSION,
-                runtime=BaselineRuntime(
-                    model_client=model_client,
-                    adapter=adapter,
+                    budget=RunBudget(max_model_turns=resolved_config.max_steps),
                 ),
             ),
         }

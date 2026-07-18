@@ -12,6 +12,9 @@ class EventKind(str, Enum):
     PLAN_CREATED = "plan_created"
     STEP_STARTED = "step_started"
     STEP_COMPLETED = "step_completed"
+    STEP_FAILED = "step_failed"
+    STEP_SUPERSEDED = "step_superseded"
+    PLAN_REVISED = "plan_revised"
     STEP_RETRY = "step_retry"
     REPLAN = "replan"
     EXECUTOR_TURN = "executor_turn"
@@ -24,7 +27,12 @@ class EventKind(str, Enum):
     PROTOCOL_ERROR = "protocol_error"
     PROVIDER_RETRY = "provider_retry"
     MODEL_ERROR = "model_error"
+    ADAPTER_ERROR = "adapter_error"
+    EVENT_PERSISTENCE_ERROR = "event_persistence_error"
+    EVALUATION_ERROR = "evaluation_error"
     BUDGET_EXHAUSTED = "budget_exhausted"
+    NO_PROGRESS_WARNING = "no_progress_warning"
+    RUN_FINALIZING = "run_finalizing"
     CANCELLATION = "cancellation"
     COMPLETION = "completion"
 
@@ -42,13 +50,17 @@ class TerminationReason(str, Enum):
     MODEL_PROTOCOL_ERROR = "model_protocol_error"
     MODEL_ERROR = "model_error"
     RUNTIME_ERROR = "runtime_error"
+    ADAPTER_INITIALIZATION_FAILED = "adapter_initialization_failed"
+    EVENT_PERSISTENCE_FAILED = "event_persistence_failed"
+    PARTIAL = "partial"
+    BLOCKED = "blocked"
 
 
 @dataclass(frozen=True)
 class RuntimeRequest:
     task_id: str
     model_name: str
-    max_steps: int = 12
+    max_steps: int = 30
 
 
 @dataclass(frozen=True)
@@ -81,6 +93,7 @@ class RuntimeOutcome:
     usage: dict[str, int]
     terminal_error: str | None = None
     termination_reason: TerminationReason | None = None
+    evaluation_error: str | None = None
 
 
 class CancellationSignal:

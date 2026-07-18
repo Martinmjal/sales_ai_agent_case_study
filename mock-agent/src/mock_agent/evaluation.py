@@ -20,7 +20,7 @@ from mock_agent.adapter import AutomationBenchAdapter
 from mock_agent.catalog import TaskCatalog, TaskDefinition
 from mock_agent.contract import AgentRuntime, EventKind, RuntimeOutcome, RuntimeRequest
 from mock_agent.model import OpenAIModelClient
-from mock_agent.planner_executor import EXECUTION_LIMITS, PlannerExecutorRuntime
+from mock_agent.plan_state_runtime import PLAN_STATE_LIMITS, PlanStateRuntime
 
 
 RuntimeFactory = Callable[[], AgentRuntime]
@@ -69,9 +69,9 @@ def _load_inputs(manifest_path: Path, config_path: Path) -> tuple[list[str], dic
     missing = [field for field in CONFIGURATION_FIELDS if field not in config]
     if missing:
         raise ValueError(f"Configuration is missing: {', '.join(missing)}")
-    if config["execution_limits"] != EXECUTION_LIMITS:
+    if config["execution_limits"] != PLAN_STATE_LIMITS:
         raise ValueError(
-            f"Execution limits must equal the frozen limits: {EXECUTION_LIMITS}"
+            f"Execution limits must equal the frozen limits: {PLAN_STATE_LIMITS}"
         )
     canonical = json.dumps(config, sort_keys=True, separators=(",", ":"))
     return tasks, {**config, "identity": sha256(canonical.encode()).hexdigest()}
@@ -150,6 +150,7 @@ def _record(
     initial_world: dict,
 ) -> dict:
     score = outcome.score or {}
+    evaluation_available = outcome.score is not None
     events = [asdict(event) for event in outcome.events]
     return {
         "artifact_type": "agent_evaluation_run",
@@ -187,6 +188,8 @@ def _record(
         },
         "assertion_evidence": score.get("assertions", []),
         "terminal_error": outcome.terminal_error,
+        "evaluation_available": evaluation_available,
+        "evaluation_error": outcome.evaluation_error,
     }
 
 
@@ -217,6 +220,7 @@ def _session_record(
             "updated_at": record["timing"]["finished_at"],
             "completed_at": record["timing"]["finished_at"],
             "terminal_error": record["terminal_error"],
+            "evaluation_error": record.get("evaluation_error"),
             "termination_reason": record["termination_reason"],
         },
         "task": {
@@ -233,7 +237,7 @@ def _session_record(
         },
         "agent": {
             "model": configuration["model"],
-            "max_steps": configuration["execution_limits"]["logical_model_calls"],
+            "max_steps": configuration["execution_limits"]["max_model_turns"],
             "agent_version": configuration["harness_version"],
         },
         "runtime": {
@@ -243,10 +247,14 @@ def _session_record(
         },
         "events": record["trace"],
         "final_response": record["response"],
-        "evaluation": {
-            **record["official_score"],
-            "assertions": record["assertion_evidence"],
-        },
+        "evaluation": (
+            {
+                **record["official_score"],
+                "assertions": record["assertion_evidence"],
+            }
+            if record.get("evaluation_available", True)
+            else None
+        ),
         "usage": record["usage"],
         "initial_world": record["worlds"]["initial"],
         "final_world": record["worlds"]["final"],
@@ -612,7 +620,7 @@ def main(
         load_dotenv(REPOSITORY_ROOT / ".env")
         tasks, config = _load_inputs(args.manifest, args.config)
         factory = runtime_factory or (
-            lambda: PlannerExecutorRuntime(model_client=OpenAIModelClient())
+            lambda: PlanStateRuntime(model_client=OpenAIModelClient())
         )
         asyncio.run(
             _run(

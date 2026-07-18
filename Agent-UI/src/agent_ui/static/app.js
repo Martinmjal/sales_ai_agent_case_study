@@ -249,7 +249,9 @@ function nodeState(session, event, result) {
     return session.status === "Running" ? "running" : session.status.toLowerCase();
   }
   if (event.kind === "completion") return session.status.toLowerCase();
-  if (["protocol_error", "model_error"].includes(event.kind)) return "failed";
+  if (
+    ["protocol_error", "model_error", "adapter_error", "event_persistence_error"].includes(event.kind)
+  ) return "failed";
   if (["budget_exhausted", "cancellation"].includes(event.kind)) return "stopped";
   return "completed";
 }
@@ -329,6 +331,14 @@ function reducePlanEvents(events) {
         step.state = "completed";
         if (activeStep === step) activeStep = null;
       }
+    } else if (["step_failed", "step_superseded"].includes(event.kind)) {
+      const step = findStep(
+        event.content?.step_id || event.content?.id || event.correlation_id,
+      );
+      if (step && step.state !== "completed") {
+        step.state = event.kind === "step_failed" ? "failed" : "superseded";
+        if (activeStep === step) activeStep = null;
+      }
     } else if (event.kind === "review") {
       const step = findStep(event.parent_id);
       reviews.set(event.correlation_id, step);
@@ -354,7 +364,9 @@ function reducePlanEvents(events) {
       if (failed && failed.state !== "completed") failed.state = "failed";
       failActive();
       supersedePending(currentPlan());
-    } else if (["cancellation", "budget_exhausted", "protocol_error", "model_error"].includes(event.kind)) {
+    } else if (
+      ["cancellation", "budget_exhausted", "protocol_error", "model_error", "adapter_error", "event_persistence_error"].includes(event.kind)
+    ) {
       failActive();
     } else if (event.kind === "completion") {
       if (event.content?.status === "completed") {
@@ -877,7 +889,7 @@ function renderInspector(session) {
     ["Runtime", sessionRuntime(session).label],
     ["Runtime version", sessionRuntime(session).version],
     ["Model", session.agent.model],
-    ["Maximum steps", session.agent.max_steps],
+    ["Maximum model turns", session.agent.max_steps],
     ["Agent version", session.agent.agent_version],
   ];
   for (const [label, value] of configItems) {
@@ -913,6 +925,9 @@ function renderInspector(session) {
     plan_created: "Plan created",
     step_started: "Step started",
     step_completed: "Step completed",
+    step_failed: "Step failed",
+    step_superseded: "Step superseded",
+    plan_revised: "Plan revised",
     step_retry: "Step retry",
     replan: "Plan replaced",
     review: "Planner review",
@@ -920,7 +935,12 @@ function renderInspector(session) {
     protocol_error: "Protocol error",
     provider_retry: "Provider retry",
     model_error: "Model error",
+    adapter_error: "Adapter error",
+    event_persistence_error: "Event persistence error",
+    evaluation_error: "Evaluation unavailable",
     budget_exhausted: "Budget exhausted",
+    no_progress_warning: "No-progress warning",
+    run_finalizing: "Run finalizing",
     cancellation: "Cancellation",
   };
 
@@ -1303,6 +1323,9 @@ function renderSession(session) {
     elements.score.textContent = partial == null ? "Unavailable" : `${Math.round(partial * 100)}%`;
     const errors = [];
     if (session.lifecycle.terminal_error) errors.push(session.lifecycle.terminal_error);
+    if (session.lifecycle.evaluation_error) {
+      errors.push(`Evaluation unavailable: ${session.lifecycle.evaluation_error}`);
+    }
     elements.errors.hidden = errors.length === 0;
     elements.errorList.replaceChildren();
     for (const error of errors) {

@@ -1,15 +1,16 @@
 {
   "evaluation_protocol_version": "sales-panel/v1",
   "execution_limits": {
-    "executor_tool_turns_per_attempt": 4,
-    "logical_model_calls": 30,
+    "deadline_seconds": 300,
+    "max_consecutive_no_progress_turns": 3,
+    "max_model_turns": 30,
+    "max_plan_revisions": 3,
+    "max_tool_calls": 64,
     "plan_steps": 6,
     "provider_retries": 2,
-    "replans": 1,
-    "reserved_outcome_calls_per_saturated_attempt": 1,
-    "step_retries": 1
+    "reserved_finalization_calls": 1
   },
-  "harness_version": "planner-executor/0.3.0",
+  "harness_version": "plan-state/1.0.0",
   "model": "gpt-5.6-sol",
-  "prompt_version": "planner-executor-prompts/v2"
+  "prompt_version": "plan-state-prompts/v1"
 }

@@ -7,32 +7,49 @@ from uuid import uuid4
 
 from pydantic import ValidationError
 
-from mock_agent.adapter import AutomationBenchAdapter, ToolSpec
+from mock_agent.adapter import AutomationBenchAdapter, ToolResult, ToolSpec
 from mock_agent.contract import (
     CancellationSignal,
     EventKind,
     EventSink,
+    ExitStatus,
     RuntimeOutcome,
     RuntimeRequest,
+    TerminationReason,
 )
 from mock_agent.model import ModelClient, ModelReply, ModelRequest
 from mock_agent.plan_state import (
     CompleteStep,
     Finish,
     PlanDraft,
+    PlanRevision,
     PlanState,
     PlanStateError,
+    RunFinalization,
     SuccessfulToolCall,
     activate_next_step,
     complete_step,
     create_plan_state,
     finish,
     record_successful_tool_call,
+    revise_plan,
 )
-from mock_agent.runtime_support import ModelProtocolError, RunCancelled, RuntimeRun
+from mock_agent.runtime_support import (
+    AdapterInitializationError,
+    BudgetExhausted,
+    ModelProtocolError,
+    RunBudget,
+    RunCancelled,
+    RuntimeRun,
+)
 
 
-PLAN_STATE_LIMITS = {"plan_steps": 6, "logical_model_calls": 30, "provider_retries": 2}
+DEFAULT_RUN_BUDGET = RunBudget()
+PLAN_STATE_LIMITS = {
+    "plan_steps": 6,
+    **DEFAULT_RUN_BUDGET.snapshot(),
+    "provider_retries": 2,
+}
 PLANNER_PROMPT = """plan-state-planner/v1
 Create the smallest cohesive linear plan, with at most six steps. Give the goal, every step,
 and every evidence requirement a globally unique stable ID. Each step needs a nonempty objective
@@ -46,13 +63,25 @@ sequentially and their observations arrive on the next turn. Call complete_step 
 evidence source result has been observed. Use the exact current plan revision and map every active
 requirement ID to a factual claim and compatible successful source call ID. Call finish with a
 nonempty final response only after all plan steps are completed.
+When a discovery invalidates remaining work, call revise_plan with the exact current revision,
+an explicit failed or superseded disposition for the active step, and replacement remaining steps.
 """
-CONTROL_NAMES = frozenset({"complete_step", "finish"})
+FINALIZER_PROMPT = """plan-state-finalizer/v1
+Tools and plan mutations are disabled. Use only the supplied plan state, accepted evidence,
+successful tool ledger, and unresolved steps. Return a structured partial or blocked response
+that accurately explains completed work and what remains unresolved.
+"""
+CONTROL_NAMES = frozenset({"complete_step", "revise_plan", "finish"})
 CONTROL_TOOLS = (
     ToolSpec(
         name="complete_step",
         description="Complete the active plan step with grounded evidence.",
         input_schema=CompleteStep.model_json_schema(),
+    ),
+    ToolSpec(
+        name="revise_plan",
+        description="Replace invalid remaining work while preserving completed history and calls.",
+        input_schema=PlanRevision.model_json_schema(),
     ),
     ToolSpec(
         name="finish",
@@ -62,12 +91,17 @@ CONTROL_TOOLS = (
 )
 
 
-def _plan_event_content(state: PlanState) -> dict[str, Any]:
+def _plan_event_content(
+    state: PlanState, *, step_ids: set[str] | None = None
+) -> dict[str, Any]:
+    steps = state.steps
+    if step_ids is not None:
+        steps = tuple(step for step in steps if step.id in step_ids)
     return {
         "revision": state.revision,
         "goal": state.goal.objective,
         "goal_id": state.goal.id,
-        "steps": [step.model_dump(mode="json") for step in state.steps],
+        "steps": [step.model_dump(mode="json") for step in steps],
     }
 
 
@@ -87,9 +121,11 @@ class PlanStateRuntime:
         *,
         model_client: ModelClient,
         adapter: AutomationBenchAdapter | None = None,
+        budget: RunBudget | None = None,
     ) -> None:
         self._model = model_client
         self._adapter = adapter or AutomationBenchAdapter()
+        self._budget = budget or DEFAULT_RUN_BUDGET
 
     async def run(
         self,
@@ -99,13 +135,12 @@ class PlanStateRuntime:
         cancellation: CancellationSignal | None = None,
     ) -> RuntimeOutcome:
         cancellation = cancellation or CancellationSignal()
-        session = self._adapter.open(request.task_id)
-        task = session.agent_task
+        budget = self._budget.fresh()
         run = RuntimeRun(
-            session=session,
+            session=None,
             request=request,
             model=self._model,
-            logical_model_call_limit=PLAN_STATE_LIMITS["logical_model_calls"],
+            budget=budget,
             event_sink=event_sink,
             cancellation=cancellation,
         )
@@ -114,10 +149,18 @@ class PlanStateRuntime:
         ask = run.ask
         final_response = None
 
+        try:
+            session = self._adapter.open(request.task_id)
+        except Exception as error:
+            return await run.fail(AdapterInitializationError(error))
+        run.session = session
+        task = session.agent_task
+
         prompt = tuple(
             {"role": item.role, "content": item.content} for item in task.prompt
         )
         declared_tool_names = {tool.name for tool in task.tools}
+        tool_side_effects = {tool.name: tool.side_effect for tool in task.tools}
         planning_context = {
             "available_tools": [
                 {
@@ -205,6 +248,82 @@ class PlanStateRuntime:
             )
             return observation
 
+        async def graceful_finalize(
+            trigger: BudgetExhausted,
+            state: PlanState | None,
+        ) -> RuntimeOutcome:
+            await emit(
+                EventKind.BUDGET_EXHAUSTED,
+                run_id,
+                content={"budget": trigger.budget, "limit": trigger.limit},
+            )
+            unresolved_steps = []
+            accepted_evidence = []
+            successful_tool_calls = []
+            plan_state = None
+            if state is not None:
+                unresolved_steps = [
+                    step.id
+                    for step in state.steps
+                    if step.state in {"pending", "active"}
+                ]
+                accepted_evidence = [
+                    item.model_dump(mode="json") for item in state.accepted_evidence
+                ]
+                successful_tool_calls = [
+                    item.model_dump(mode="json") for item in state.successful_tool_calls
+                ]
+                plan_state = state.model_dump(mode="json")
+            context = {
+                "trigger": {"budget": trigger.budget, "limit": trigger.limit},
+                "plan_state": plan_state,
+                "accepted_evidence": accepted_evidence,
+                "successful_tool_calls": successful_tool_calls,
+                "unresolved_steps": unresolved_steps,
+            }
+            await emit(
+                EventKind.RUN_FINALIZING,
+                run_id,
+                content=context,
+            )
+            reply, _ = await ask(
+                ModelRequest(
+                    role="run_finalizer",
+                    model_name=request.model_name,
+                    instructions=FINALIZER_PROMPT,
+                    input=prompt + ({"role": "user", "content": context},),
+                    response_model=RunFinalization,
+                ),
+                finalization=True,
+            )
+            if reply.tool_calls:
+                raise ModelProtocolError(
+                    "run_finalizer",
+                    [
+                        {
+                            "type": "finalizer_tool_call",
+                            "message": "Run finalization cannot request tools.",
+                        }
+                    ],
+                )
+            try:
+                finalization = RunFinalization.model_validate(reply.content)
+            except ValidationError as error:
+                raise ModelProtocolError(
+                    "run_finalizer",
+                    error.errors(include_url=False, include_input=False),
+                ) from error
+            reason = (
+                TerminationReason.PARTIAL
+                if finalization.outcome == "partial"
+                else TerminationReason.BLOCKED
+            )
+            return await run.finish(
+                finalization.final_response,
+                status=ExitStatus.STOPPED,
+                termination_reason=reason,
+            )
+
         try:
             await emit(
                 EventKind.PLANNING,
@@ -239,6 +358,32 @@ class PlanStateRuntime:
             control_observations: list[dict[str, Any]] = []
             seen_call_ids: set[str] = set()
             execution_tools = task.tools + CONTROL_TOOLS
+
+            async def account_turn(turn_id: str, *, progress: bool) -> None:
+                disposition = budget.record_turn(progress=progress)
+                if disposition == "warn":
+                    warning = {
+                        "code": "no_progress_warning",
+                        "message": (
+                            "The run has reached the consecutive no-progress "
+                            "warning threshold; the next nonprogress turn will "
+                            "trigger graceful finalization."
+                        ),
+                        "consecutive_turns": (budget.consecutive_no_progress_turns),
+                    }
+                    observation = {"ok": False, "warning": warning}
+                    control_observations.append(observation)
+                    await emit(
+                        EventKind.NO_PROGRESS_WARNING,
+                        str(uuid4()),
+                        parent_id=turn_id,
+                        content=observation,
+                    )
+                elif disposition == "finalize":
+                    raise BudgetExhausted(
+                        "no_progress_turns",
+                        budget.max_consecutive_no_progress_turns,
+                    )
 
             while final_response is None:
                 execution_context = {
@@ -281,6 +426,7 @@ class PlanStateRuntime:
                             message="A turn must contain business calls or one control action.",
                         )
                     )
+                    await account_turn(turn_id, progress=False)
                     continue
                 if control_calls and business_calls:
                     control_observations.append(
@@ -297,6 +443,7 @@ class PlanStateRuntime:
                             },
                         )
                     )
+                    await account_turn(turn_id, progress=False)
                     continue
                 if len(control_calls) > 1:
                     control_observations.append(
@@ -307,6 +454,7 @@ class PlanStateRuntime:
                             message="A turn may contain only one control action.",
                         )
                     )
+                    await account_turn(turn_id, progress=False)
                     continue
 
                 if business_calls:
@@ -319,6 +467,7 @@ class PlanStateRuntime:
                                 message="Business calls require an active plan step.",
                             )
                         )
+                        await account_turn(turn_id, progress=False)
                         continue
                     identifiers = [call.id for call in business_calls]
                     duplicates = sorted(
@@ -339,8 +488,10 @@ class PlanStateRuntime:
                                 details={"call_ids": duplicates},
                             )
                         )
+                        await account_turn(turn_id, progress=False)
                         continue
                     seen_call_ids.update(identifiers)
+                    budget.claim_tool_calls(len(business_calls))
                     for call in business_calls:
                         await emit(
                             EventKind.TOOL_CALL,
@@ -352,11 +503,15 @@ class PlanStateRuntime:
                     if cancellation.is_cancelled:
                         raise RunCancelled("tool_batch_boundary")
                     active_step_id = state.active_step_id
+                    made_progress = False
                     for call in business_calls:
                         started = monotonic()
-                        result = await task.dispatcher.dispatch(
-                            call.name, call.arguments
-                        )
+                        if call.argument_error is not None:
+                            result = ToolResult(error=call.argument_error)
+                        else:
+                            result = await task.dispatcher.dispatch(
+                                call.name, call.arguments
+                            )
                         tool_duration = (monotonic() - started) * 1000
                         observation = {
                             "call_id": call.id,
@@ -366,15 +521,20 @@ class PlanStateRuntime:
                             "result": result.value,
                             "error": result.error,
                             "succeeded": result.error is None,
+                            "side_effect": tool_side_effects.get(call.name, False),
                         }
                         tool_observations.append(observation)
                         if result.error is None:
+                            made_progress = True
                             state = record_successful_tool_call(
                                 state,
                                 SuccessfulToolCall(
                                     call_id=call.id,
                                     step_id=active_step_id,
                                     tool_name=call.name,
+                                    arguments=call.arguments,
+                                    result=result.value,
+                                    side_effect=tool_side_effects.get(call.name, False),
                                 ),
                             )
                         await emit(
@@ -390,6 +550,8 @@ class PlanStateRuntime:
                         )
                     if cancellation.is_cancelled:
                         raise RunCancelled("tool_batch_boundary")
+                    budget.check_deadline()
+                    await account_turn(turn_id, progress=made_progress)
                     continue
 
                 call = control_calls[0]
@@ -400,6 +562,7 @@ class PlanStateRuntime:
                     name=call.name,
                     arguments=call.arguments,
                 )
+                control_progress = False
                 try:
                     if call.name == "complete_step":
                         action = CompleteStep.model_validate(call.arguments)
@@ -440,6 +603,99 @@ class PlanStateRuntime:
                                     "plan_revision": state.revision,
                                 },
                             )
+                        control_progress = True
+                    elif call.name == "revise_plan":
+                        action = PlanRevision.model_validate(call.arguments)
+                        previous_revision = state.revision
+                        previous_active_id = state.active_step_id
+                        previous_pending_ids = [
+                            step.id for step in state.steps if step.state == "pending"
+                        ]
+                        replacement_ids = {step.id for step in action.replacement_steps}
+                        revised_state = revise_plan(
+                            state,
+                            action,
+                            declared_tools=declared_tool_names,
+                        )
+                        budget.claim_plan_revision()
+                        state = revised_state
+                        result = {"ok": True, "plan_revision": state.revision}
+                        await emit(
+                            EventKind.TOOL_RESULT,
+                            call.id,
+                            parent_id=turn_id,
+                            name=call.name,
+                            result=result,
+                        )
+                        control_observations.append(
+                            {"ok": True, "action": call.name, "result": result}
+                        )
+                        disposition_kind = (
+                            EventKind.STEP_FAILED
+                            if action.active_step_disposition.value == "failed"
+                            else EventKind.STEP_SUPERSEDED
+                        )
+                        await emit(
+                            disposition_kind,
+                            previous_active_id,
+                            parent_id=plan_id,
+                            content={
+                                "step_id": previous_active_id,
+                                "reason": action.invalidation_reason,
+                                "plan_revision": state.revision,
+                            },
+                        )
+                        for step_id in previous_pending_ids:
+                            await emit(
+                                EventKind.STEP_SUPERSEDED,
+                                step_id,
+                                parent_id=plan_id,
+                                content={
+                                    "step_id": step_id,
+                                    "reason": action.invalidation_reason,
+                                    "plan_revision": state.revision,
+                                },
+                            )
+                        revision_id = str(uuid4())
+                        await emit(
+                            EventKind.PLAN_REVISED,
+                            revision_id,
+                            parent_id=plan_id,
+                            content={
+                                "previous_revision": previous_revision,
+                                "revision": state.revision,
+                                "invalidation_reason": action.invalidation_reason,
+                                "active_step_disposition": (
+                                    action.active_step_disposition.value
+                                ),
+                            },
+                        )
+                        plan_id = str(uuid4())
+                        await emit(
+                            EventKind.PLAN_CREATED,
+                            plan_id,
+                            parent_id=revision_id,
+                            content=_plan_event_content(
+                                state,
+                                step_ids=replacement_ids,
+                            ),
+                        )
+                        state = activate_next_step(state)
+                        active = next(
+                            step
+                            for step in state.steps
+                            if step.id == state.active_step_id
+                        )
+                        await emit(
+                            EventKind.STEP_STARTED,
+                            active.id,
+                            parent_id=plan_id,
+                            content={
+                                **active.model_dump(mode="json"),
+                                "plan_revision": state.revision,
+                            },
+                        )
+                        control_progress = True
                     else:
                         action = Finish.model_validate(call.arguments)
                         final_response = finish(state, action)
@@ -454,6 +710,7 @@ class PlanStateRuntime:
                         control_observations.append(
                             {"ok": True, "action": call.name, "result": result}
                         )
+                        control_progress = True
                 except ValidationError as error:
                     control_observations.append(
                         await correction(
@@ -469,6 +726,7 @@ class PlanStateRuntime:
                             },
                         )
                     )
+
                 except PlanStateError as error:
                     control_observations.append(
                         await correction(
@@ -481,6 +739,13 @@ class PlanStateRuntime:
                         )
                     )
 
+                await account_turn(turn_id, progress=control_progress)
+
             return await run.finish(final_response)
+        except BudgetExhausted as error:
+            try:
+                return await graceful_finalize(error, locals().get("state"))
+            except Exception as finalization_error:
+                return await run.fail(finalization_error, final_response)
         except Exception as error:
             return await run.fail(error, final_response)

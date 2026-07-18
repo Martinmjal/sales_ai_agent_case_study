@@ -117,6 +117,9 @@ class AutomationBenchSession:
             self._world.model_dump(mode="json"),
         )
 
+    def world_state(self) -> dict[str, Any]:
+        return self._world.model_dump(mode="json")
+
 
 class AutomationBenchAdapter:
     def __init__(self, catalog: TaskCatalog | None = None):

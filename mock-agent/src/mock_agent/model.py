@@ -17,6 +17,7 @@ class ToolCall:
     id: str
     name: str
     arguments: dict[str, Any]
+    argument_error: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -120,11 +121,22 @@ class OpenAIModelClient:
         for item in response.output:
             if getattr(item, "type", None) != "function_call":
                 continue
+            argument_error = None
+            try:
+                arguments = json.loads(item.arguments)
+            except (json.JSONDecodeError, TypeError) as error:
+                arguments = {}
+                argument_error = {
+                    "type": "malformed_arguments_json",
+                    "message": f"{type(error).__name__}: {error}",
+                    "raw_arguments": item.arguments,
+                }
             calls.append(
                 ToolCall(
                     id=item.call_id,
                     name=item.name,
-                    arguments=json.loads(item.arguments),
+                    arguments=arguments,
+                    argument_error=argument_error,
                 )
             )
         parsed = getattr(response, "output_parsed", None)
@@ -176,10 +188,8 @@ class OpenAIModelClient:
     def _client_from_environment() -> AsyncOpenAI:
         base_url = os.environ.get("LIBRA_BASE_URL")
         if not base_url:
-            raise RuntimeError("Set LIBRA_BASE_URL before running the planner-executor")
+            raise RuntimeError("Set LIBRA_BASE_URL before running the agent")
         api_key = os.environ.get("LIBRA_INTERVIEW_API_KEY")
         if not api_key:
-            raise RuntimeError(
-                "Set LIBRA_INTERVIEW_API_KEY before running the planner-executor"
-            )
+            raise RuntimeError("Set LIBRA_INTERVIEW_API_KEY before running the agent")
         return AsyncOpenAI(api_key=api_key, base_url=base_url, max_retries=0)

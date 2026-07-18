@@ -10,7 +10,7 @@ from mock_agent.contract import (
     TerminationReason,
 )
 from mock_agent.evaluation import main
-from mock_agent.planner_executor import EXECUTION_LIMITS
+from mock_agent.plan_state_runtime import PLAN_STATE_LIMITS
 
 
 TASK_ID = "sales.zoom_calendar_conflict"
@@ -26,10 +26,10 @@ def test_batch_executions_are_available_from_agent_ui_history(tmp_path):
         json.dumps(
             {
                 "model": "scripted-model",
-                "harness_version": "planner-executor/test",
-                "prompt_version": "planner-executor-prompts/test",
+                "harness_version": "plan-state/test",
+                "prompt_version": "plan-state-prompts/v1-test",
                 "evaluation_protocol_version": "sales-panel/test",
-                "execution_limits": EXECUTION_LIMITS,
+                "execution_limits": PLAN_STATE_LIMITS,
             }
         ),
         encoding="utf-8",

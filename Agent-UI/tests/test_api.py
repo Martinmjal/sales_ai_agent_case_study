@@ -6,22 +6,18 @@ from threading import Event
 from threading import Thread
 from time import sleep
 
-from agent_ui.app import (
-    BASELINE_RUNTIME_ID,
-    DEFAULT_RUNTIME_ID,
-    PLAN_STATE_RUNTIME_ID,
-    AgentConfig,
-    RuntimeRegistration,
-    create_app,
-)
+from agent_ui.app import DEFAULT_RUNTIME_ID, AgentConfig, RuntimeRegistration, create_app
 from agent_ui.store import ImmutableSessionError, SessionStore
 from fastapi.testclient import TestClient
 import httpx
 from mock_agent.contract import EventKind, ExitStatus, RuntimeEvent, RuntimeOutcome
-from mock_agent.model import ModelReply
-from mock_agent.planner_executor import PlannerExecutorRuntime
+from mock_agent.model import ModelReply, ToolCall
+from mock_agent.plan_state_runtime import PlanStateRuntime
 import pytest
 import uvicorn
+
+
+BASELINE_RUNTIME_ID = "mock-baseline"
 
 
 class ScriptedModel:
@@ -33,18 +29,22 @@ class ScriptedModel:
 
 
 def scripted_runtime():
-    return PlannerExecutorRuntime(
+    return PlanStateRuntime(
         model_client=ScriptedModel(
             [
                 ModelReply(
                     content={
-                        "goal": "Inspect the task.",
+                        "goal": {
+                            "id": "inspect-goal",
+                            "objective": "Inspect the task.",
+                        },
                         "steps": [
                             {
                                 "id": "inspect",
                                 "objective": "Inspect the task.",
                                 "required_evidence": [
                                     {
+                                        "id": "grounded-result",
                                         "requirement": "A grounded result",
                                         "source_tools": ["zoom_list_meetings"],
                                     }
@@ -55,19 +55,47 @@ def scripted_runtime():
                     usage={"input_tokens": 4, "output_tokens": 2, "total_tokens": 6},
                 ),
                 ModelReply(
-                    content={
-                        "summary": "The task was inspected.",
-                        "evidence": [],
-                        "actions": [],
-                        "errors": [],
-                    },
+                    tool_calls=(
+                        ToolCall(
+                            id="meetings",
+                            name="zoom_list_meetings",
+                            arguments={},
+                        ),
+                    ),
                     usage={"input_tokens": 2, "output_tokens": 1, "total_tokens": 3},
                 ),
                 ModelReply(
-                    content={
-                        "decision": "goal_completed",
-                        "final_response": "Scripted final response.",
-                    },
+                    tool_calls=(
+                        ToolCall(
+                            id="complete",
+                            name="complete_step",
+                            arguments={
+                                "plan_revision": 3,
+                                "step_id": "inspect",
+                                "summary": "The task was inspected.",
+                                "evidence": [
+                                    {
+                                        "requirement_id": "grounded-result",
+                                        "fact": "Meeting records were returned.",
+                                        "source_call_id": "meetings",
+                                    }
+                                ],
+                            },
+                        ),
+                    ),
+                    usage={"input_tokens": 2, "output_tokens": 1, "total_tokens": 3},
+                ),
+                ModelReply(
+                    tool_calls=(
+                        ToolCall(
+                            id="finish",
+                            name="finish",
+                            arguments={
+                                "outcome": "completed",
+                                "final_response": "Scripted final response.",
+                            },
+                        ),
+                    ),
                     usage={"input_tokens": 2, "output_tokens": 1, "total_tokens": 3},
                 ),
             ]
@@ -264,7 +292,7 @@ def test_evaluator_can_run_a_catalog_task_and_reopen_its_artifact(tmp_path):
         config=AgentConfig(
             model="scripted-test",
             max_steps=12,
-            agent_version="planner-executor/0.2.0",
+            agent_version="plan-state/1.0.0",
         ),
     )
 
@@ -295,7 +323,7 @@ def test_evaluator_can_run_a_catalog_task_and_reopen_its_artifact(tmp_path):
     assert artifact["runtime"] == {
         "id": "custom",
         "label": "Custom agent",
-        "version": "planner-executor/0.2.0",
+        "version": "plan-state/1.0.0",
     }
     assert artifact["agent"]["agent_version"] == artifact["runtime"]["version"]
     assert {
@@ -315,7 +343,7 @@ def test_evaluator_can_run_a_catalog_task_and_reopen_its_artifact(tmp_path):
     assert json.loads(files[0].read_text()) == artifact
 
 
-def test_runtime_registry_validates_selection_and_defaults_to_custom(tmp_path):
+def test_submission_runtime_registry_exposes_only_the_plan_state_runtime(tmp_path):
     runtime = BlockingRuntime()
     app = create_app(runtime=runtime, sessions_dir=tmp_path)
 
@@ -343,17 +371,7 @@ def test_runtime_registry_validates_selection_and_defaults_to_custom(tmp_path):
             {
                 "id": DEFAULT_RUNTIME_ID,
                 "label": "Custom agent",
-                "version": "planner-executor/0.2.0",
-            },
-            {
-                "id": PLAN_STATE_RUNTIME_ID,
-                "label": "Plan-state agent",
-                "version": "plan-state/0.1.0",
-            },
-            {
-                "id": BASELINE_RUNTIME_ID,
-                "label": "Mock/baseline agent",
-                "version": "baseline/0.1.0",
+                "version": "plan-state/1.0.0",
             },
         ],
     }

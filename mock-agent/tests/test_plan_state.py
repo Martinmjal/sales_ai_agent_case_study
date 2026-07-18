@@ -2,10 +2,12 @@ import pytest
 from pydantic import ValidationError
 
 from mock_agent.plan_state import (
+    ActiveStepDisposition,
     CompleteStep,
     EvidenceClaim,
     Finish,
     PlanDraft,
+    PlanRevision,
     PlanStateError,
     SuccessfulToolCall,
     activate_next_step,
@@ -13,6 +15,7 @@ from mock_agent.plan_state import (
     create_plan_state,
     finish,
     record_successful_tool_call,
+    revise_plan,
 )
 
 
@@ -98,6 +101,192 @@ def test_plan_state_transitions_activate_and_complete_ordered_steps():
 
     assert state.active_step_id == "resolve"
     assert [step.state for step in state.steps] == ["completed", "active"]
+
+
+def test_plan_revision_replaces_remaining_work_without_losing_completed_evidence_or_side_effects():
+    state = activate_next_step(
+        create_plan_state(draft(), declared_tools=DECLARED_TOOLS)
+    )
+    state = record_successful_tool_call(
+        state,
+        SuccessfulToolCall(
+            call_id="policy-call",
+            step_id="inspect",
+            tool_name="lookup_policy",
+            arguments={"sheet": "priority"},
+            result={"priority": "executive"},
+            side_effect=False,
+        ),
+    )
+    state = complete_step(
+        state,
+        CompleteStep(
+            plan_revision=state.revision,
+            step_id="inspect",
+            summary="The priority policy was verified.",
+            evidence=(
+                EvidenceClaim(
+                    requirement_id="policy-found",
+                    fact="Executive meetings have priority.",
+                    source_call_id="policy-call",
+                ),
+            ),
+        ),
+    )
+    state = activate_next_step(state)
+    state = record_successful_tool_call(
+        state,
+        SuccessfulToolCall(
+            call_id="update-call",
+            step_id="resolve",
+            tool_name="update_meeting",
+            arguments={"meeting_id": "review"},
+            result={"updated": True},
+            side_effect=True,
+        ),
+    )
+    before_evidence = state.accepted_evidence
+    before_calls = state.successful_tool_calls
+
+    revised = revise_plan(
+        state,
+        PlanRevision(
+            plan_revision=state.revision,
+            invalidation_reason="The update revealed a second calendar record.",
+            active_step_disposition=ActiveStepDisposition.SUPERSEDED,
+            replacement_steps=(
+                {
+                    "id": "reconcile-calendar",
+                    "objective": "Reconcile the discovered calendar record.",
+                    "required_evidence": (
+                        {
+                            "id": "calendar-reconciled",
+                            "requirement": "The reconciled calendar record",
+                            "source_tools": ("update_meeting",),
+                        },
+                    ),
+                },
+            ),
+        ),
+        declared_tools=DECLARED_TOOLS,
+    )
+
+    assert revised.revision == state.revision + 1
+    assert [(step.id, step.state) for step in revised.steps] == [
+        ("inspect", "completed"),
+        ("resolve", "superseded"),
+        ("reconcile-calendar", "pending"),
+    ]
+    assert revised.active_step_id is None
+    assert revised.accepted_evidence == before_evidence
+    assert revised.successful_tool_calls == before_calls
+    assert revised.successful_tool_calls[-1].side_effect is True
+
+
+def test_plan_revision_rejects_stale_reused_undeclared_and_oversized_replacements():
+    state = activate_next_step(
+        create_plan_state(draft(), declared_tools=DECLARED_TOOLS)
+    )
+
+    def revision(**overrides):
+        values = {
+            "plan_revision": state.revision,
+            "invalidation_reason": "Discovery invalidated remaining work.",
+            "active_step_disposition": "failed",
+            "replacement_steps": [
+                {
+                    "id": "replacement",
+                    "objective": "Use a valid replacement.",
+                    "required_evidence": [
+                        {
+                            "id": "replacement-evidence",
+                            "requirement": "Replacement evidence",
+                            "source_tools": ["list_meetings"],
+                        }
+                    ],
+                }
+            ],
+        }
+        values.update(overrides)
+        return PlanRevision.model_validate(values)
+
+    assert (
+        error_code(
+            lambda: revise_plan(
+                state,
+                revision(plan_revision=1),
+                declared_tools=DECLARED_TOOLS,
+            )
+        )
+        == "stale_plan_revision"
+    )
+    reused = revision(
+        replacement_steps=[
+            {
+                "id": "inspect",
+                "objective": "Attempt to replace an existing step.",
+                "required_evidence": [
+                    {
+                        "id": "fresh-evidence",
+                        "requirement": "Fresh evidence",
+                        "source_tools": ["list_meetings"],
+                    }
+                ],
+            }
+        ]
+    )
+    assert (
+        error_code(
+            lambda: revise_plan(
+                state,
+                reused,
+                declared_tools=DECLARED_TOOLS,
+            )
+        )
+        == "duplicate_plan_identifier"
+    )
+    undeclared = revision(
+        replacement_steps=[
+            {
+                "id": "undeclared",
+                "objective": "Use an undeclared source.",
+                "required_evidence": [
+                    {
+                        "id": "undeclared-evidence",
+                        "requirement": "Undeclared evidence",
+                        "source_tools": ["invented_tool"],
+                    }
+                ],
+            }
+        ]
+    )
+    assert (
+        error_code(
+            lambda: revise_plan(
+                state,
+                undeclared,
+                declared_tools=DECLARED_TOOLS,
+            )
+        )
+        == "undeclared_evidence_source"
+    )
+    with pytest.raises(ValidationError):
+        revision(
+            replacement_steps=[
+                {
+                    "id": f"replacement-{index}",
+                    "objective": "Replacement work.",
+                    "required_evidence": [
+                        {
+                            "id": f"evidence-{index}",
+                            "requirement": "Evidence",
+                            "source_tools": ["list_meetings"],
+                        }
+                    ],
+                }
+                for index in range(7)
+            ]
+        )
 
 
 def test_plan_creation_rejects_invalid_identifiers_content_and_sources():

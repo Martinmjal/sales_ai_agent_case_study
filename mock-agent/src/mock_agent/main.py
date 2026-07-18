@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 
 from mock_agent.contract import RuntimeRequest
 from mock_agent.model import OpenAIModelClient
-from mock_agent.planner_executor import PlannerExecutorRuntime
+from mock_agent.plan_state_runtime import PlanStateRuntime
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -41,7 +41,7 @@ def main() -> None:
     load_dotenv(PROJECT_ROOT / ".env")
     load_dotenv(REPOSITORY_ROOT / ".env")
     outcome = asyncio.run(
-        PlannerExecutorRuntime(model_client=OpenAIModelClient()).run(
+        PlanStateRuntime(model_client=OpenAIModelClient()).run(
             RuntimeRequest(task_id=args.task_id, model_name=args.model)
         )
     )

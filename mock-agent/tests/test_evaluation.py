@@ -11,6 +11,7 @@ from mock_agent.contract import (
     TerminationReason,
 )
 from mock_agent.evaluation import main
+from mock_agent.plan_state_runtime import PLAN_STATE_LIMITS
 
 
 TASK_ID = "sales.zoom_calendar_conflict"
@@ -85,18 +86,10 @@ def _inputs(tmp_path: Path):
         json.dumps(
             {
                 "model": "scripted-model",
-                "harness_version": "planner-executor/0.3.0",
-                "prompt_version": "planner-executor-prompts/v2",
+                "harness_version": "plan-state/1.0.0",
+                "prompt_version": "plan-state-prompts/v1",
                 "evaluation_protocol_version": "sales-panel/v1",
-                "execution_limits": {
-                    "plan_steps": 6,
-                    "executor_tool_turns_per_attempt": 4,
-                    "reserved_outcome_calls_per_saturated_attempt": 1,
-                    "step_retries": 1,
-                    "replans": 1,
-                    "logical_model_calls": 30,
-                    "provider_retries": 2,
-                },
+                "execution_limits": PLAN_STATE_LIMITS,
             }
         ),
         encoding="utf-8",

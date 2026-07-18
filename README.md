@@ -1,4 +1,4 @@
-# Sales Planner-Executor Case Study
+# Sales Plan-State Agent Case Study
 
 A narrow, framework-free agent that plans and executes long-running Sales workflows against
 AutomationBench. The custom Python controller owns planning, tool dispatch, recovery, budgets,
@@ -23,10 +23,9 @@ cd Agent-UI
 uv run agent-ui
 ```
 
-Open <http://127.0.0.1:8000>, select a task and runtime, then start the execution. **Custom agent**
-remains the default planner-review runtime; **Plan-state agent** is the opt-in continuous-loop
-runtime. The left pane reads durable JSON sessions from `sessions/`; refreshing the browser does
-not lose a finished trace.
+Open <http://127.0.0.1:8000>, select a task, then start the execution. The submission UI exposes
+one **Custom agent** backed by the plan-state runtime. The left pane reads durable JSON sessions
+from `sessions/`; refreshing the browser does not lose a finished or historical trace.
 
 Run one task without the UI:
 
@@ -72,15 +71,12 @@ flowchart TB
     subgraph CORE["Custom agent loop"]
         direction LR
         P["1. Planner (model)<br/>Evidence-backed plan"]
-        C["Controller (Python)<br/>State / budgets / recovery"]
-        E["2. Executor (model)<br/>One current step"]
-        R["3. Reviewer (model)<br/>Accept / retry / replan / finish"]
+        C["Typed plan state<br/>Transitions + one RunBudget"]
+        E["2. Continuous executor (model)<br/>Business batch or one control"]
 
-        P -->|"plan"| C
-        C -->|"step + accepted evidence"| E
-        E -->|"grounded outcome"| R
-        R -->|"decision"| C
-        C -.->|"replan"| P
+        P -->|"initial plan"| C
+        C -->|"active step + evidence + call ledger"| E
+        E -->|"complete / revise / finish"| C
     end
 
     subgraph BENCH["Blind AutomationBench boundary"]
@@ -112,31 +108,23 @@ flowchart TB
 ```
 
 The central design choice is the boundary between model judgment and deterministic control: the
-model proposes a plan, performs one step, and reviews the evidence, while Python owns transitions,
-budgets, validation, recovery, tracing, and access to tools. Private benchmark answers reach only
-the scorer after execution; the model sees only the task, public schemas, and observed results.
+model proposes a plan and executes it through one continuous loop, while Python owns typed state
+transitions, budgets, validation, recovery, tracing, and access to tools. Private benchmark answers
+reach only the scorer after execution.
 
-The planner returns at most six ordered steps. Each step names its objective and the declared
-tools that can supply completion evidence. The executor receives one current step and may issue
-multiple calls in one turn; arguments are validated locally and calls execute in emitted order.
-The planner then reviews the grounded outcome and chooses `step_completed`, `retry_step`,
-`replan`, or `goal_completed`. Only the last decision may contain the user-facing response.
+The planner returns at most six ordered steps. Each step names its objective and declared tools that
+can supply completion evidence. Executor turns contain either a sequential business-tool batch or
+one local `complete_step`, `revise_plan`, or `finish` control. Completion evidence must cite a
+successful compatible call visible to the active step. Plan revision explicitly fails or supersedes
+the active step, preserves completed work and successful side effects, and supplies replacement
+remaining steps with globally unique IDs.
 
-The Python controller, rather than the model, owns transitions and limits. A step gets four
-tool-capable executor turns plus one tool-free outcome call, one rejected step may be retried, one
-remaining plan may be replaced, and the full run gets 30 logical model calls. Two short transport
-retries do not consume that logical budget. Terminal reasons distinguish completion, budget
-exhaustion, cancellation, provider failure, protocol failure, and unexpected runtime failure.
-
-### Optional plan-state runtime
-
-The Agent UI also exposes `PlanStateRuntime` alongside the default runtime. It creates one validated
-plan with business tools disabled, then uses a single model loop whose turns contain either a
-sequential business-tool batch or one local `complete_step`/`finish` control. Immutable typed
-transitions own the plan revision, active step, accepted evidence, and successful call ledger.
-Completion evidence must cite successful, compatible calls from the active step; invalid controls
-become structured observations, and mixed business/control batches execute no side effects. Direct
-`step_completed` events update and replay in the same UI plan reducer as historical reviewer events.
+One `RunBudget` owns model turns, business calls, plan revisions, the deadline, consecutive
+no-progress turns, and one tools-disabled run-level finalization call. Budget/deadline exhaustion
+produces a structured partial or blocked response. Side effects are not retried automatically;
+provider retries remain bounded and visible. Terminal reasons distinguish successful completion,
+partial or blocked finalization, cancellation, adapter/persistence/provider/protocol failures, and
+unexpected runtime failure.
 
 ## Information and blindness boundaries
 
@@ -146,12 +134,11 @@ public tool schemas, observed tool results/errors, the current plan, accepted ev
 records, and remaining budgets. The scorer runs only after execution. Held-out labels, repetition
 numbers, previous outcomes, raw world state, and assertion data never enter model-visible context.
 
-The immutable trace retains every model turn, plan, step, call, result, error, review, retry,
-replan, usage value, correlation ID, and duration. Model-visible context is smaller: after an
-accepted step, its transcript becomes exact structured facts and source call IDs; before a replan,
-a failed attempt becomes a record of actions, useful facts, errors, and side effects that must not
-repeat. Ordinary executor turns and the single retry retain their local transcript. There is no
-arbitrary truncation, vector retrieval, hidden provider conversation, or lossy trace compression.
+The immutable trace retains every model turn, plan generation, typed step transition, call, result,
+error, usage value, correlation ID, and duration. Model-visible context is smaller: the current
+plan state contains accepted facts with source call IDs and a successful-call ledger that keeps
+side effects visible across revisions. There is no arbitrary truncation, vector retrieval, hidden
+provider conversation, or lossy trace compression.
 
 Unknown tools, invalid arguments, and tool exceptions are returned as structured observations.
 Side-effecting tools are never retried automatically. Provider failures receive only bounded
@@ -225,7 +212,8 @@ executor turns, 13 correlated calls/results, four reviews, the final response, i
 worlds, and official assertion evidence. It used 88,594 tokens and changed only the simulated
 world.
 
-Development evaluation justified four concrete changes before preregistration: plans now bind
+The checked-in held-out results above were collected with the retired reviewer-driven runtime and
+remain as historical evidence. That development evaluation justified four concrete changes before preregistration: plans now bind
 evidence requirements to declared source tools; a saturated executor receives a reserved tool-free
 outcome call; reviewers receive the full current plan before accepting completion; and retry/replan
 records protect successful side effects without incorrectly blocking harmless reads. These changes
@@ -234,21 +222,20 @@ were frozen as `planner-executor/0.3.0` with prompt version `planner-executor-pr
 ## Scope and tradeoffs
 
 This is intentionally not a reusable agent platform. It has one Sales domain, one provider API,
-one linear planner, sequential tool execution, one retry, one replan, local JSON persistence, and
-deterministic benchmark scoring. It does not implement DAG scheduling, subagents, multi-provider
+one linear planner, one continuous execution loop, sequential tool execution, local JSON
+persistence, and deterministic benchmark scoring. It does not implement DAG scheduling, subagents, multi-provider
 routing, durable workers, a database, human approval, long-term memory, retrieval, semantic cache,
 automatic prompt optimization, an LLM judge, or a live aggregate dashboard.
 
-The main simplicity tradeoffs are higher token use from explicit reviewer calls and full local
-step transcripts, slower evaluation from sequential execution, and coarse fixed budgets instead
-of learned stopping. Given more time, priorities are: reduce repeated prompt/tool-schema tokens,
+The main simplicity tradeoffs are repeated full-state context, slower evaluation from sequential
+execution, and coarse fixed budgets instead of learned stopping. Given more time, priorities are: reduce repeated prompt/tool-schema tokens,
 improve evidence-first query planning for large noisy tool sets, add explicit provider timeouts,
 compare prompt/config versions on a new preregistered panel, and introduce human approval only for
 real external side effects.
 
 ## Repository guide
 
-- `mock-agent/src/mock_agent/`: blind adapter, direct provider client, planner-executor, contracts,
+- `mock-agent/src/mock_agent/`: blind adapter, direct provider client, plan-state runtime, contracts,
   and offline evaluation/reporting.
 - `Agent-UI/`: local execution workspace and durable history/evidence inspector.
 - `AutomationBench/`: Sales tasks, tools, simulated worlds, and official deterministic scorer.

@@ -14,8 +14,13 @@ load_dotenv(REPOSITORY_ROOT / ".env")
 app = create_app(
     config=AgentConfig(
         model=os.environ.get("AGENT_MODEL", "gpt-5.6-sol"),
-        max_steps=int(os.environ.get("AGENT_MAX_STEPS", "12")),
-        agent_version=os.environ.get("AGENT_VERSION", "planner-executor/0.2.0"),
+        max_steps=int(
+            os.environ.get(
+                "AGENT_MAX_MODEL_TURNS",
+                os.environ.get("AGENT_MAX_STEPS", "30"),
+            )
+        ),
+        agent_version=os.environ.get("AGENT_VERSION", "plan-state/1.0.0"),
     ),
 )
 
