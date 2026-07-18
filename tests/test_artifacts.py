@@ -144,6 +144,37 @@ def test_artifact_writes_are_atomic_and_never_replace_an_existing_destination(tm
     assert malformed.read_bytes() == malformed_original
 
 
+def test_artifact_serializes_nested_tool_exceptions_as_structured_json(tmp_path):
+    artifact = _artifact()
+    tool_error = ValueError("Unsupported query filter")
+    event = {
+        "sequence": 1,
+        "kind": "tool_error",
+        "timestamp": "2026-07-17T12:00:01+00:00",
+        "run_id": artifact.run_id,
+        "correlation_id": "tool-call-1",
+        "name": "salesforce_query",
+        "result": {"error": tool_error},
+        "error": {
+            "type": "tool_reported_error",
+            "reported_error": tool_error,
+        },
+    }
+    artifact = replace(
+        artifact,
+        trace=(event,),
+        summary=ArtifactSummary(0, 0, 0, True),
+    )
+
+    path = RunArtifactStore(tmp_path).write(artifact)
+    persisted = json.loads(path.read_text(encoding="utf-8"))
+    expected = {"type": "ValueError", "message": "Unsupported query filter"}
+
+    assert persisted["trace"][0]["result"]["error"] == expected
+    assert persisted["trace"][0]["error"]["reported_error"] == expected
+    assert read_artifact(path).trace[0]["result"]["error"] == expected
+
+
 @pytest.mark.parametrize(
     "payload",
     [

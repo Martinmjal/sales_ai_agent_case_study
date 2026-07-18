@@ -1,0 +1,11 @@
+{
+  "panel_id": "sales-historical-five-task-replay-2026-07-18",
+  "preregistered_by": "repository-owner-historical-report-scope",
+  "tasks": [
+    "sales.contract_renewal_coordinator",
+    "sales.event_to_opportunity_pipeline",
+    "sales.full_sales_cycle_orchestrator",
+    "sales.cross_platform_account_health_score",
+    "sales.demo_scheduling"
+  ]
+}

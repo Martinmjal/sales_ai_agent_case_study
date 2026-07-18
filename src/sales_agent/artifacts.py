@@ -487,6 +487,11 @@ def _required_bool(value: dict[str, Any], key: str) -> bool:
 
 
 def _json_default(value: Any) -> Any:
+    if isinstance(value, BaseException):
+        return {
+            "type": type(value).__name__,
+            "message": str(value),
+        }
     if hasattr(value, "value"):
         return value.value
     raise TypeError(f"Cannot serialize {type(value).__name__}")
