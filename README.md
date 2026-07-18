@@ -1,255 +1,212 @@
-# Sales Plan-State Agent Case Study
+# Sales Plan-State Agent
 
-A narrow, framework-free agent that plans and executes long-running Sales workflows against
-AutomationBench. The custom Python controller owns planning, tool dispatch, recovery, budgets,
-termination, and tracing; the model never receives benchmark answers or raw world state.
+This is a framework-free Python agent for long-running, multi-step Sales workflows in noisy cross-application environments. Given a high-level task and a set of public tools, it creates an evidence-backed plan, executes it through a continuous ReAct-style loop, revises the plan when new information invalidates it, and returns an inspectable result. Tested with AutomationBench, a framework that provides isolated simulated worlds and deterministic scoring, while its assertions, expected values, and raw world state remain hidden from the model.
+
+## How the agent works
+
+The agent separates model judgment from deterministic control. The model decides what work is needed and which business tools to call; a custom Python controller owns state transitions, tool validation, recovery, execution limits, termination, and tracing.
+
+1. **Plan.** The planner receives the task prompt and the schemas of the tools available for that task. In one tools-disabled structured call, it creates the smallest cohesive linear plan it can, up to six steps. Every step defines observable completion evidence and names the tools capable of producing it.
+
+2. **Execute.** The executor works through one continuous loop. On each turn it can either issue a sequential batch of business-tool calls or use exactly one harness control: `complete_step`, `revise_plan`, or `finish`. Mixing business calls and control actions is rejected before any side effect occurs.
+
+3. **Ground progress in evidence.** A step cannot be completed from a narrative claim alone. The executor must map every evidence requirement to a compatible, successful tool call made while that step was active. The typed plan state validates those references and retains accepted facts and a ledger of successful calls.
+
+4. **Adapt without forgetting completed work.** If a discovery makes the remaining plan incorrect, the executor can revise it. Completed steps, accepted evidence, and successful side effects remain immutable; the active step is explicitly failed or superseded, and only the remaining work is replaced. This lets the agent adapt without restarting or repeating mutations.
+
+5. **Recover and stop predictably.** Unknown tools, invalid arguments, tool-reported failures, tool exceptions, stale plan revisions, and invalid evidence are returned as structured observations so the model can correct itself. One central run budget limits model turns, tool calls, plan revisions, elapsed time, and consecutive no-progress turns. If a budget or deadline is exhausted, one tools-disabled finalization call returns an honest partial or blocked result instead of allowing an unbounded loop.
+
+6. **Keep evaluation blind and observable.** A private adapter owns the task identity, benchmark assertions, expected values, mutable world, and official scorer. The model sees only the task prompt, public tool schemas, observed results and errors, current plan state, accepted evidence, and remaining budgets. After termination, the official scorer evaluates the final world, and the complete correlated trace, outcome, score, assertions, usage, timing, and initial/final worlds are stored in one canonical run artifact that the read-only viewer displays directly.
+
+The immutable trace is intentionally more complete than the context shown to the model. This preserves auditability without treating the full execution log as memory: the model receives the current plan, the facts it has established, the successful-call ledger, and relevant recovery observations, while the artifact retains every model turn, tool call, result, error, transition, correlation ID, and duration.
+
+## Key decisions and why
+
+- **Let the evaluation methodology shape the problem.** Rather than inventing a small test set and an informal success criterion, I selected AutomationBench because it provides demanding multi-application tasks, noisy tool environments, fresh simulated state, and deterministic assertions. This made it possible to test both correctness and reliability while keeping the agent blind to the answers.
+
+- **Use the framework prototype only to de-risk the benchmark.** The repository began with a LangGraph-based mock agent so I could verify task loading, tool binding, world mutation, scoring, and trace requirements before investing in the final harness. Once that boundary was understood, the submission runtime was rebuilt against the provider SDK directly. This kept the benchmark integration learned during the spike without outsourcing the control loop, prompts, recovery, or context policy to an agent framework.
+
+- **Put judgment in the model and invariants in Python.** Planning, tool selection, and adaptation benefit from model judgment. Evidence provenance, plan transitions, execution budgets, tool argument validation, and terminal classification need predictable semantics. Keeping that boundary explicit makes failures inspectable and prevents a persuasive model response from silently becoming proof that the work was completed.
+
+- **Replace the planner–executor–reviewer architecture when diagnostics showed it was too complicated.** The first framework-free design used a planner, a per-step executor loop, and a separate reviewer after every step. A complex Sales diagnostic showed the executor could spend all four permitted turns doing valid tool work and then run out of budget before it could hand an outcome to the reviewer; the architecture also accumulated nested retry, review, replan, and finalization loops. I first hardened those handoffs, then used the result to identify the more important simplification: the final architecture keeps one initial planner but replaces per-step reviewer calls with a continuous executor and locally validated plan controls. Replanning and recovery remain, but they now operate through one typed plan state and one run-level budget rather than nested model loops.
+
+- **Require evidence without exposing benchmark answers.** The controller validates completion against successful tool-call provenance, not against AutomationBench assertions. This gives the agent a meaningful internal definition of progress while preserving evaluation blindness. It also keeps the official score independent from the agent's own completion claim, which is important because a run can terminate normally and still leave the world in an incorrect state.
+
+- **Protect side effects more strongly than reads.** Business-tool mutations are never retried automatically by Python. Successful calls remain visible across plan revisions so the model can avoid repeating them, while transient provider failures receive only a small, visible retry allowance. This is a deliberately modest safety model: enough to prevent the harness itself from duplicating actions, without introducing a general idempotency platform for a simulated case study.
+
+- **Treat observability as evidence, not as a second product.** The original UI grew to own execution, streaming, reconnection, cancellation, history, responsive layouts, and its own session representation. That work clarified what an evaluator actually needs, after which I removed most of the product surface. The final viewer is read-only and derives everything from the same canonical run artifact used by the CLI, evaluator, and report generator. One atomic, write-once artifact per terminal run avoids schema drift, duplicate histories, and UI-owned truth while preserving the plan, correlated trace, outcome, score, and world evidence.
+
+- **Prefer a sequential, resumable evaluation over evaluation infrastructure.** Every repetition begins with a fresh world and is persisted before the next run. Resumption skips only an already-scorable configuration/task/repetition triple, final reports reject incomplete or mixed-configuration panels, and explicitly filtered reports are labeled exploratory. Infrastructure-invalid attempts are replaced only within a fixed bound, while agent-caused failures remain part of the score. This makes a long evaluation interruption-safe and difficult to cherry-pick without adding workers, queues, a database, or a live dashboard.
+
+- **Freeze behavior and keep the scope narrow.** Runtime, prompt, model, and evaluation-protocol versions are recorded with every observation so incompatible runs cannot be silently combined. I deliberately left out long-term memory, retrieval, subagents, DAG scheduling, multi-provider routing, MCP transport, a database, and automatic prompt optimization. None was necessary to demonstrate the part being evaluated: how the harness plans, manages context, uses tools, adapts, terminates, and exposes evidence.
+
+### What I would do with more time
+
+1. **A test framework suitable for text generation.** Honing the test framework means adapting it to non-deterministic tasks. For instance, in this opportunity, the generation tasks were not evaluated, but we rather calculated assertions based on the final state of things, which is okay for an operational agent. In another scenario, for example, a draft generator agent, which is very typical in the legal industry, you have to evaluate for semantics and for text generation, rather than simple assertions based on right tool usage. The most powerful (yet expensive) technique is an LLM as a judge, for instance, using legal documents against generated templates or generated drafts to ensure that no contradictions or violations are present. If needed at a bigger scale, a cheaper and faster method could be introduced, for example you can use natural language processing techniques: named entity recognition with graph dependencies to evaluate the relationship between entities, and detect a contradiction or policy violation.
+
+2. **Extra features that were omitted for the sake of simplicity.** I Would add extra features, such as memory, which could be digested within the same session or created as scheduled jobs consuming the conversation history to store process preferences and avoid repeating errors on future executions for related tasks. Another feature I would add is fallbacks, which could be per provider or per model, to ensure service continuity. I will definitely move to a framework or an SDK, which could be Bedrock, or use custom logic with more abstractions, Like in LangChain or LangGraph, to basically achieve a similar result with less code. 
+
+3. **Improve tool-use reliability before adding architecture.** The first priority would be schema-aware query construction and error-directed recovery, particularly for large and noisy tool sets. I would turn recurring tool failures into focused regression cases and improve how the executor changes strategy after a rejected query instead of spending more turns on variations of the same mistake.
+
+4. **Reduce repeated context safely.** The current loop repeatedly sends substantial plan and tool-schema context. I would measure which information is actually used at each step, then experiment with deterministic context projection—for example, retaining the full immutable trace externally while selecting only relevant tool schemas and evidence for the active step. I would avoid lossy summarization until the evaluation showed that the smaller representation preserved exact identifiers, amounts, dates, and side-effect history.
+
+5. **Compare changes on a new preregistered panel.** I would freeze each candidate prompt and configuration, evaluate it on development regressions, and then compare it on a new held-out task panel rather than tuning against the current results. This would make it possible to determine whether a recovery improvement generalizes or merely fits the observed failures.
+
+6. **Add production safeguards only when moving beyond simulation.** For real external systems I would introduce human approval for consequential writes, durable idempotency keys, secret and access controls, and stronger process-level recovery. I would also consider parallelizing independent read-only calls while preserving deterministic ordering for writes. These additions are valuable in production, but would have distracted from the control loop and context-management decisions in this case study.
+
+## Time spent and tradeoffs
+
+A total of 12 hours, distributed across five days, excluding unattended evaluation runtime:
+
+- Hour 1 was spent defining the problem that the agent would solve and it was strongly influenced by the methodology that would be used for testing. Let me elaborate. Testing AI agents comprehensively against a demanding task typically involves you having a test set or a defined set of actions with their expected outputs to calculate metrics with. We have no data and not a lot of time to build a test dataset. Therefore I researched benchmarks that could test AI agents capabilities in long running - multistep tasks. That's where I found Automation Bench.
+- In hours 2 and 3 I reverse-engineered AutomationBench (the testing framework) to make it compatible to our custom agent and to our tracing platform. We also added extra metrics inherent to the runtime, such as latency, token consumption, etc. Note that this reverse-engineering and de-risking phase of the evaluation benchmark was done with a Langchain agent at first. I am well aware that the challenge constrains mention to not build an agent with a framework, yet Langchain was used to de-risk the benchmark framework, not for final submission
+- Hour 4 I built our agent UI, which is the interface that would be used to evaluate our agent and see the execution traces of each task.
+- In hours 5, 6, 7, and 8, I built the agent harness from scratch. On this occasion I leveraged “Specs backed test driven development” (the approach to software development that I like to use for my weekend projects), which is clearly define the specs and then perform the development considering tests as our Northstar. The process of building the AI agent harness was iterative, meaning that the first version is not what I delivered, not even the second version but rather the third version of it. For V1 I tested our agent against complex tasks, noticed some harness weaknesses, in the second iteration I noticed over-engineering, like nested loops inside the loops. That's why on the third iteration I decided to aim for simplicity and decided to go with this planner+ReAct loop with re-planning capabilities (V3 architecture) rather than the planner+worker+reviewer (V2 architecture).
+- Finally in hours 9, 10, 11, and 12, I proceeded with testing and submission structuring. For the testing phase I ran our agent against five tasks under the sales domain of automation bench. Those five tasks were repeated 10 times each to collect statistics and generate a report. After the report was generated, I just organized files for final submission.
+
+The main setup for the harness was the right level of simplicity to not over-engineer the agent, given the amount of features that a case study should have. For instance not including a memory and exposing the tools directly rather than enabling MCP servers, and also enforcing prompt versioning at a more production grade level. Even guardrails, those details were skipped just to give focus on the control loop and the context management of the agent. In terms of the testing component, the main trade-off was whether to heavily invest time on a benchmark design or try to import an existing one, building my agent around the tasks and level of complexity that the benchmark requested. 
 
 ## Quick start
 
-Requires Python 3.13 and `uv`. The repository is one installable project with one lockfile:
+The project requires Python 3.13 and [`uv`](https://docs.astral.sh/uv/). It is one installable Python project with one lockfile and one command namespace.
 
 ```bash
 uv sync --frozen --all-groups
 cp .env.example .env
 ```
 
-Set `LIBRA_INTERVIEW_API_KEY` and `LIBRA_BASE_URL` in the root `.env`. Optional model, provider
-timeout, and bounded transport-retry settings are documented in `.env.example`. Configuration is
-validated before `run` and `evaluate`; `report`, `viewer`, and tests require no model credentials.
+Set these required values in the repository-root `.env`:
 
-Start the read-only trace viewer from the repository root:
+```dotenv
+LIBRA_INTERVIEW_API_KEY=replace-with-your-libra-api-key
+LIBRA_BASE_URL=https://replace-with-your-libra-endpoint.example/api/projects/replace-with-project/openai/v1
+```
+
+The optional runtime settings are `SALES_AGENT_MODEL`, `SALES_AGENT_TIMEOUT_SECONDS`, and `SALES_AGENT_PROVIDER_RETRIES`; their defaults and accepted ranges are documented in [`.env.example`](.env.example). `run` and `evaluate` require provider credentials. The viewer, report generator, and test suite do not call the model and require no credentials.
+
+The shortest evaluator journey uses two terminals. First, start the read-only trace viewer:
 
 ```bash
 uv run sales-agent viewer
 ```
 
-The viewer does not execute agents. In another terminal, run the CLI and follow its printed
-`http://127.0.0.1:8000/runs/<stable-run-id>` URL:
-
-Run one task without the UI:
+Then run a real task:
 
 ```bash
-uv run sales-agent run \
-  --task-id sales.zoom_calendar_conflict \
-  --output results/development/example.json
+uv run sales-agent run --task-id sales.zoom_calendar_conflict
 ```
 
-The landing page at <http://127.0.0.1:8000> lists canonical artifacts newest first. The stable run
-route exposes the plan, correlated trace, final outcome, official score/assertions, raw worlds, and
-the source artifact without creating UI-owned state.
+The run command prints the task status, termination reason, official score when available, canonical artifact path, and a stable viewer URL. Open the printed URL—or <http://127.0.0.1:8000>—to inspect the plan, chronological trace, final outcome, assertion evidence, and initial/final worlds.
 
-Run or resume the frozen held-out panel and make every observation available in the trace viewer:
+## Project interfaces
+
+All supported entry points live under the `sales-agent` command:
+
+| Interface | Purpose | Changes agent or world state? |
+| --- | --- | --- |
+| `sales-agent run` | Execute one AutomationBench Sales task with the submitted `plan-state/1.0.0` runtime. | Yes, inside a fresh simulated world. |
+| `sales-agent evaluate` | Run or resume a manifest across repeated fresh worlds and persist every accepted observation. | Yes, inside isolated simulated worlds. |
+| `sales-agent report` | Validate coverage and generate deterministic Markdown and JSON statistics from existing artifacts. | No. |
+| `sales-agent viewer` | Browse canonical artifacts and inspect an individual run through a stable URL. | No. It is strictly read-only. |
+| `RunArtifact` JSON | The shared evidence contract consumed directly by the CLI, evaluator, reporter, and viewer. | No. Terminal artifacts are immutable. |
+
+The current browser interface is intentionally not an execution UI. It has no runtime picker, background execution manager, live event stream, Stop button, session database, or UI-specific copy of a run. Execution belongs to the CLI and evaluator; the viewer reads their artifacts directly.
+
+### Run one task
+
+The default task is `sales.zoom_calendar_conflict`, so the minimal command is:
+
+```bash
+uv run sales-agent run
+```
+
+Use `--task-id` to select another registered Sales task, `--model` to override the configured model, `--output` to choose an exact artifact filename, `--artifacts-dir` to change the default `results/runs/` destination, and `--viewer-base-url` when the viewer is served somewhere other than its default local address.
+
+Each invocation creates a fresh AutomationBench world and writes exactly one terminal artifact. The runner does not resume an individual task or overwrite an existing artifact.
+
+### Run or resume an evaluation
+
+This one-task fixture is useful for checking the complete evaluation path without running the submitted panel:
 
 ```bash
 uv run sales-agent evaluate \
-  --manifest evaluation/manifest.json \
-  --config evaluation/config.json \
-  --repetitions 10 \
-  --artifacts-dir results/evaluation/plan-state-v1
+  --manifest evaluation/manifest.example.json \
+  --config evaluation/config.example.json \
+  --repetitions 1 \
+  --artifacts-dir results/development/evaluation-smoke
 ```
 
-Regenerate the checked-in, explicitly incomplete exploratory report without calling the model:
+The selected five-task evaluation described above uses ten repetitions per task, for 50 scorable observations:
+
+```bash
+uv run sales-agent evaluate \
+  --manifest evaluation/manifest.historical-five-task.json \
+  --config evaluation/config.json \
+  --repetitions 10 \
+  --artifacts-dir results/evaluation/plan-state-v1-five-task
+```
+
+Evaluation is deliberately sequential. Each accepted observation starts from a fresh world and is written before the next run begins. Reissuing the same command resumes from canonical artifacts and skips only configuration/task/repetition triples that already contain a scorable observation.
+
+Agent-caused failures still count. An infrastructure-invalid attempt may be replaced at most twice; if all three attempts fail, the last diagnostic is preserved, the command exits non-zero, and the still-missing scorable triple remains eligible for a later invocation.
+
+### Generate the final report
+
+Reporting is offline and makes no model calls. For the five-task plan-state evaluation:
 
 ```bash
 uv run sales-agent report \
-  --manifest evaluation/manifest.json \
-  --config evaluation/config.planner-executor-v2.json \
+  --manifest evaluation/manifest.historical-five-task.json \
+  --config evaluation/config.json \
   --repetitions 10 \
-  --artifacts-dir results/evaluation \
-  --markdown results/evaluation/report.md \
-  --json results/evaluation/report.json \
-  --exploratory \
-  --task-id sales.contract_renewal_coordinator \
-  --task-id sales.event_to_opportunity_pipeline \
-  --task-id sales.full_sales_cycle_orchestrator \
-  --task-id sales.cross_platform_account_health_score \
-  --task-id sales.demo_scheduling
+  --artifacts-dir results/evaluation/plan-state-v1-five-task \
+  --markdown results/evaluation/plan-state-v1-five-task/report.md \
+  --json results/evaluation/plan-state-v1-five-task/report.json
 ```
 
-## How the agent works
+Final mode succeeds only when every expected configuration/task/repetition triple is present exactly once and scorable. Missing, duplicate, unexpected, out-of-range, or mixed-configuration observations are rejected rather than silently omitted. Deliberately filtered work requires `--exploratory`; the resulting Markdown and JSON are visibly labeled incomplete and disclose the selection.
 
-```mermaid
-flowchart TB
-    I["Agent-visible input<br/>Task prompt + public tool schemas"]
+Two evaluation generations remain in the repository and should not be confused:
 
-    subgraph CORE["Custom agent loop"]
-        direction LR
-        P["1. Planner (model)<br/>Evidence-backed plan"]
-        C["Typed plan state<br/>Transitions + one RunBudget"]
-        E["2. Continuous executor (model)<br/>Business batch or one control"]
+- [`evaluation/config.json`](evaluation/config.json) is the submitted `plan-state/1.0.0` configuration.
+- [`evaluation/config.planner-executor-v2.json`](evaluation/config.planner-executor-v2.json) and the top-level historical [`results/evaluation/report.md`](results/evaluation/report.md) preserve evidence from the retired reviewer-driven runtime. They are comparison evidence, not the current agent configuration.
+- [`evaluation/manifest.json`](evaluation/manifest.json) preserves the original ten-task preregistration. [`evaluation/manifest.historical-five-task.json`](evaluation/manifest.historical-five-task.json) makes the selected five-task, 50-run replay scope explicit.
 
-        P -->|"initial plan"| C
-        C -->|"active step + evidence + call ledger"| E
-        E -->|"complete / revise / finish"| C
-    end
+## Run artifacts and trace viewer
 
-    subgraph BENCH["Blind AutomationBench boundary"]
-        direction LR
-        D["Tool dispatcher<br/>Validates every call"]
-        W["Fresh simulated<br/>Sales world"]
-        S["Official scorer<br/>Runs after termination"]
-        X["Private assertions + expected values<br/>Never model-visible"]
+`run_artifact` schema version 1 is the only format written by current code. Every artifact contains a stable run ID, complete task and tool snapshot, frozen configuration identity, lifecycle and termination data, correlated trace, usage summaries, final response or terminal error, initial/final worlds, official score, and assertion evidence. Evaluation artifacts additionally record repetition, resumption, fresh-world, and infrastructure-replacement metadata.
 
-        D -->|"execute + observe"| W
-        W --> S
-        X --> S
-    end
+Artifacts are assembled in memory and created atomically only after execution reaches a terminal outcome. The store is write-once: an existing destination is never replaced, even if it is malformed or contains the same run ID.
 
-    subgraph OUTPUT["Evidence and observability"]
-        direction LR
-        T["Immutable event trace"]
-        O["Canonical RunArtifact"]
-        U["Read-only trace viewer"]
+Authoritative locations are:
 
-        T --> O
-        O --> U
-    end
+- `results/runs/` for standalone CLI runs;
+- `results/evaluation/` for evaluation observations and derived reports; and
+- `results/development/` for selected development evidence.
 
-    I --> P
-    E -->|"validated call; result or error returns"| D
-    C --> T
-    S --> O
-```
-
-The central design choice is the boundary between model judgment and deterministic control: the
-model proposes a plan and executes it through one continuous loop, while Python owns typed state
-transitions, budgets, validation, recovery, tracing, and access to tools. Private benchmark answers
-reach only the scorer after execution.
-
-The planner returns at most six ordered steps. Each step names its objective and declared tools that
-can supply completion evidence. Executor turns contain either a sequential business-tool batch or
-one local `complete_step`, `revise_plan`, or `finish` control. Completion evidence must cite a
-successful compatible call visible to the active step. Plan revision explicitly fails or supersedes
-the active step, preserves completed work and successful side effects, and supplies replacement
-remaining steps with globally unique IDs.
-
-One `RunBudget` owns model turns, business calls, plan revisions, the deadline, consecutive
-no-progress turns, and one tools-disabled run-level finalization call. Budget/deadline exhaustion
-produces a structured partial or blocked response. Side effects are not retried automatically;
-provider retries remain bounded and visible. Terminal reasons distinguish successful completion,
-partial or blocked finalization, cancellation, adapter/persistence/provider/protocol failures, and
-unexpected runtime failure.
-
-## Information and blindness boundaries
-
-The adapter privately owns the task ID, expected values, assertions, initial and mutable world,
-bound tool functions, and official scorer. Model requests contain only benchmark prompt messages,
-public tool schemas, observed tool results/errors, the current plan, accepted evidence, recovery
-records, and remaining budgets. The scorer runs only after execution. Held-out labels, repetition
-numbers, previous outcomes, raw world state, and assertion data never enter model-visible context.
-
-The immutable trace retains every model turn, plan generation, typed step transition, call, result,
-error, usage value, correlation ID, and duration. Model-visible context is smaller: the current
-plan state contains accepted facts with source call IDs and a successful-call ledger that keeps
-side effects visible across revisions. There is no arbitrary truncation, vector retrieval, hidden
-provider conversation, or lossy trace compression.
-
-Unknown tools, invalid arguments, and tool exceptions are returned as structured observations.
-Side-effecting tools are never retried automatically. Provider failures receive only bounded
-transport retries. Cancellation is cooperative at model and completed tool-batch boundaries so an
-in-flight batch is not partially abandoned.
-
-## Evaluation protocol
-
-Development used only `sales.update_contact_phone`, `sales.negative_selection`,
-`sales.dependency_chain`, and `sales.zoom_calendar_conflict`. The repository owner supplied and
-preregistered the ten different tasks in
-[`evaluation/manifest.json`](evaluation/manifest.json). The model, harness,
-prompts, protocol, and execution limits are frozen in
-[`evaluation/config.json`](evaluation/config.json).
-
-The evaluator runs ten sequential scorable repetitions for each task, always from a fresh world.
-Every terminal agent observation—including incorrect completion, budget exhaustion, protocol
-failure, and agent-caused runtime failure—counts. Infrastructure-invalid attempts receive at most
-two replacements per configuration/task/repetition, for three total attempts. Recovery writes
-exactly one scorable observation with the replacement count. Exhaustion writes the final attempt
-once as an unscorable canonical diagnostic, exits non-zero, and leaves the triple eligible for a
-later invocation. Each accepted observation is written atomically before the next begins.
-Resumption skips only existing scorable configuration/task/repetition triples. The trace viewer
-reads the same artifacts directly; no history copy or second persisted schema is created.
-
-Reports keep strict completion as count and percentage, partial-credit mean/sample standard
-deviation/range, token and duration median/range, model-turn and tool-call efficiency, runs with
-tool errors, termination counts, task coverage, and artifact links. Aggregation is isolated by the
-full configuration hash and includes both overall-panel and per-task summaries. Task filters
-require explicit exploratory mode, which is labeled incomplete and discloses its selection.
-
-## Held-out results
-
-The repository owner reduced the final reported scope after collection began. The checked-in
-report therefore covers the first five manifest tasks, with ten scorable repetitions each. All 61
-completed observations remain committed for traceability—six complete task blocks and one run from
-the seventh task—but the additional 11 are explicitly excluded from this 50-run aggregate.
-
-| Task | Strict | Partial mean (SD) | Runs with tool errors |
-| --- | ---: | ---: | ---: |
-| `sales.contract_renewal_coordinator` | 0/10 | 0.087 (0.236) | 10 |
-| `sales.event_to_opportunity_pipeline` | 1/10 | 0.850 (0.143) | 0 |
-| `sales.full_sales_cycle_orchestrator` | 3/10 | 0.388 (0.502) | 9 |
-| `sales.cross_platform_account_health_score` | 0/10 | 0.150 (0.324) | 10 |
-| `sales.demo_scheduling` | 0/10 | 0.000 (0.000) | 8 |
-
-Overall strict completion was 4/50 (8.0%), with mean partial credit 0.295 (sample SD 0.418).
-Median usage was 124,028.5 tokens and median duration was 251,361.595 ms. Termination was dominated
-by budget exhaustion (33 runs), followed by claimed goal completion (15) and model protocol errors
-(2); 37/50 runs contained tool errors. The full deterministic outputs are
-[`report.md`](results/evaluation/report.md) and
-[`report.json`](results/evaluation/report.json).
-
-The traces expose three recurring weaknesses. First, unsupported Salesforce query forms caused
-repeated errors in renewal and account-health work, consuming budgets before downstream writes.
-Second, claimed completion was not reliable evidence of correctness: the event pipeline had nine
-`goal_completed` terminations but only one strict success, most often missing its required ChatGPT
-conversation. Third, long cross-platform workflows were brittle: full-cycle runs had high outcome
-variance and repeated Slack search/Salesforce query failures, while demo scheduling produced none
-of its required Zoom or Slack assertions. Across the 50 runs, 46 bounded provider retries also
-reinforced the cost of sequential, model-heavy control.
-
-This is evidence about one frozen configuration on a deliberately narrowed five-task slice, not a
-claim of general Sales-agent quality. The clearest next iteration would improve query construction
-and error-directed recovery, then compare a newly frozen configuration on a new held-out panel.
-
-## Development evidence
-
-The complete real execution at
-[`results/runs/fd868fa0-4fc7-47ee-abcf-1af6dc78d499.json`](results/runs/fd868fa0-4fc7-47ee-abcf-1af6dc78d499.json)
-strictly completed its task with partial credit 1.0. Its 52 events preserve a four-step plan, 15
-executor turns, 13 correlated calls/results, four reviews, the final response, initial/final
-worlds, and official assertion evidence. It used 88,594 tokens and changed only the simulated
-world.
-
-The checked-in held-out results above were collected with the retired reviewer-driven runtime and
-remain as historical evidence. That development evaluation justified four concrete changes before preregistration: plans now bind
-evidence requirements to declared source tools; a saturated executor receives a reserved tool-free
-outcome call; reviewers receive the full current plan before accepting completion; and retry/replan
-records protect successful side effects without incorrectly blocking harmless reads. These changes
-were frozen as `planner-executor/0.3.0` with prompt version `planner-executor-prompts/v2`.
-
-## Scope and tradeoffs
-
-This is intentionally not a reusable agent platform. It has one Sales domain, one provider API,
-one linear planner, one continuous execution loop, sequential tool execution, local JSON
-persistence, and deterministic benchmark scoring. It does not implement DAG scheduling, subagents, multi-provider
-routing, durable workers, a database, human approval, long-term memory, retrieval, semantic cache,
-automatic prompt optimization, an LLM judge, or a live aggregate dashboard.
-
-The main simplicity tradeoffs are repeated full-state context, slower evaluation from sequential
-execution, and coarse fixed budgets instead of learned stopping. Given more time, priorities are:
-reduce repeated prompt/tool-schema tokens, improve evidence-first query planning for large noisy
-tool sets, compare prompt/config versions on a new preregistered panel, and introduce human
-approval only for real external side effects.
+The viewer scans `results/` recursively, lists supported artifacts newest first, and serves each run at `/runs/{run-id}`. The run page shows the task and configuration, reconstructed plan state, correlated model/tool/error trace, final response or terminal outcome, official score and assertions, raw initial/final worlds, and a link to the exact JSON source. Viewer requests never create, copy, or modify artifacts.
 
 ## Repository guide
 
-- `src/sales_agent/`: blind adapter, direct provider client, plan-state runtime, contracts,
-  offline evaluation/reporting, and the read-only viewer.
-- `vendor/automationbench/`: pinned Sales tasks, tools, simulated worlds, official deterministic
-  scorer, license, and update provenance.
-- `results/runs/`: canonical standalone CLI run artifacts.
-- `results/evaluation/`: canonical held-out observations and generated reports.
-- `docs/run-artifacts.md`: canonical schema, unsupported inputs, and write-once persistence.
+| Path | Responsibility |
+| --- | --- |
+| [`src/sales_agent/plan_state_runtime.py`](src/sales_agent/plan_state_runtime.py) | The continuous execution loop and its planner, executor, and finalizer prompts. |
+| [`src/sales_agent/plan_state.py`](src/sales_agent/plan_state.py) | Typed plan, evidence, completion, and revision transitions. |
+| [`src/sales_agent/adapter.py`](src/sales_agent/adapter.py) | Blind AutomationBench task/tool/world/scorer boundary. |
+| [`src/sales_agent/runtime_support.py`](src/sales_agent/runtime_support.py) | Run budget, lifecycle, tracing, provider recovery, and terminal outcomes. |
+| [`src/sales_agent/artifacts.py`](src/sales_agent/artifacts.py) | Canonical artifact schema, serialization, validation, and atomic write-once store. |
+| [`src/sales_agent/evaluation/`](src/sales_agent/evaluation/) | Sequential runner, manifest/configuration records, coverage validation, and deterministic reports. |
+| [`src/sales_agent/viewer/`](src/sales_agent/viewer/) | Read-only artifact repository and HTML trace viewer. |
+| [`vendor/automationbench/`](vendor/automationbench/) | Pinned third-party benchmark, task definitions, simulated tools/worlds, official scorer, license, and provenance. |
+| [`evaluation/`](evaluation/) | Frozen manifests and versioned evaluation configurations. |
+| [`results/`](results/) | Canonical run evidence and generated reports. |
+| [`build_sessions/`](build_sessions/) | Raw AI-assisted development session logs required by the challenge. |
 
-Run the local checks from the repository root:
+Additional focused documentation is available in [`docs/agent.md`](docs/agent.md), [`docs/run-artifacts.md`](docs/run-artifacts.md), and [`docs/viewer.md`](docs/viewer.md).
+
+## Verification
+
+Run the complete local quality gate from the repository root:
 
 ```bash
 uv run ruff format --check src tests
@@ -257,3 +214,5 @@ uv run ruff check src tests
 uv run ty check src/sales_agent
 uv run pytest
 ```
+
+The tests exercise the plan-state runtime through scripted model responses, real AutomationBench tools and official scoring, plus evaluation resumption/reporting, artifact persistence, configuration validation, and viewer routes/rendering. They require no model API key. The viewer accessibility smoke test uses Playwright; if neither local Chrome nor Playwright Chromium is available, install the latter with `uv run playwright install chromium`.
