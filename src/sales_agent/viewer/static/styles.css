@@ -121,6 +121,13 @@ pre {
 .kind-completion { border-left-color: #6c4ca0; }
 
 .worlds { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1rem; }
+.metric-tables { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5rem; }
+.metric-tables h3 { margin-top: .4rem; }
+.metric-table { width: 100%; border-collapse: collapse; }
+.metric-table th, .metric-table td { padding: .55rem .15rem; border-top: 1px solid var(--line); }
+.metric-table th { color: var(--muted); font-size: .78rem; font-weight: 700; text-align: left; }
+.metric-table td { font-variant-numeric: tabular-nums; font-weight: 750; text-align: right; }
+.metric-note { margin: 1rem 0 0; color: var(--muted); font-size: .82rem; }
 .raw-link { display: flex; align-items: baseline; gap: 1rem; flex-wrap: wrap; }
 .raw-link h2 { width: 100%; }
 .raw-link span, .empty, .unavailable { color: var(--muted); }
@@ -130,6 +137,7 @@ pre {
   .site-header { align-items: flex-start; flex-direction: column; }
   .run-header { align-items: flex-start; flex-direction: column; }
   .worlds { grid-template-columns: 1fr; }
+  .metric-tables { grid-template-columns: 1fr; }
   .event time { width: 100%; margin-left: 0; }
 }
 

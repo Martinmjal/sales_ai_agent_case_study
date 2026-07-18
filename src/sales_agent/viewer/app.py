@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from collections import Counter
 from html import escape
 from pathlib import Path
 from typing import Any
@@ -21,6 +22,43 @@ from sales_agent.viewer.store import (
 )
 
 STATIC_DIRECTORY = Path(__file__).resolve().parent / "static"
+HARNESS_CONTROL_NAMES = frozenset({"complete_step", "revise_plan", "finish"})
+EVENT_KIND_ORDER = (
+    "planning",
+    "plan_created",
+    "plan_revised",
+    "step_started",
+    "step_completed",
+    "step_failed",
+    "step_superseded",
+    "model_turn",
+    "provider_retry",
+    "protocol_correction",
+    "tool_call",
+    "tool_result",
+    "tool_error",
+    "model_error",
+    "protocol_error",
+    "completion",
+)
+EVENT_KIND_LABELS = {
+    "planning": "Planning started",
+    "plan_created": "Plans created",
+    "plan_revised": "Plans revised",
+    "step_started": "Steps started",
+    "step_completed": "Steps completed",
+    "step_failed": "Steps failed",
+    "step_superseded": "Steps superseded",
+    "model_turn": "Executor model turns",
+    "provider_retry": "Provider retries",
+    "protocol_correction": "Protocol corrections",
+    "tool_call": "Tool/control calls",
+    "tool_result": "Successful tool/control results",
+    "tool_error": "Tool errors",
+    "model_error": "Model errors",
+    "protocol_error": "Protocol errors",
+    "completion": "Completion events",
+}
 
 
 def create_app(
@@ -158,6 +196,7 @@ def _run_page(reference: ArtifactReference) -> str:
     <p>Raw snapshots are disclosed side by side without tool-to-change attribution.</p>
     <div class="worlds"><div><h3>Initial</h3>{_structured(artifact.worlds.initial)}</div><div><h3>Final</h3>{_structured(artifact.worlds.final, unavailable="Unavailable")}</div></div>
   </section>
+  {_resource_and_events_html(artifact)}
   <section class="card raw-link" aria-labelledby="raw-title"><h2 id="raw-title">Source artifact</h2>
     <a href="/runs/{quote(artifact.run_id, safe="")}/artifact.json">Open raw artifact</a>
     <span>Canonical RunArtifact · {escape(str(reference.path))}</span>
@@ -295,6 +334,76 @@ def _assertions_html(artifact: RunArtifact) -> str:
         label = "passed" if passed is True else "failed" if passed is False else "not disclosed"
         rows.append(f"<li><strong>{escape(label)}</strong>{_structured(assertion)}</li>")
     return '<h3>Assertions</h3><ol class="assertions">' + "".join(rows) + "</ol>"
+
+
+def _resource_and_events_html(artifact: RunArtifact) -> str:
+    events = artifact.trace
+    event_counts = Counter(str(event.get("kind") or "event") for event in events)
+    call_events = [event for event in events if event.get("kind") == "tool_call"]
+    control_calls = sum(1 for event in call_events if event.get("name") in HARNESS_CONTROL_NAMES)
+    business_calls = len(call_events) - control_calls
+    plan_revisions = event_counts["plan_revised"] + event_counts["replan"]
+    usage = artifact.usage or {}
+
+    resource_rows = (
+        ("Trace events", _integer(len(events))),
+        ("Model calls (planner + executor)", _integer(artifact.summary.model_turn_count)),
+        ("Business-tool calls", _integer(business_calls)),
+        ("Harness-control calls", _integer(control_calls)),
+        ("Total tool/control calls", _integer(len(call_events))),
+        ("Provider retries", _integer(artifact.summary.provider_retry_count)),
+        ("Tool errors", _integer(event_counts["tool_error"])),
+        ("Plan revisions", _integer(plan_revisions)),
+        ("Input tokens", _integer(usage.get("input_tokens"))),
+        ("Output tokens", _integer(usage.get("output_tokens"))),
+        ("Total tokens", _integer(usage.get("total_tokens"))),
+        ("Wall time", _duration(artifact.timing.duration_ms)),
+    )
+    ordered_kinds = [kind for kind in EVENT_KIND_ORDER if event_counts[kind]]
+    ordered_kinds.extend(sorted(set(event_counts) - set(EVENT_KIND_ORDER)))
+    event_rows = tuple(
+        (
+            EVENT_KIND_LABELS.get(kind, kind.replace("_", " ").capitalize()),
+            _integer(event_counts[kind]),
+        )
+        for kind in ordered_kinds
+    )
+
+    return f"""<section class="card" aria-labelledby="resources-title">
+    <h2 id="resources-title">Run resources and event breakdown</h2>
+    <p>Computed from this immutable artifact. Resource model-call totals include planning; the event table counts the trace records rendered above.</p>
+    <div class="metric-tables">
+      {_metric_table("Resource report", resource_rows)}
+      {_metric_table("Event breakdown", event_rows)}
+    </div>
+    <p class="metric-note">Business-tool calls exclude the local plan controls <code>complete_step</code>, <code>revise_plan</code>, and <code>finish</code>.</p>
+  </section>"""
+
+
+def _metric_table(title: str, rows: tuple[tuple[str, str], ...]) -> str:
+    body = "".join(
+        f'<tr><th scope="row">{escape(label)}</th><td>{escape(value)}</td></tr>'
+        for label, value in rows
+    )
+    return f'<div><h3>{escape(title)}</h3><table class="metric-table"><tbody>{body}</tbody></table></div>'
+
+
+def _integer(value: Any) -> str:
+    if not isinstance(value, int) or isinstance(value, bool):
+        return "Unavailable"
+    return f"{value:,}"
+
+
+def _duration(value: Any) -> str:
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        return "Unavailable"
+    if value >= 60_000:
+        minutes = int(value // 60_000)
+        seconds = (value % 60_000) / 1_000
+        return f"{minutes}m {seconds:.3f}s"
+    if value >= 1_000:
+        return f"{value / 1_000:.3f}s"
+    return f"{value:g} ms"
 
 
 def _structured(value: Any, *, unavailable: str = "None") -> str:

@@ -250,6 +250,30 @@ def test_run_route_renders_plan_correlated_trace_score_worlds_and_raw_artifact(
     assert path.read_bytes() == original
 
 
+def test_run_route_renders_resource_report_and_complete_event_breakdown(tmp_path):
+    run_id = "metrics-run"
+    trace = _trace(run_id) + (
+        _event(run_id, 8, "tool_call", "control-1", name="complete_step", arguments={}),
+        _event(run_id, 9, "tool_call", "control-2", name="finish", arguments={}),
+    )
+    _write(tmp_path, _artifact(run_id, trace=trace))
+
+    page = TestClient(create_app(artifacts_dir=tmp_path)).get(f"/runs/{run_id}").text
+
+    assert page.index("Initial and final worlds") < page.index("Resource report")
+    assert page.index("Resource report") < page.index("Source artifact")
+    assert '<th scope="row">Trace events</th><td>9</td>' in page
+    assert '<th scope="row">Model calls (planner + executor)</th><td>2</td>' in page
+    assert '<th scope="row">Business-tool calls</th><td>1</td>' in page
+    assert '<th scope="row">Harness-control calls</th><td>2</td>' in page
+    assert '<th scope="row">Total tool/control calls</th><td>3</td>' in page
+    assert '<th scope="row">Total tokens</th><td>6</td>' in page
+    assert '<th scope="row">Wall time</th><td>25 ms</td>' in page
+    assert '<th scope="row">Tool/control calls</th><td>3</td>' in page
+    assert '<th scope="row">Tool errors</th><td>1</td>' in page
+    assert '<th scope="row">Completion events</th><td>1</td>' in page
+
+
 @pytest.mark.parametrize(
     ("run_id", "status", "reason", "available", "expected"),
     [
