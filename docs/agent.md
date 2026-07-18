@@ -94,11 +94,14 @@ uv run sales-agent evaluate \
   --artifacts-dir results/evaluation/plan-state-v1
 ```
 
-The evaluator runs sequentially with a fresh runtime/world for every attempt. Each agent
-observation is written immediately, agent failures remain scorable, exhausted transient endpoint
-attempts are replaced, and rerunning the same command skips completed configuration/task/repetition
-pairs. Every scorable execution is already a complete viewer artifact; the viewer reads it from
-`results/evaluation` without a copied session file.
+The evaluator runs sequentially with a fresh runtime/world for every attempt. Agent-caused
+failures remain scorable. An infrastructure-invalid attempt can be replaced at most twice for a
+configuration/task/repetition, so the third consecutive infrastructure failure exhausts the
+policy. Recovery writes exactly one scorable observation and records the actual replacement count.
+Exhaustion writes the final failed attempt as an unscorable canonical diagnostic and exits
+non-zero; a later command still retries that missing scorable triple. Rerunning skips only
+completed scorable pairs. Every persisted execution is already a complete viewer artifact; the
+viewer reads it from `results/evaluation` without a copied session file.
 
 Final reports require the expected manifest, frozen configuration, and repetition count. With no
 filters, this command succeeds only when every expected triple is present exactly once:

@@ -22,6 +22,7 @@ from sales_agent.contract import (
 )
 from sales_agent.evaluation import main
 from sales_agent.evaluation.records import EvaluationConfiguration, completed_triples
+from sales_agent.evaluation.runner import MAX_INFRASTRUCTURE_REPLACEMENTS
 from sales_agent.main import main as single_run_main
 from sales_agent.plan_state_runtime import PLAN_STATE_LIMITS
 
@@ -40,13 +41,17 @@ def _event(run_id, kind, *, content=None, usage=None):
     )
 
 
-def _outcome(run_id, *, infrastructure=False, failed=False):
-    if infrastructure:
+def _outcome(run_id, *, infrastructure=False, adapter=False, failed=False):
+    if infrastructure or adapter:
         events = (
             _event(
                 run_id,
-                EventKind.MODEL_ERROR,
-                content={"infrastructure_failure": True},
+                EventKind.ADAPTER_ERROR if adapter else EventKind.MODEL_ERROR,
+                content=(
+                    {"message": "adapter unavailable"}
+                    if adapter
+                    else {"infrastructure_failure": True}
+                ),
             ),
         )
         return RuntimeOutcome(
@@ -59,7 +64,11 @@ def _outcome(run_id, *, infrastructure=False, failed=False):
             score={"partial_credit": 0.0, "task_completed_correctly": 0.0},
             usage={"input_tokens": 0, "output_tokens": 0, "total_tokens": 0},
             terminal_error="endpoint unavailable",
-            termination_reason=TerminationReason.MODEL_ERROR,
+            termination_reason=(
+                TerminationReason.ADAPTER_INITIALIZATION_FAILED
+                if adapter
+                else TerminationReason.MODEL_ERROR
+            ),
         )
     reason = TerminationReason.RUNTIME_ERROR if failed else TerminationReason.GOAL_COMPLETED
     return RuntimeOutcome(
@@ -160,6 +169,125 @@ def _write_evaluation_artifact(
     path.write_text(json.dumps(payload), encoding="utf-8")
 
 
+def test_evaluation_immediate_success_writes_one_observation_without_replacements(tmp_path):
+    manifest, config = _inputs(tmp_path)
+    artifacts = tmp_path / "artifacts"
+    calls = []
+
+    class Runtime:
+        async def run(self, request, **_):
+            calls.append(request)
+            return _outcome("immediate-success")
+
+    main(
+        [
+            "run",
+            "--manifest",
+            str(manifest),
+            "--config",
+            str(config),
+            "--repetitions",
+            "1",
+            "--artifacts-dir",
+            str(artifacts),
+        ],
+        runtime_factory=Runtime,
+    )
+
+    records = [json.loads(path.read_text()) for path in artifacts.glob("*.json")]
+    assert len(calls) == 1
+    assert [record["run_id"] for record in records] == ["immediate-success"]
+    assert records[0]["evaluation"]["context"]["infrastructure_replacement_count"] == 0
+
+
+def test_persistent_infrastructure_failure_is_bounded_persisted_and_resumable(tmp_path):
+    manifest, config_path = _inputs(tmp_path)
+    config = EvaluationConfiguration.read(config_path)
+    artifacts = tmp_path / "artifacts"
+    attempts = iter(
+        _outcome(f"persistent-infra-{index}", adapter=True)
+        for index in range(MAX_INFRASTRUCTURE_REPLACEMENTS + 1)
+    )
+    calls = []
+
+    class FailingRuntime:
+        async def run(self, request, **_):
+            calls.append(request)
+            return next(attempts)
+
+    command = [
+        "run",
+        "--manifest",
+        str(manifest),
+        "--config",
+        str(config_path),
+        "--repetitions",
+        "1",
+        "--artifacts-dir",
+        str(artifacts),
+    ]
+    with pytest.raises(SystemExit) as raised:
+        main(command, runtime_factory=FailingRuntime)
+
+    assert len(calls) == MAX_INFRASTRUCTURE_REPLACEMENTS + 1
+    assert "Infrastructure replacement limit exhausted" in str(raised.value)
+    assert f"after {MAX_INFRASTRUCTURE_REPLACEMENTS} replacements" in str(raised.value)
+    diagnostics = [json.loads(path.read_text()) for path in artifacts.glob("*.json")]
+    assert len(diagnostics) == 1
+    diagnostic = diagnostics[0]
+    assert diagnostic["run_id"] == f"persistent-infra-{MAX_INFRASTRUCTURE_REPLACEMENTS}"
+    assert diagnostic["evaluation"]["available"] is False
+    assert diagnostic["evaluation"]["official_score"] == {}
+    assert (
+        diagnostic["evaluation"]["context"]["infrastructure_replacement_count"]
+        == MAX_INFRASTRUCTURE_REPLACEMENTS
+    )
+    assert diagnostic["trace"][0]["kind"] == "adapter_error"
+    assert diagnostic["terminal_error"] == "endpoint unavailable"
+    assert "Infrastructure replacement limit exhausted" in diagnostic["evaluation_error"]
+    assert completed_triples(artifacts, config) == set()
+
+    resumed_calls = []
+
+    class RecoveredRuntime:
+        async def run(self, request, **_):
+            resumed_calls.append(request)
+            return _outcome("recovered-after-exhaustion")
+
+    main(command, runtime_factory=RecoveredRuntime)
+
+    persisted = [json.loads(path.read_text()) for path in artifacts.glob("*.json")]
+    recovered = next(record for record in persisted if record["evaluation"]["available"])
+    assert len(resumed_calls) == 1
+    assert len(persisted) == 2
+    assert recovered["run_id"] == "recovered-after-exhaustion"
+    assert recovered["evaluation"]["context"]["resumed"] is True
+    assert recovered["evaluation"]["context"]["infrastructure_replacement_count"] == 0
+    assert completed_triples(artifacts, config) == {(config.identity, TASK_ID, 1)}
+
+    main(
+        [
+            "report",
+            "--manifest",
+            str(manifest),
+            "--config",
+            str(config_path),
+            "--repetitions",
+            "1",
+            "--artifacts-dir",
+            str(artifacts),
+            "--markdown",
+            str(tmp_path / "report.md"),
+            "--json",
+            str(tmp_path / "report.json"),
+        ]
+    )
+    report = json.loads((tmp_path / "report.json").read_text())
+    assert report["complete"] is True
+    assert report["coverage"]["scorable_observation_count"] == 1
+    assert len(report["coverage"]["unscorable"]) == 1
+
+
 def test_evaluation_replaces_infrastructure_attempts_and_resumes_missing_runs(
     tmp_path,
 ):
@@ -167,7 +295,8 @@ def test_evaluation_replaces_infrastructure_attempts_and_resumes_missing_runs(
     artifacts = tmp_path / "artifacts"
     scripted = iter(
         [
-            _outcome("infra", infrastructure=True),
+            _outcome("infra-1", infrastructure=True),
+            _outcome("infra-2", infrastructure=True),
             _outcome("observed-1"),
             _outcome("observed-2", failed=True),
         ]
@@ -181,7 +310,7 @@ def test_evaluation_replaces_infrastructure_attempts_and_resumes_missing_runs(
         async def run(self, request, **_):
             self.calls += 1
             if request.task_id == TASK_ID and request.model_name == "scripted-model":
-                if len(runtime_instances) == 3:
+                if len(runtime_instances) == 4:
                     assert len(list(artifacts.glob("*.json"))) == 1
             return next(scripted)
 
@@ -213,6 +342,8 @@ def test_evaluation_replaces_infrastructure_attempts_and_resumes_missing_runs(
     ]
     assert all(record["artifact_type"] == "run_artifact" for record in records)
     assert records[1]["termination_reason"] == "runtime_error"
+    assert records[1]["evaluation"]["available"] is True
+    assert records[1]["evaluation"]["context"]["infrastructure_replacement_count"] == 0
     assert all(record["configuration"]["identity"] for record in records)
     assert all(instance.calls == 1 for instance in runtime_instances)
     assert {
@@ -237,7 +368,7 @@ def test_evaluation_replaces_infrastructure_attempts_and_resumes_missing_runs(
         "repetition": 1,
         "fresh_world": True,
         "resumed": False,
-        "infrastructure_replacement_count": 1,
+        "infrastructure_replacement_count": MAX_INFRASTRUCTURE_REPLACEMENTS,
     }
 
     main(

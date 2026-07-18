@@ -123,8 +123,9 @@ def _validate_selection(
     selected = [
         r for r in configured if r.task_id in selected_tasks and 1 <= r.repetition <= repetitions
     ]
+    selected_scorable = [record for record in selected if record.scorable]
     by_triple: dict[tuple[str, int], list[EvaluationRecord]] = defaultdict(list)
-    for record in selected:
+    for record in selected_scorable:
         by_triple[(record.task_id, record.repetition)].append(record)
     duplicates = {key: value for key, value in by_triple.items() if len(value) > 1}
     if duplicates:
@@ -150,7 +151,6 @@ def _validate_selection(
             )
         if errors:
             raise ValueError("Incomplete final evaluation panel; " + "; ".join(errors))
-    selected_scorable = [r for r in selected if r.scorable]
     if not selected_scorable:
         raise ValueError("No scorable evaluation artifacts found for the selection")
     coverage_complete = not (missing or foreign or unexpected)

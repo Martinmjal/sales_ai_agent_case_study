@@ -7,7 +7,11 @@ from pathlib import Path
 from sales_agent.config import load_repository_environment, require_provider_settings
 from sales_agent.evaluation.records import EvaluationConfiguration, EvaluationManifest
 from sales_agent.evaluation.report import write_report
-from sales_agent.evaluation.runner import RuntimeFactory, run_evaluations
+from sales_agent.evaluation.runner import (
+    InfrastructureReplacementLimitError,
+    RuntimeFactory,
+    run_evaluations,
+)
 from sales_agent.model import OpenAIModelClient
 from sales_agent.plan_state_runtime import PlanStateRuntime
 
@@ -50,9 +54,12 @@ def main(
         if runtime_factory is None:
             require_provider_settings()
         factory = runtime_factory or (lambda: PlanStateRuntime(model_client=OpenAIModelClient()))
-        asyncio.run(
-            run_evaluations(manifest, config, args.repetitions, args.artifacts_dir, factory)
-        )
+        try:
+            asyncio.run(
+                run_evaluations(manifest, config, args.repetitions, args.artifacts_dir, factory)
+            )
+        except InfrastructureReplacementLimitError as error:
+            raise SystemExit(str(error)) from error
     else:
         write_report(
             args.artifacts_dir,

@@ -160,11 +160,13 @@ prompts, protocol, and execution limits are frozen in
 
 The evaluator runs ten sequential scorable repetitions for each task, always from a fresh world.
 Every terminal agent observation—including incorrect completion, budget exhaustion, protocol
-failure, and agent-caused runtime failure—counts. An exhausted transient endpoint attempt is
-infrastructure-invalid: it is replaced, is not assigned a repetition, and cannot enter the report.
-Each accepted observation is written atomically before the next begins. Resumption skips existing
-configuration/task/repetition triples. The trace viewer reads that same artifact directly; no
-history copy or second persisted schema is created.
+failure, and agent-caused runtime failure—counts. Infrastructure-invalid attempts receive at most
+two replacements per configuration/task/repetition, for three total attempts. Recovery writes
+exactly one scorable observation with the replacement count. Exhaustion writes the final attempt
+once as an unscorable canonical diagnostic, exits non-zero, and leaves the triple eligible for a
+later invocation. Each accepted observation is written atomically before the next begins.
+Resumption skips only existing scorable configuration/task/repetition triples. The trace viewer
+reads the same artifacts directly; no history copy or second persisted schema is created.
 
 Reports keep strict completion as count and percentage, partial-credit mean/sample standard
 deviation/range, token and duration median/range, model-turn and tool-call efficiency, runs with

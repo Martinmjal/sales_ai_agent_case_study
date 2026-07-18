@@ -159,5 +159,7 @@ def completed_triples(
         if mismatches:
             raise ValueError("Configuration identity payload mismatch: " + ", ".join(mismatches))
     return {
-        (record.configuration_identity, record.task_id, record.repetition) for record in records
+        (record.configuration_identity, record.task_id, record.repetition)
+        for record in records
+        if record.scorable
     }

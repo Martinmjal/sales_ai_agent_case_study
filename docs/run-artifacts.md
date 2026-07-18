@@ -31,6 +31,12 @@ repetition count and rejects incomplete or ambiguous coverage. Filtered subsets 
 exploratory mode and are labeled incomplete in both Markdown and JSON. Artifact links point
 directly to the canonical JSON files.
 
+Infrastructure-invalid evaluation attempts are replaced at most twice per
+configuration/task/repetition. A successful replacement produces the single scorable observation
+for that triple. If all three attempts fail, the last attempt is retained as an unscorable
+canonical diagnostic with its trace, errors, and replacement count. It does not satisfy resumption
+or report coverage, so a later invocation can retry the missing observation.
+
 ## Write-once persistence
 
 A `RunArtifactStore` creates each artifact once at its terminal destination. It serializes and
