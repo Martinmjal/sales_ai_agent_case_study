@@ -61,6 +61,7 @@ class RuntimeRequest:
     task_id: str
     model_name: str
     max_steps: int = 30
+    run_id: str | None = None
 
 
 @dataclass(frozen=True)

@@ -30,9 +30,10 @@ AutomationBench tools that may interpret `OPENAI_API_KEY` as a public OpenAI cre
 uv run mock-agent
 ```
 
-Optional flags are `--task-id`, `--model`, and `--output`. The default task is
-`sales.zoom_calendar_conflict`; the result contains the full runtime trace, official score,
-usage, final response, termination reason, and final simulated world.
+Optional flags are `--task-id`, `--model`, `--output`, `--artifacts-dir`, and
+`--viewer-base-url`. The default task is `sales.zoom_calendar_conflict`; new runs use the shared
+typed `RunArtifact` serializer, default to `results/runs/<run-id>.json`, and print both their
+artifact path and stable viewer URL.
 
 ## Runtime behavior
 
@@ -90,15 +91,14 @@ uv run mock-agent-eval run \
   --manifest evaluation/manifest.json \
   --config evaluation/config.json \
   --repetitions 10 \
-  --artifacts-dir results/evaluation \
-  --sessions-dir ../sessions
+  --artifacts-dir results/evaluation
 ```
 
 The evaluator runs sequentially with a fresh runtime/world for every attempt. Each agent
 observation is written immediately, agent failures remain scorable, exhausted transient endpoint
 attempts are replaced, and rerunning the same command skips completed configuration/task/repetition
-pairs. Each scorable execution also becomes a complete Agent-UI history artifact; a missing UI
-copy is reconstructed from its evaluation artifact during resumption without another model call.
+pairs. Every scorable execution is already a complete Agent-UI history artifact; the viewer reads
+it from `results/evaluation` without a copied session file.
 
 Generate byte-stable Markdown and JSON reports offline:
 
@@ -120,3 +120,6 @@ Repeated `--task-id` options select a reproducible subset without deleting obser
 checked-in final report covers the owner-selected first five tasks (50 runs); all 61 completed
 traces remain available, including the later observations excluded from that aggregate. The
 `.example.json` inputs remain available as a one-task development template.
+
+The canonical contract, authoritative locations, atomic/immutability guarantees, and supported
+historical readers are documented in [`../docs/run-artifacts.md`](../docs/run-artifacts.md).

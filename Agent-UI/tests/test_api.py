@@ -340,7 +340,11 @@ def test_evaluator_can_run_a_catalog_task_and_reopen_its_artifact(tmp_path):
     assert summaries[0]["session_id"] == session_id
     files = list(tmp_path.glob("*.json"))
     assert len(files) == 1
-    assert json.loads(files[0].read_text()) == artifact
+    persisted = json.loads(files[0].read_text())
+    assert persisted["artifact_type"] == "run_artifact"
+    assert persisted["run_id"] == artifact["session_id"]
+    assert persisted["trace"] == artifact["events"]
+    assert persisted["final_response"] == artifact["final_response"]
 
 
 def test_submission_runtime_registry_exposes_only_the_plan_state_runtime(tmp_path):

@@ -27,7 +27,12 @@
         "harness_version": "planner-executor/0.3.0",
         "identity": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c",
         "model": "gpt-5.6-sol",
-        "prompt_version": "planner-executor-prompts/v2"
+        "prompt_version": "planner-executor-prompts/v2",
+        "runtime": {
+          "id": "custom",
+          "label": "Custom agent",
+          "version": "planner-executor/0.3.0"
+        }
       },
       "coverage": {
         "repetitions": [
@@ -106,7 +111,12 @@
         "harness_version": "planner-executor/0.3.0",
         "identity": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c",
         "model": "gpt-5.6-sol",
-        "prompt_version": "planner-executor-prompts/v2"
+        "prompt_version": "planner-executor-prompts/v2",
+        "runtime": {
+          "id": "custom",
+          "label": "Custom agent",
+          "version": "planner-executor/0.3.0"
+        }
       },
       "coverage": {
         "repetitions": [
@@ -185,7 +195,12 @@
         "harness_version": "planner-executor/0.3.0",
         "identity": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c",
         "model": "gpt-5.6-sol",
-        "prompt_version": "planner-executor-prompts/v2"
+        "prompt_version": "planner-executor-prompts/v2",
+        "runtime": {
+          "id": "custom",
+          "label": "Custom agent",
+          "version": "planner-executor/0.3.0"
+        }
       },
       "coverage": {
         "repetitions": [
@@ -264,7 +279,12 @@
         "harness_version": "planner-executor/0.3.0",
         "identity": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c",
         "model": "gpt-5.6-sol",
-        "prompt_version": "planner-executor-prompts/v2"
+        "prompt_version": "planner-executor-prompts/v2",
+        "runtime": {
+          "id": "custom",
+          "label": "Custom agent",
+          "version": "planner-executor/0.3.0"
+        }
       },
       "coverage": {
         "repetitions": [
@@ -343,7 +363,12 @@
         "harness_version": "planner-executor/0.3.0",
         "identity": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c",
         "model": "gpt-5.6-sol",
-        "prompt_version": "planner-executor-prompts/v2"
+        "prompt_version": "planner-executor-prompts/v2",
+        "runtime": {
+          "id": "custom",
+          "label": "Custom agent",
+          "version": "planner-executor/0.3.0"
+        }
       },
       "coverage": {
         "repetitions": [
@@ -412,7 +437,12 @@
         "harness_version": "planner-executor/0.3.0",
         "identity": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c",
         "model": "gpt-5.6-sol",
-        "prompt_version": "planner-executor-prompts/v2"
+        "prompt_version": "planner-executor-prompts/v2",
+        "runtime": {
+          "id": "custom",
+          "label": "Custom agent",
+          "version": "planner-executor/0.3.0"
+        }
       },
       "coverage": {
         "scorable_count": 50,

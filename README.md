@@ -24,8 +24,9 @@ uv run agent-ui
 ```
 
 Open <http://127.0.0.1:8000>, select a task, then start the execution. The submission UI exposes
-one **Custom agent** backed by the plan-state runtime. The left pane reads durable JSON sessions
-from `sessions/`; refreshing the browser does not lose a finished or historical trace.
+one **Custom agent** backed by the plan-state runtime. The left pane reads canonical run artifacts
+directly from `mock-agent/results/`; refreshing the browser does not lose a finished or historical
+trace, and `?run_id=<stable-run-id>` opens a run directly.
 
 Run one task without the UI:
 
@@ -44,8 +45,7 @@ uv run mock-agent-eval run \
   --manifest evaluation/manifest.json \
   --config evaluation/config.json \
   --repetitions 10 \
-  --artifacts-dir results/evaluation \
-  --sessions-dir ../sessions
+  --artifacts-dir results/evaluation
 ```
 
 Regenerate both reports without calling the model:
@@ -94,7 +94,7 @@ flowchart TB
     subgraph OUTPUT["Evidence and observability"]
         direction LR
         T["Immutable event trace"]
-        O["Durable session artifact"]
+        O["Canonical RunArtifact"]
         U["Agent-UI"]
 
         T --> O
@@ -159,8 +159,8 @@ Every terminal agent observation—including incorrect completion, budget exhaus
 failure, and agent-caused runtime failure—counts. An exhausted transient endpoint attempt is
 infrastructure-invalid: it is replaced, is not assigned a repetition, and cannot enter the report.
 Each accepted observation is written atomically before the next begins. Resumption skips existing
-configuration/task/repetition triples and reconstructs a missing Agent-UI history copy without
-calling the model again.
+configuration/task/repetition triples. Agent UI reads that same artifact directly; no history copy
+or second persisted schema is created.
 
 Reports keep strict completion as count and percentage, partial-credit mean/sample standard
 deviation/range, token and duration median/range, model-turn and tool-call efficiency, runs with
@@ -206,7 +206,7 @@ and error-directed recovery, then compare a newly frozen configuration on a new 
 ## Development evidence
 
 The complete real execution at
-[`sessions/20260716T172740707091Z_sales-zoom_calendar_conflict_edfb3d96.json`](sessions/20260716T172740707091Z_sales-zoom_calendar_conflict_edfb3d96.json)
+[`mock-agent/results/runs/fd868fa0-4fc7-47ee-abcf-1af6dc78d499.json`](mock-agent/results/runs/fd868fa0-4fc7-47ee-abcf-1af6dc78d499.json)
 strictly completed its task with partial credit 1.0. Its 52 events preserve a four-step plan, 15
 executor turns, 13 correlated calls/results, four reviews, the final response, initial/final
 worlds, and official assertion evidence. It used 88,594 tokens and changed only the simulated
@@ -239,7 +239,8 @@ real external side effects.
   and offline evaluation/reporting.
 - `Agent-UI/`: local execution workspace and durable history/evidence inspector.
 - `AutomationBench/`: Sales tasks, tools, simulated worlds, and official deterministic scorer.
-- `mock-agent/results/evaluation/`: persisted held-out observations and generated reports.
-- `sessions/`: UI-compatible single-run and batch artifacts.
+- `mock-agent/results/runs/`: canonical standalone CLI and Agent UI run artifacts.
+- `mock-agent/results/evaluation/`: canonical held-out observations and generated reports.
+- `docs/run-artifacts.md`: canonical schema, persistence invariants, and historical compatibility.
 
 Run automated checks with `uv run pytest` from both `mock-agent/` and `Agent-UI/`.

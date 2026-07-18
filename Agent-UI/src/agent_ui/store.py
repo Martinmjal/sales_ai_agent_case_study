@@ -1,122 +1,110 @@
 from __future__ import annotations
 
-import copy
-import json
-import os
 from pathlib import Path
-import tempfile
-from typing import Any
+from typing import Any, Iterable
+
+from mock_agent.artifacts import (
+    ArtifactValidationError,
+    ImmutableArtifactError,
+    RunArtifact,
+    RunArtifactStore,
+    artifact_to_session_view,
+    read_artifact,
+    session_view_to_artifact,
+)
 
 
 class SessionNotFoundError(LookupError):
-    """Raised when a session artifact cannot be found."""
+    """Raised when a run artifact cannot be found."""
 
 
-class ImmutableSessionError(RuntimeError):
-    """Raised when a terminal session artifact would be changed."""
+class ImmutableSessionError(ImmutableArtifactError):
+    """Compatibility name for an attempted terminal artifact mutation."""
 
 
 class SessionStore:
-    def __init__(self, directory: Path):
+    """UI adapter over the canonical store; it never writes the legacy schema."""
+
+    def __init__(
+        self, directory: Path, *, read_directories: Iterable[Path] | None = None
+    ):
         self.directory = directory
         self.directory.mkdir(parents=True, exist_ok=True)
+        self.read_directories = tuple(read_directories or (directory,))
+        self._store = RunArtifactStore(directory)
 
-    def create(self, session: dict[str, Any]) -> dict[str, Any]:
-        stored = copy.deepcopy(session)
-        timestamp = stored["lifecycle"]["created_at"].replace(":", "").replace("-", "")
-        timestamp = timestamp.replace(".", "").replace("+0000", "Z")
-        task_slug = stored["task"]["task_id"].replace(".", "-")
-        stored["artifact_filename"] = (
-            f"{timestamp}_{task_slug}_{stored['session_id'][:8]}.json"
+    def create(
+        self, artifact: RunArtifact | dict[str, Any]
+    ) -> dict[str, Any]:
+        canonical = (
+            artifact
+            if isinstance(artifact, RunArtifact)
+            else session_view_to_artifact(artifact)
         )
-        self.save(stored)
-        return stored
+        filename = f"{canonical.run_id}.json"
+        self._store.write(canonical, filename=filename)
+        return artifact_to_session_view(canonical, artifact_filename=filename)
 
     def save(self, session: dict[str, Any]) -> None:
-        destination = self.directory / session["artifact_filename"]
-        if destination.exists():
-            try:
-                current = json.loads(destination.read_text(encoding="utf-8"))
-            except (OSError, json.JSONDecodeError):
-                current = None
-            if current and current.get("status") in {
-                "Completed",
-                "Stopped",
-                "Failed",
-                "Interrupted",
-            }:
-                raise ImmutableSessionError(
-                    f"Terminal session cannot be changed: {session['session_id']}"
-                )
-        payload = json.dumps(session, indent=2, ensure_ascii=True, default=str) + "\n"
-        descriptor, temporary_name = tempfile.mkstemp(
-            dir=self.directory,
-            prefix=f".{session['session_id']}.",
-            suffix=".tmp",
-        )
+        canonical = session_view_to_artifact(session)
+        filename = str(session.get("artifact_filename") or f"{canonical.run_id}.json")
         try:
-            with os.fdopen(descriptor, "w", encoding="utf-8") as temporary:
-                temporary.write(payload)
-                temporary.flush()
-                os.fsync(temporary.fileno())
-            os.replace(temporary_name, destination)
-        finally:
-            if os.path.exists(temporary_name):
-                os.unlink(temporary_name)
+            self._store.write(canonical, filename=filename)
+        except ImmutableArtifactError as error:
+            raise ImmutableSessionError(str(error)) from error
 
     def read(self, session_id: str) -> dict[str, Any]:
         for session in self.list():
             if session.get("session_id") == session_id:
                 return session
-        raise SessionNotFoundError(f"Unknown session ID: {session_id}")
+        raise SessionNotFoundError(f"Unknown run ID: {session_id}")
 
     def list(self) -> list[dict[str, Any]]:
-        sessions = []
-        for path in self.directory.glob("*.json"):
-            try:
-                session = json.loads(path.read_text(encoding="utf-8"))
-            except (OSError, json.JSONDecodeError):
+        sessions_by_id: dict[str, dict[str, Any]] = {}
+        canonical_by_id: dict[str, bool] = {}
+        seen_paths: set[Path] = set()
+        for directory in self.read_directories:
+            if not directory.exists():
                 continue
-            if self._is_supported(session):
-                sessions.append(session)
+            for path in directory.rglob("*.json"):
+                resolved = path.resolve()
+                if resolved in seen_paths:
+                    continue
+                seen_paths.add(resolved)
+                try:
+                    artifact = read_artifact(path, enrich_task=True)
+                except ArtifactValidationError:
+                    continue
+                is_canonical = _is_canonical_file(path)
+                if artifact.run_id in sessions_by_id and (
+                    canonical_by_id[artifact.run_id] or not is_canonical
+                ):
+                    continue
+                sessions_by_id[artifact.run_id] = artifact_to_session_view(
+                    artifact, artifact_filename=path.name
+                )
+                canonical_by_id[artifact.run_id] = is_canonical
         return sorted(
-            sessions,
+            sessions_by_id.values(),
             key=lambda session: session["lifecycle"]["created_at"],
             reverse=True,
         )
 
     @staticmethod
     def _is_supported(session: Any) -> bool:
-        if not isinstance(session, dict) or session.get("schema_version") != 1:
+        if not isinstance(session, dict):
             return False
-        lifecycle = session.get("lifecycle")
-        task = session.get("task")
-        agent = session.get("agent")
-        runtime = session.get("runtime")
-        evaluation = session.get("evaluation")
-        return (
-            isinstance(session.get("session_id"), str)
-            and session.get("status")
-            in {"Running", "Completed", "Stopped", "Failed", "Interrupted"}
-            and isinstance(lifecycle, dict)
-            and isinstance(lifecycle.get("created_at"), str)
-            and isinstance(task, dict)
-            and isinstance(task.get("task_id"), str)
-            and isinstance(task.get("name"), str)
-            and isinstance(task.get("prompt"), list)
-            and isinstance(agent, dict)
-            and isinstance(agent.get("model"), str)
-            and isinstance(agent.get("max_steps"), int)
-            and isinstance(agent.get("agent_version"), str)
-            and (
-                runtime is None
-                or (
-                    isinstance(runtime, dict)
-                    and isinstance(runtime.get("id"), str)
-                    and isinstance(runtime.get("label"), str)
-                    and isinstance(runtime.get("version"), str)
-                )
-            )
-            and isinstance(session.get("events"), list)
-            and (evaluation is None or isinstance(evaluation, dict))
-        )
+        try:
+            session_view_to_artifact(session)
+        except (ArtifactValidationError, KeyError, TypeError, ValueError):
+            return False
+        return True
+
+
+def _is_canonical_file(path: Path) -> bool:
+    try:
+        with path.open("r", encoding="utf-8") as stream:
+            prefix = stream.read(240)
+    except OSError:
+        return False
+    return '"artifact_type": "run_artifact"' in prefix

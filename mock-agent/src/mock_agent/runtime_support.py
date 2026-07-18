@@ -183,7 +183,7 @@ class RuntimeRun:
         self.budget = budget
         self.event_sink = event_sink
         self.cancellation = cancellation
-        self.run_id = str(uuid4())
+        self.run_id = request.run_id or str(uuid4())
         self.events: list[RuntimeEvent] = []
         self.usage = {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0}
 

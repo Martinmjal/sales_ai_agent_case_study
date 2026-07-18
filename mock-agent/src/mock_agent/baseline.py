@@ -48,7 +48,7 @@ class BaselineRuntime:
         cancellation = cancellation or CancellationSignal()
         session = self._adapter.open(request.task_id)
         task = session.agent_task
-        run_id = str(uuid4())
+        run_id = request.run_id or str(uuid4())
         events: list[RuntimeEvent] = []
         usage = {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0}
         final_response: Any = None

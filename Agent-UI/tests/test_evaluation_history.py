@@ -20,7 +20,6 @@ def test_batch_executions_are_available_from_agent_ui_history(tmp_path):
     manifest = tmp_path / "manifest.json"
     config = tmp_path / "config.json"
     artifacts = tmp_path / "evaluation"
-    sessions = tmp_path / "sessions"
     manifest.write_text(json.dumps({"tasks": [TASK_ID]}), encoding="utf-8")
     config.write_text(
         json.dumps(
@@ -73,12 +72,10 @@ def test_batch_executions_are_available_from_agent_ui_history(tmp_path):
         "2",
         "--artifacts-dir",
         str(artifacts),
-        "--sessions-dir",
-        str(sessions),
     ]
     main(command, runtime_factory=Runtime)
 
-    with TestClient(create_app(sessions_dir=sessions)) as client:
+    with TestClient(create_app(artifacts_dir=artifacts)) as client:
         history = client.get("/api/sessions").json()["sessions"]
         details = [client.get(f"/api/sessions/{item['session_id']}").json() for item in history]
 
@@ -94,16 +91,18 @@ def test_batch_executions_are_available_from_agent_ui_history(tmp_path):
     assert all(item["events"][0]["kind"] == "completion" for item in details)
     assert all(item["evaluation_run"]["repetition"] in {1, 2} for item in details)
     assert len(list(artifacts.glob("*.json"))) == 2
-    assert len(list(sessions.glob("*.json"))) == 2
+    assert all(
+        json.loads(path.read_text())["artifact_type"] == "run_artifact"
+        for path in artifacts.glob("*.json")
+    )
 
-    next(sessions.glob("*.json")).unlink()
     main(
         command,
         runtime_factory=lambda: (_ for _ in ()).throw(
             AssertionError("persisted evaluation runs must not execute again")
         ),
     )
-    with TestClient(create_app(sessions_dir=sessions)) as client:
+    with TestClient(create_app(artifacts_dir=artifacts)) as client:
         resumed_history = client.get("/api/sessions").json()["sessions"]
 
     assert len(resumed_history) == 2

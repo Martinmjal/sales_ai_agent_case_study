@@ -3,21 +3,28 @@ from __future__ import annotations
 import argparse
 import asyncio
 from collections import Counter, defaultdict
-from dataclasses import asdict
 from datetime import datetime, timezone
 from hashlib import sha256
 import json
-import os
 from pathlib import Path
 import statistics
 from time import monotonic
-from typing import Any, Callable
-from uuid import uuid4
+from typing import Callable
 
 from dotenv import load_dotenv
 
 from mock_agent.adapter import AutomationBenchAdapter
-from mock_agent.catalog import TaskCatalog, TaskDefinition
+from mock_agent.artifacts import (
+    ArtifactValidationError,
+    RunArtifactStore,
+    artifact_from_outcome,
+    artifact_to_report_record,
+    atomic_write_json,
+    atomic_write_text,
+    read_artifact,
+    task_snapshot,
+)
+from mock_agent.catalog import TaskCatalog
 from mock_agent.contract import AgentRuntime, EventKind, RuntimeOutcome, RuntimeRequest
 from mock_agent.model import OpenAIModelClient
 from mock_agent.plan_state_runtime import PLAN_STATE_LIMITS, PlanStateRuntime
@@ -45,7 +52,6 @@ def _parser() -> argparse.ArgumentParser:
     run.add_argument("--config", type=Path, required=True)
     run.add_argument("--repetitions", type=int, required=True)
     run.add_argument("--artifacts-dir", type=Path, required=True)
-    run.add_argument("--sessions-dir", type=Path)
     report = commands.add_parser("report", help="Build deterministic offline reports")
     report.add_argument("--artifacts-dir", type=Path, required=True)
     report.add_argument("--markdown", type=Path, required=True)
@@ -78,22 +84,14 @@ def _load_inputs(manifest_path: Path, config_path: Path) -> tuple[list[str], dic
 
 
 def _existing_pairs(directory: Path) -> set[tuple[str, str, int]]:
-    pairs = set()
-    for path in directory.glob("*.json"):
-        try:
-            record = json.loads(path.read_text(encoding="utf-8"))
-            if record.get("artifact_type") != "agent_evaluation_run":
-                continue
-            pairs.add(
-                (
-                    record["configuration"]["identity"],
-                    record["task_id"],
-                    int(record["repetition"]),
-                )
-            )
-        except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError):
-            continue
-    return pairs
+    return {
+        (
+            record["configuration"]["identity"],
+            record["task_id"],
+            int(record["repetition"]),
+        )
+        for _, record in _load_run_artifacts(directory, include_unscorable=True)
+    }
 
 
 def _infrastructure_failure(outcome: RuntimeOutcome) -> bool:
@@ -105,205 +103,54 @@ def _infrastructure_failure(outcome: RuntimeOutcome) -> bool:
     )
 
 
-def _json_default(value: Any) -> Any:
-    if hasattr(value, "value"):
-        return value.value
-    raise TypeError(f"Cannot serialize {type(value).__name__}")
-
-
-def _write_json(path: Path, value: Any) -> None:
-    payload = (
-        json.dumps(
-            value, indent=2, sort_keys=True, ensure_ascii=True, default=_json_default
-        )
-        + "\n"
-    )
-    temporary = path.with_name(f".{path.name}.{uuid4().hex}.tmp")
-    try:
-        with temporary.open("w", encoding="utf-8") as stream:
-            stream.write(payload)
-            stream.flush()
-            os.fsync(stream.fileno())
-        os.replace(temporary, path)
-    finally:
-        temporary.unlink(missing_ok=True)
-
-
-def _write_text(path: Path, payload: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_name(f".{path.name}.{uuid4().hex}.tmp")
-    try:
-        temporary.write_text(payload, encoding="utf-8")
-        os.replace(temporary, path)
-    finally:
-        temporary.unlink(missing_ok=True)
-
-
-def _record(
-    outcome: RuntimeOutcome,
-    *,
-    config: dict,
-    repetition: int,
-    started_at: str,
-    finished_at: str,
-    duration_ms: float,
-    initial_world: dict,
-) -> dict:
-    score = outcome.score or {}
-    evaluation_available = outcome.score is not None
-    events = [asdict(event) for event in outcome.events]
-    return {
-        "artifact_type": "agent_evaluation_run",
-        "schema_version": 1,
-        "configuration": config,
-        "task_id": outcome.task_id,
-        "repetition": repetition,
-        "run_id": outcome.run_id,
-        "timing": {
-            "started_at": started_at,
-            "finished_at": finished_at,
-            "duration_ms": round(duration_ms, 3),
-        },
-        "status": outcome.status.value,
-        "termination_reason": (
-            outcome.termination_reason.value if outcome.termination_reason else None
-        ),
-        "trace": events,
-        "provider_retry_count": sum(
-            event.kind is EventKind.PROVIDER_RETRY for event in outcome.events
-        ),
-        "model_turn_count": sum(event.usage is not None for event in outcome.events),
-        "tool_call_count": sum(
-            event.kind is EventKind.TOOL_CALL for event in outcome.events
-        ),
-        "contains_tool_errors": any(
-            event.kind is EventKind.TOOL_ERROR for event in outcome.events
-        ),
-        "usage": outcome.usage,
-        "response": outcome.final_response,
-        "worlds": {"initial": initial_world, "final": outcome.world_state},
-        "official_score": {
-            "partial_credit": score.get("partial_credit", 0.0),
-            "task_completed_correctly": score.get("task_completed_correctly", 0.0),
-        },
-        "assertion_evidence": score.get("assertions", []),
-        "terminal_error": outcome.terminal_error,
-        "evaluation_available": evaluation_available,
-        "evaluation_error": outcome.evaluation_error,
-    }
-
-
-def _session_record(
-    record: dict,
-    task: TaskDefinition,
-    adapter: AutomationBenchAdapter,
-    artifact_filename: str,
-    evaluation_artifact: str,
-) -> dict:
-    tool_definitions = [
-        {
-            "name": tool.name,
-            "description": tool.description,
-            "input_schema": tool.input_schema,
-        }
-        for tool in adapter.open(task.summary.task_id).agent_task.tools
-    ]
-    status = {"completed": "Completed", "stopped": "Stopped", "failed": "Failed"}
-    configuration = record["configuration"]
-    return {
-        "schema_version": 1,
-        "session_id": record["run_id"],
-        "artifact_filename": artifact_filename,
-        "status": status[record["status"]],
-        "lifecycle": {
-            "created_at": record["timing"]["started_at"],
-            "updated_at": record["timing"]["finished_at"],
-            "completed_at": record["timing"]["finished_at"],
-            "terminal_error": record["terminal_error"],
-            "evaluation_error": record.get("evaluation_error"),
-            "termination_reason": record["termination_reason"],
-        },
-        "task": {
-            "task_id": task.summary.task_id,
-            "name": task.summary.task_id.removeprefix("sales.")
-            .replace("_", " ")
-            .title(),
-            "example_id": task.summary.example_id,
-            "prompt": [asdict(message) for message in task.summary.prompt],
-            "tools": list(task.summary.tools),
-            "assertion_count": task.summary.assertion_count,
-            "assertions": task.info["assertions"],
-            "tool_definitions": tool_definitions,
-        },
-        "agent": {
-            "model": configuration["model"],
-            "max_steps": configuration["execution_limits"]["max_model_turns"],
-            "agent_version": configuration["harness_version"],
-        },
-        "runtime": {
-            "id": "custom",
-            "label": "Custom agent",
-            "version": configuration["harness_version"],
-        },
-        "events": record["trace"],
-        "final_response": record["response"],
-        "evaluation": (
-            {
-                **record["official_score"],
-                "assertions": record["assertion_evidence"],
-            }
-            if record.get("evaluation_available", True)
-            else None
-        ),
-        "usage": record["usage"],
-        "initial_world": record["worlds"]["initial"],
-        "final_world": record["worlds"]["final"],
-        "evaluation_run": {
-            "configuration_identity": configuration["identity"],
-            "repetition": record["repetition"],
-            "evaluation_artifact": evaluation_artifact,
-        },
-    }
-
-
 async def _run(
     tasks: list[str],
     config: dict,
     repetitions: int,
     directory: Path,
     runtime_factory: RuntimeFactory,
-    sessions_directory: Path | None = None,
 ) -> None:
     if repetitions < 1:
         raise ValueError("Repetitions must be positive")
     directory.mkdir(parents=True, exist_ok=True)
     existing = _existing_pairs(directory)
+    resuming = any(
+        identity == config["identity"]
+        and task_id in tasks
+        and repetition <= repetitions
+        for identity, task_id, repetition in existing
+    )
     catalog = TaskCatalog.from_sales_dataset()
     adapter = AutomationBenchAdapter(catalog=catalog)
-    if sessions_directory is not None:
-        sessions_directory.mkdir(parents=True, exist_ok=True)
-        for filename, record in _load_run_artifacts(directory):
-            if (
-                record["configuration"]["identity"] != config["identity"]
-                or record["task_id"] not in tasks
-                or record["repetition"] > repetitions
-            ):
-                continue
-            session_filename = f"evaluation_{filename}"
-            session_path = sessions_directory / session_filename
-            if not session_path.exists():
-                task = catalog.get_task(record["task_id"])
-                _write_json(
-                    session_path,
-                    _session_record(record, task, adapter, session_filename, filename),
-                )
+    store = RunArtifactStore(directory)
+    artifact_config = {
+        **config,
+        "runtime": {
+            "id": "custom",
+            "label": "Custom agent",
+            "version": config["harness_version"],
+        },
+    }
     for task_id in tasks:
         task = catalog.get_task(task_id)
         initial_world = task.info["initial_state"]
+        tools = adapter.open(task_id).agent_task.tools
+        snapshot = task_snapshot(
+            task,
+            tool_definitions=[
+                {
+                    "name": tool.name,
+                    "description": tool.description,
+                    "input_schema": tool.input_schema,
+                }
+                for tool in tools
+            ],
+        )
         for repetition in range(1, repetitions + 1):
             pair = (config["identity"], task_id, repetition)
             if pair in existing:
                 continue
+            infrastructure_replacements = 0
             while True:
                 started_at = datetime.now(timezone.utc).isoformat()
                 started = monotonic()
@@ -312,27 +159,27 @@ async def _run(
                 )
                 finished_at = datetime.now(timezone.utc).isoformat()
                 if _infrastructure_failure(outcome):
+                    infrastructure_replacements += 1
                     continue
-                record = _record(
+                artifact = artifact_from_outcome(
                     outcome,
-                    config=config,
-                    repetition=repetition,
+                    task=snapshot,
+                    configuration=artifact_config,
                     started_at=started_at,
                     finished_at=finished_at,
                     duration_ms=(monotonic() - started) * 1000,
                     initial_world=initial_world,
+                    evaluation_context={
+                        "configuration_identity": config["identity"],
+                        "repetition": repetition,
+                        "fresh_world": True,
+                        "resumed": resuming,
+                        "infrastructure_replacement_count": infrastructure_replacements,
+                    },
                 )
                 task_slug = task_id.replace(".", "-")
                 filename = f"{config['identity']}_{task_slug}_r{repetition:03}.json"
-                _write_json(directory / filename, record)
-                if sessions_directory is not None:
-                    session_filename = f"evaluation_{filename}"
-                    _write_json(
-                        sessions_directory / session_filename,
-                        _session_record(
-                            record, task, adapter, session_filename, filename
-                        ),
-                    )
+                store.write(artifact, filename=filename)
                 existing.add(pair)
                 break
 
@@ -357,18 +204,33 @@ def _range(values: list[float]) -> dict[str, float]:
 
 
 def _load_run_artifacts(
-    directory: Path, task_ids: list[str] | None = None
+    directory: Path,
+    task_ids: list[str] | None = None,
+    *,
+    include_unscorable: bool = False,
 ) -> list[tuple[str, dict]]:
     artifacts = []
     for path in sorted(directory.glob("*.json")):
         try:
-            value = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
+            artifact = read_artifact(path)
+            record = artifact_to_report_record(artifact)
+        except (ArtifactValidationError, KeyError, TypeError, ValueError):
             continue
-        if value.get("artifact_type") == "agent_evaluation_run" and (
-            task_ids is None or value.get("task_id") in task_ids
+        repetition = record.get("repetition")
+        if isinstance(repetition, int) and (
+            task_ids is None or record.get("task_id") in task_ids
+        ) and (
+            include_unscorable
+            or (
+                record["evaluation_available"]
+                and {
+                    "partial_credit",
+                    "task_completed_correctly",
+                }
+                <= record["official_score"].keys()
+            )
         ):
-            artifacts.append((path.name, value))
+            artifacts.append((path.name, record))
     return artifacts
 
 
@@ -606,9 +468,11 @@ def _write_report(
     if not groups:
         raise ValueError("No scorable evaluation artifacts found")
     panels = _panel_summaries(directory, task_ids)
-    _write_text(markdown_path, _markdown(groups, panels))
+    atomic_write_text(markdown_path, _markdown(groups, panels))
     json_path.parent.mkdir(parents=True, exist_ok=True)
-    _write_json(json_path, {"schema_version": 1, "panels": panels, "groups": groups})
+    atomic_write_json(
+        json_path, {"schema_version": 1, "panels": panels, "groups": groups}
+    )
 
 
 def main(
@@ -629,7 +493,6 @@ def main(
                 args.repetitions,
                 args.artifacts_dir,
                 factory,
-                args.sessions_dir,
             )
         )
     elif args.command == "report":

@@ -2,7 +2,8 @@
 
 Local evaluator workspace for selecting and running any of the 100 registered AutomationBench
 sales tasks. FastAPI owns each execution as a background task and writes one self-contained JSON
-artifact to the repository-root `sessions/` directory.
+`RunArtifact` to `mock-agent/results/runs/`. It also reads evaluation observations directly from
+`mock-agent/results/evaluation/`; no copied session database exists.
 
 Running sessions expose a reconnectable SSE stream at `/api/sessions/{session_id}/events`.
 The JSON artifact is the durable source of truth: clients load it first, then resume the stream
@@ -22,7 +23,8 @@ events display `No structured plan`.
 The history drawer searches durable sessions by task name or canonical task ID, groups them in
 the browser's local timezone, and keeps the active run available while terminal history is viewed.
 Terminal artifacts are immutable once their final status is persisted; malformed and unsupported
-artifacts are ignored when history is materialized.
+artifacts are ignored when history is materialized. A direct URL of the form
+`http://127.0.0.1:8000/?run_id=<stable-run-id>` opens canonical single-run or evaluation history.
 
 The active Running session exposes one Stop control. A stop request sets the runtime cancellation
 signal and remains in progress until the runtime reaches its next safe model or completed
@@ -86,7 +88,7 @@ server-side settings; optional overrides are `AGENT_MODEL`, `AGENT_MAX_MODEL_TUR
 
 The registered runtime is framework-free and executes through the `AgentRuntime` boundary.
 Recovery, provider retries, protocol correction, cancellation, budget exhaustion, and completion
-are retained as ordered durable events in each session artifact.
+are retained as ordered durable events in each canonical run artifact.
 
 ## Verify
 
@@ -94,5 +96,5 @@ are retained as ordered durable events in each session artifact.
 uv run pytest
 ```
 
-The API tests use scripted runtimes and temporary session directories. They require no model API
-key and do not modify committed session artifacts.
+The API tests use scripted runtimes and temporary artifact directories. They require no model API
+key and do not modify committed run artifacts.

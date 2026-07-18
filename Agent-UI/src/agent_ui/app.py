@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import copy
 from contextlib import asynccontextmanager
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
@@ -16,6 +15,12 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from mock_agent.adapter import AutomationBenchAdapter
+from mock_agent.artifacts import (
+    RunArtifact,
+    active_artifact,
+    configuration_identity,
+    task_snapshot,
+)
 from mock_agent.catalog import TaskCatalog, TaskDefinition, UnknownTaskError
 from mock_agent.contract import (
     AgentRuntime,
@@ -219,47 +224,33 @@ class ExecutionManager:
                     "updated_at": interrupted_at,
                     "completed_at": interrupted_at,
                     "terminal_error": "Execution owner was lost when the server stopped.",
+                    "termination_reason": "runtime_error",
                 }
             )
             self.store.save(session)
 
     def _new_session(
         self, task: TaskDefinition, registration: RuntimeRegistration
-    ) -> dict[str, Any]:
+    ) -> RunArtifact:
         created_at = _now()
-        task_payload = _task_payload(task)
-        task_payload.update(
-            {
-                "assertions": copy.deepcopy(task.info["assertions"]),
-                "tool_definitions": _tool_definitions(task, self.adapter),
-            }
-        )
-        return {
-            "schema_version": 1,
-            "session_id": str(uuid4()),
-            "status": "Running",
-            "lifecycle": {
-                "created_at": created_at,
-                "updated_at": created_at,
-                "completed_at": None,
-                "terminal_error": None,
-                "evaluation_error": None,
-                "termination_reason": None,
-            },
-            "task": task_payload,
-            "agent": {
-                "model": self.config.model,
-                "max_steps": self.config.max_steps,
-                "agent_version": registration.version,
-            },
+        configuration = {
+            "model": self.config.model,
+            "harness_version": registration.version,
+            "prompt_version": "plan-state-prompts/v1",
+            "evaluation_protocol_version": "interactive/v1",
+            "execution_limits": {"max_model_turns": self.config.max_steps},
             "runtime": registration.payload(),
-            "events": [],
-            "final_response": None,
-            "evaluation": None,
-            "usage": None,
-            "initial_world": copy.deepcopy(task.info["initial_state"]),
-            "final_world": None,
         }
+        configuration["identity"] = configuration_identity(configuration)
+        return active_artifact(
+            run_id=str(uuid4()),
+            task=task_snapshot(
+                task, tool_definitions=_tool_definitions(task, self.adapter)
+            ),
+            configuration=configuration,
+            started_at=created_at,
+            initial_world=task.info["initial_state"],
+        )
 
     async def _execute(self, session_id: str) -> None:
         async def persist_event(event: RuntimeEvent) -> None:
@@ -267,6 +258,7 @@ class ExecutionManager:
                 session = self.store.read(session_id)
                 payload = _event_payload(event)
                 payload["sequence"] = len(session["events"]) + 1
+                payload["run_id"] = session_id
                 session["events"].append(payload)
                 session["lifecycle"]["updated_at"] = _now()
                 self.store.save(session)
@@ -279,6 +271,7 @@ class ExecutionManager:
                     task_id=session["task"]["task_id"],
                     model_name=self.config.model,
                     max_steps=self.config.max_steps,
+                    run_id=session_id,
                 ),
                 event_sink=persist_event,
                 cancellation=self._cancellations[session_id],
@@ -306,7 +299,11 @@ class ExecutionManager:
                     "evaluation_error": outcome.evaluation_error,
                     "termination_reason": outcome.termination_reason.value
                     if outcome.termination_reason
-                    else None,
+                    else {
+                        ExitStatus.COMPLETED: "goal_completed",
+                        ExitStatus.STOPPED: "cancelled",
+                        ExitStatus.FAILED: "runtime_error",
+                    }[outcome.status],
                 }
             )
             self.store.save(session)
@@ -358,6 +355,7 @@ def create_app(
     *,
     runtime: AgentRuntime | None = None,
     runtime_registry: Mapping[str, RuntimeRegistration] | None = None,
+    artifacts_dir: Path | None = None,
     sessions_dir: Path | None = None,
     config: AgentConfig | None = None,
 ) -> FastAPI:
@@ -366,6 +364,8 @@ def create_app(
     resolved_config = config or AgentConfig()
     if runtime is not None and runtime_registry is not None:
         raise ValueError("Pass either runtime or runtime_registry, not both")
+    if artifacts_dir is not None and sessions_dir is not None:
+        raise ValueError("Pass artifacts_dir; sessions_dir is only a compatibility alias")
     if runtime_registry is None:
         model_client = OpenAIModelClient()
         runtime_registry = {
@@ -381,12 +381,21 @@ def create_app(
                 ),
             ),
         }
+    selected_directory = artifacts_dir or sessions_dir
+    if selected_directory is None:
+        results_directory = REPOSITORY_ROOT / "mock-agent" / "results"
+        store = SessionStore(
+            results_directory / "runs",
+            read_directories=(results_directory, REPOSITORY_ROOT / "sessions"),
+        )
+    else:
+        store = SessionStore(selected_directory)
     manager = ExecutionManager(
         runtimes=runtime_registry,
         default_runtime_id=DEFAULT_RUNTIME_ID,
         catalog=catalog,
         adapter=adapter,
-        store=SessionStore(sessions_dir or REPOSITORY_ROOT / "sessions"),
+        store=store,
         config=resolved_config,
     )
 

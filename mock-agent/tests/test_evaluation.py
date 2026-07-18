@@ -2,7 +2,16 @@ import json
 import os
 from pathlib import Path
 
+import pytest
+
 from mock_agent import evaluation
+from mock_agent.artifacts import (
+    ArtifactEvaluation,
+    ArtifactSummary,
+    ArtifactTiming,
+    ArtifactWorlds,
+    RunArtifact,
+)
 from mock_agent.contract import (
     EventKind,
     ExitStatus,
@@ -11,6 +20,7 @@ from mock_agent.contract import (
     TerminationReason,
 )
 from mock_agent.evaluation import main
+from mock_agent.main import main as single_run_main
 from mock_agent.plan_state_runtime import PLAN_STATE_LIMITS
 
 
@@ -146,7 +156,10 @@ def test_evaluation_replaces_infrastructure_attempts_and_resumes_missing_runs(
         json.loads(path.read_text()) for path in sorted(artifacts.glob("*.json"))
     ]
     assert [record["run_id"] for record in records] == ["observed-1", "observed-2"]
-    assert [record["repetition"] for record in records] == [1, 2]
+    assert [
+        record["evaluation"]["context"]["repetition"] for record in records
+    ] == [1, 2]
+    assert all(record["artifact_type"] == "run_artifact" for record in records)
     assert records[1]["termination_reason"] == "runtime_error"
     assert all(record["configuration"]["identity"] for record in records)
     assert all(instance.calls == 1 for instance in runtime_instances)
@@ -158,14 +171,25 @@ def test_evaluation_replaces_infrastructure_attempts_and_resumes_missing_runs(
         "execution_limits",
     } <= records[0]["configuration"].keys()
     assert records[0]["trace"][0]["kind"] == "completion"
-    assert records[0]["provider_retry_count"] == 0
-    assert records[0]["model_turn_count"] == 1
-    assert records[0]["tool_call_count"] == 0
+    assert records[0]["summary"]["provider_retry_count"] == 0
+    assert records[0]["summary"]["model_turn_count"] == 1
+    assert records[0]["summary"]["tool_call_count"] == 0
     assert records[0]["usage"]["total_tokens"] == 7
-    assert records[0]["response"] == "done"
+    assert records[0]["final_response"] == "done"
     assert records[0]["worlds"]["final"] == {"attempt": "observed-1"}
-    assert records[0]["official_score"]["task_completed_correctly"] == 1.0
-    assert records[0]["assertion_evidence"] == [{"passed": True}]
+    assert (
+        records[0]["evaluation"]["official_score"]["task_completed_correctly"]
+        == 1.0
+    )
+    assert records[0]["evaluation"]["assertion_evidence"] == [{"passed": True}]
+    assert records[0]["task"]["prompt"]
+    assert records[0]["evaluation"]["context"] == {
+        "configuration_identity": records[0]["configuration"]["identity"],
+        "repetition": 1,
+        "fresh_world": True,
+        "resumed": False,
+        "infrastructure_replacement_count": 1,
+    }
 
     main(
         [
@@ -187,7 +211,7 @@ def test_evaluation_replaces_infrastructure_attempts_and_resumes_missing_runs(
     repetition_two = next(
         path
         for path in artifacts.glob("*.json")
-        if json.loads(path.read_text())["repetition"] == 2
+        if json.loads(path.read_text())["evaluation"]["context"]["repetition"] == 2
     )
     repetition_two.unlink()
 
@@ -217,6 +241,7 @@ def test_evaluation_replaces_infrastructure_attempts_and_resumes_missing_runs(
         "observed-1",
         "observed-2-replacement",
     ]
+    assert resumed[1]["evaluation"]["context"]["resumed"] is True
 
 
 def test_evaluation_command_loads_project_credentials(tmp_path, monkeypatch):
@@ -256,6 +281,115 @@ def test_evaluation_command_loads_project_credentials(tmp_path, monkeypatch):
     )
 
 
+def test_single_run_and_evaluator_write_the_same_canonical_schema(tmp_path, capsys):
+    single_directory = tmp_path / "single-runs"
+    single_path = single_directory / "single-run.json"
+
+    class SingleRuntime:
+        async def run(self, request, **_):
+            return _outcome("single-run")
+
+    single_run_main(
+        [
+            "--task-id",
+            TASK_ID,
+            "--model",
+            "scripted-model",
+            "--artifacts-dir",
+            str(single_directory),
+            "--viewer-base-url",
+            "http://viewer/",
+        ],
+        runtime_factory=SingleRuntime,
+    )
+    output = capsys.readouterr().out
+    assert "artifact:" in output
+    assert "viewer: http://viewer/?run_id=single-run" in output
+
+    manifest, config = _inputs(tmp_path)
+    evaluation_directory = tmp_path / "evaluation"
+
+    class EvaluationRuntime:
+        async def run(self, request, **_):
+            return _outcome("evaluation-run")
+
+    main(
+        [
+            "run",
+            "--manifest",
+            str(manifest),
+            "--config",
+            str(config),
+            "--repetitions",
+            "1",
+            "--artifacts-dir",
+            str(evaluation_directory),
+        ],
+        runtime_factory=EvaluationRuntime,
+    )
+
+    single = json.loads(single_path.read_text())
+    evaluated = json.loads(next(evaluation_directory.glob("*.json")).read_text())
+    assert single["artifact_type"] == evaluated["artifact_type"] == "run_artifact"
+    assert single["schema_version"] == evaluated["schema_version"] == 1
+    assert single.keys() == evaluated.keys()
+    assert single["task"].keys() == evaluated["task"].keys()
+
+
+def test_evaluator_no_longer_accepts_sessions_dir():
+    with pytest.raises(SystemExit):
+        evaluation._parser().parse_args(
+            [
+                "run",
+                "--manifest",
+                "manifest.json",
+                "--config",
+                "config.json",
+                "--repetitions",
+                "1",
+                "--artifacts-dir",
+                "artifacts",
+                "--sessions-dir",
+                "sessions",
+            ]
+        )
+
+
+def test_committed_evaluation_corpus_is_canonical_unique_and_report_reproducible(
+    tmp_path,
+):
+    project_root = Path(__file__).resolve().parents[1]
+    repository_root = project_root.parent
+    artifacts = project_root / "results" / "evaluation"
+    paths = sorted(
+        path for path in artifacts.glob("*.json") if path.name != "report.json"
+    )
+    records = [json.loads(path.read_text()) for path in paths]
+
+    assert len(records) == 61
+    assert all(record["artifact_type"] == "run_artifact" for record in records)
+    assert len({record["run_id"] for record in records}) == len(records)
+    assert {
+        record["configuration"]["identity"] for record in records
+    } == {"a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c"}
+    assert not list((repository_root / "sessions").glob("evaluation_*.json"))
+
+    generated_markdown = tmp_path / "report.md"
+    generated_json = tmp_path / "report.json"
+    selected_tasks = [
+        "sales.contract_renewal_coordinator",
+        "sales.event_to_opportunity_pipeline",
+        "sales.full_sales_cycle_orchestrator",
+        "sales.cross_platform_account_health_score",
+        "sales.demo_scheduling",
+    ]
+    evaluation._write_report(
+        artifacts, generated_markdown, generated_json, selected_tasks
+    )
+    assert generated_markdown.read_bytes() == (artifacts / "report.md").read_bytes()
+    assert generated_json.read_bytes() == (artifacts / "report.json").read_bytes()
+
+
 def test_report_is_configuration_isolated_statistically_correct_and_byte_stable(
     tmp_path,
 ):
@@ -284,34 +418,56 @@ def test_report_is_configuration_isolated_statistically_correct_and_byte_stable(
             "prompt_version": "prompts/v1",
             "evaluation_protocol_version": "panel/v1",
             "execution_limits": {"logical_model_calls": 24},
+            "runtime": {
+                "id": "custom",
+                "label": "Custom agent",
+                "version": "harness/v1",
+            },
         }
         if identity == "config-b":
             configuration["prompt_version"] = "prompts/v2"
-        payload = {
-            "artifact_type": "agent_evaluation_run",
-            "schema_version": 1,
-            "configuration": configuration,
-            "task_id": task_id,
-            "repetition": repetition,
-            "run_id": f"{identity}-{repetition}",
-            "timing": {"duration_ms": duration},
-            "status": "completed",
-            "termination_reason": reason,
-            "trace": [],
-            "provider_retry_count": 0,
-            "model_turn_count": turns,
-            "tool_call_count": tool_calls,
-            "contains_tool_errors": tool_error,
-            "usage": {"total_tokens": tokens},
-            "response": "done",
-            "worlds": {"initial": {}, "final": {}},
-            "official_score": {
-                "partial_credit": partial,
-                "task_completed_correctly": strict,
+        payload = RunArtifact(
+            run_id=f"{identity}-{repetition}",
+            task={
+                "task_id": task_id,
+                "name": task_id,
+                "prompt": [],
+                "tools": [],
+                "assertions": [],
+                "tool_definitions": [],
             },
-            "assertion_evidence": [],
-            "terminal_error": None,
-        }
+            configuration=configuration,
+            timing=ArtifactTiming(
+                started_at="2026-07-17T12:00:00+00:00",
+                updated_at="2026-07-17T12:00:01+00:00",
+                finished_at="2026-07-17T12:00:01+00:00",
+                duration_ms=duration,
+            ),
+            status="completed",
+            termination_reason=reason,
+            trace=(),
+            summary=ArtifactSummary(0, turns, tool_calls, tool_error),
+            usage={"total_tokens": tokens},
+            final_response="done",
+            terminal_error=None,
+            evaluation_error=None,
+            worlds=ArtifactWorlds({}, {}),
+            evaluation=ArtifactEvaluation(
+                available=True,
+                official_score={
+                    "partial_credit": partial,
+                    "task_completed_correctly": strict,
+                },
+                assertion_evidence=(),
+                context={
+                    "configuration_identity": identity,
+                    "repetition": repetition,
+                    "fresh_world": True,
+                    "resumed": False,
+                    "infrastructure_replacement_count": 0,
+                },
+            ),
+        ).to_dict()
         (artifacts / filename).write_text(json.dumps(payload), encoding="utf-8")
 
     write_artifact(
