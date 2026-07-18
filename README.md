@@ -6,21 +6,21 @@ termination, and tracing; the model never receives benchmark answers or raw worl
 
 ## Quick start
 
-Requires Python 3.13 and `uv`. Put `LIBRA_INTERVIEW_API_KEY` and `LIBRA_BASE_URL` in either the
-repository `.env` or `mock-agent/.env`, then install both applications:
+Requires Python 3.13 and `uv`. The repository is one installable project with one lockfile:
 
 ```bash
-cd mock-agent
-uv sync
-cd ../Agent-UI
-uv sync
+uv sync --frozen --all-groups
+cp .env.example .env
 ```
 
-Start the read-only trace viewer:
+Set `LIBRA_INTERVIEW_API_KEY` and `LIBRA_BASE_URL` in the root `.env`. Optional model, provider
+timeout, and bounded transport-retry settings are documented in `.env.example`. Configuration is
+validated before `run` and `evaluate`; `report`, `viewer`, and tests require no model credentials.
+
+Start the read-only trace viewer from the repository root:
 
 ```bash
-cd Agent-UI
-uv run agent-ui
+uv run sales-agent viewer
 ```
 
 The viewer does not execute agents. In another terminal, run the CLI and follow its printed
@@ -29,8 +29,7 @@ The viewer does not execute agents. In another terminal, run the CLI and follow 
 Run one task without the UI:
 
 ```bash
-cd mock-agent
-uv run mock-agent \
+uv run sales-agent run \
   --task-id sales.zoom_calendar_conflict \
   --output results/development/example.json
 ```
@@ -42,8 +41,7 @@ the source artifact without creating UI-owned state.
 Run or resume the frozen held-out panel and make every observation available in the trace viewer:
 
 ```bash
-cd mock-agent
-uv run mock-agent-eval run \
+uv run sales-agent evaluate \
   --manifest evaluation/manifest.json \
   --config evaluation/config.json \
   --repetitions 10 \
@@ -53,7 +51,7 @@ uv run mock-agent-eval run \
 Regenerate the checked-in, explicitly incomplete exploratory report without calling the model:
 
 ```bash
-uv run mock-agent-eval report \
+uv run sales-agent report \
   --manifest evaluation/manifest.json \
   --config evaluation/config.planner-executor-v2.json \
   --repetitions 10 \
@@ -156,9 +154,9 @@ in-flight batch is not partially abandoned.
 Development used only `sales.update_contact_phone`, `sales.negative_selection`,
 `sales.dependency_chain`, and `sales.zoom_calendar_conflict`. The repository owner supplied and
 preregistered the ten different tasks in
-[`mock-agent/evaluation/manifest.json`](mock-agent/evaluation/manifest.json). The model, harness,
+[`evaluation/manifest.json`](evaluation/manifest.json). The model, harness,
 prompts, protocol, and execution limits are frozen in
-[`mock-agent/evaluation/config.json`](mock-agent/evaluation/config.json).
+[`evaluation/config.json`](evaluation/config.json).
 
 The evaluator runs ten sequential scorable repetitions for each task, always from a fresh world.
 Every terminal agent observation—including incorrect completion, budget exhaustion, protocol
@@ -193,8 +191,8 @@ Overall strict completion was 4/50 (8.0%), with mean partial credit 0.295 (sampl
 Median usage was 124,028.5 tokens and median duration was 251,361.595 ms. Termination was dominated
 by budget exhaustion (33 runs), followed by claimed goal completion (15) and model protocol errors
 (2); 37/50 runs contained tool errors. The full deterministic outputs are
-[`report.md`](mock-agent/results/evaluation/report.md) and
-[`report.json`](mock-agent/results/evaluation/report.json).
+[`report.md`](results/evaluation/report.md) and
+[`report.json`](results/evaluation/report.json).
 
 The traces expose three recurring weaknesses. First, unsupported Salesforce query forms caused
 repeated errors in renewal and account-health work, consuming budgets before downstream writes.
@@ -212,7 +210,7 @@ and error-directed recovery, then compare a newly frozen configuration on a new 
 ## Development evidence
 
 The complete real execution at
-[`mock-agent/results/runs/fd868fa0-4fc7-47ee-abcf-1af6dc78d499.json`](mock-agent/results/runs/fd868fa0-4fc7-47ee-abcf-1af6dc78d499.json)
+[`results/runs/fd868fa0-4fc7-47ee-abcf-1af6dc78d499.json`](results/runs/fd868fa0-4fc7-47ee-abcf-1af6dc78d499.json)
 strictly completed its task with partial credit 1.0. Its 52 events preserve a four-step plan, 15
 executor turns, 13 correlated calls/results, four reviews, the final response, initial/final
 worlds, and official assertion evidence. It used 88,594 tokens and changed only the simulated
@@ -234,19 +232,26 @@ routing, durable workers, a database, human approval, long-term memory, retrieva
 automatic prompt optimization, an LLM judge, or a live aggregate dashboard.
 
 The main simplicity tradeoffs are repeated full-state context, slower evaluation from sequential
-execution, and coarse fixed budgets instead of learned stopping. Given more time, priorities are: reduce repeated prompt/tool-schema tokens,
-improve evidence-first query planning for large noisy tool sets, add explicit provider timeouts,
-compare prompt/config versions on a new preregistered panel, and introduce human approval only for
-real external side effects.
+execution, and coarse fixed budgets instead of learned stopping. Given more time, priorities are:
+reduce repeated prompt/tool-schema tokens, improve evidence-first query planning for large noisy
+tool sets, compare prompt/config versions on a new preregistered panel, and introduce human
+approval only for real external side effects.
 
 ## Repository guide
 
-- `mock-agent/src/mock_agent/`: blind adapter, direct provider client, plan-state runtime, contracts,
-  and offline evaluation/reporting.
-- `Agent-UI/`: read-only recent-runs list and bookmarkable canonical trace viewer.
-- `AutomationBench/`: Sales tasks, tools, simulated worlds, and official deterministic scorer.
-- `mock-agent/results/runs/`: canonical standalone CLI run artifacts.
-- `mock-agent/results/evaluation/`: canonical held-out observations and generated reports.
+- `src/sales_agent/`: blind adapter, direct provider client, plan-state runtime, contracts,
+  offline evaluation/reporting, and the read-only viewer.
+- `vendor/automationbench/`: pinned Sales tasks, tools, simulated worlds, official deterministic
+  scorer, license, and update provenance.
+- `results/runs/`: canonical standalone CLI run artifacts.
+- `results/evaluation/`: canonical held-out observations and generated reports.
 - `docs/run-artifacts.md`: canonical schema, persistence invariants, and historical compatibility.
 
-Run automated checks with `uv run pytest` from both `mock-agent/` and `Agent-UI/`.
+Run the local checks from the repository root:
+
+```bash
+uv run ruff format --check src tests
+uv run ruff check src tests
+uv run ty check src/sales_agent
+uv run pytest
+```

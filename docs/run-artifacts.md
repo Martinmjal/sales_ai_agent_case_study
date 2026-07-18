@@ -2,7 +2,7 @@
 
 `run_artifact` schema version 1 is the only run format written by the CLI and evaluator.
 The typed boundary model and atomic serializer live in
-`mock-agent/src/mock_agent/artifacts.py`; runtime controller state remains separate.
+`src/sales_agent/artifacts.py`; runtime controller state remains separate.
 
 Each artifact contains one stable run ID, a complete task snapshot, model/runtime/prompt/protocol
 configuration identity, lifecycle state and termination reason, a monotonic correlated trace,
@@ -12,11 +12,11 @@ when applicable.
 
 ## Authoritative locations
 
-- `mock-agent/results/runs/` contains standalone CLI runs. New filenames are
+- `results/runs/` contains standalone CLI runs. New filenames are
   `<run-id>.json`.
-- `mock-agent/results/evaluation/` contains one authoritative artifact per accepted evaluation
+- `results/evaluation/` contains one authoritative artifact per accepted evaluation
   configuration/task/repetition. Its configuration-derived filenames remain stable across resume.
-- `mock-agent/results/development/` contains the representative partial development artifact.
+- `results/development/` contains the representative partial development artifact.
 - `report.md` and `report.json` are derived outputs, not run artifacts.
 
 The retired `sessions/` evaluation copies were deleted. The trace viewer scans the canonical result
@@ -46,8 +46,8 @@ The reader supports canonical schema version 1 plus these historical inputs:
 - the earlier configured-run evidence record.
 
 Compatibility is strictly “read old, write one”: all shared serializers emit only
-`run_artifact` version 1. `mock-agent/scripts/migrate_run_artifacts.py` is the deterministic
-repository migration used for the committed evidence. Malformed files and unknown canonical or
-legacy schema versions are rejected rather than guessed. Historical terminal sessions that never
-recorded a reason are explicitly marked `legacy_unknown` with configuration metadata noting that
-the original reason was unavailable.
+`run_artifact` version 1. The deterministic migration used for the committed evidence is preserved
+in Git history. Malformed files and unknown canonical or legacy schema versions are rejected
+rather than guessed. Historical terminal sessions that never recorded a reason are explicitly
+marked `legacy_unknown` with configuration metadata noting that the original reason was
+unavailable.

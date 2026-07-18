@@ -6,6 +6,9 @@
 **/.env.*
 !**/.env.example
 
+# Raw assistant transcripts are intentionally kept outside version control.
+build_sessions/
+
 # Python and uv
 __pycache__/
 *.py[cod]
@@ -22,6 +25,9 @@ htmlcov/
 build/
 dist/
 *.egg-info/
+
+# Vendored AutomationBench generates this cache from its tracked JSON schemas.
+vendor/automationbench/automationbench/tools/api/schemas/index.txt
 
 # Editors and operating systems
 .DS_Store
