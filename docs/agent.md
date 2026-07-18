@@ -1,16 +1,14 @@
 # Sales agent runtime
 
-A framework-free plan-state agent and evaluation-only comparison baseline for the AutomationBench
-Sales dataset.
+A framework-free plan-state agent for the AutomationBench Sales dataset.
 
 The runtime exposes the `AgentRuntime` contract, keeps benchmark identity, assertions, expected
 values, raw world state, and scoring behind a blind adapter, and sends only prompt messages,
 public tool schemas, observed tool results, accepted evidence, and execution budgets to the model.
 It uses the OpenAI Responses API directly.
 
-`PlanStateRuntime` is the sole submission runtime. It uses one continuous execution loop and local
-evidence-backed control actions. The smaller `BaselineRuntime` is a direct model/tool loop kept for
-evaluation comparisons only. Both implement the same `AgentRuntime` request, event, cancellation,
+`PlanStateRuntime` is the submission runtime. It uses one continuous execution loop and local
+evidence-backed control actions, and implements the `AgentRuntime` request, event, cancellation,
 and outcome contract without LangChain or LangGraph.
 
 ## Set up

@@ -511,7 +511,7 @@ def test_single_run_and_evaluator_write_the_same_canonical_schema(tmp_path, caps
 
 def test_evaluator_no_longer_accepts_sessions_dir():
     with pytest.raises(SystemExit):
-        evaluation._parser().parse_args(
+        evaluation.parser().parse_args(
             [
                 "run",
                 "--manifest",

@@ -781,7 +781,6 @@ def test_plan_state_runtime_completes_a_blind_task_with_real_tools_and_scoring()
     assert outcome.score["task_completed_correctly"] == 1.0
     assert observed == list(outcome.events)
     assert sum(event.kind is EventKind.STEP_COMPLETED for event in outcome.events) == 2
-    assert not any(event.kind is EventKind.REVIEW for event in outcome.events)
     assert [request.role for request in model.requests] == [
         "planner",
         "plan_state_executor",

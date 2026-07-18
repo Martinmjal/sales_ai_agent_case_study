@@ -15,10 +15,6 @@ class EventKind(str, Enum):
     STEP_FAILED = "step_failed"
     STEP_SUPERSEDED = "step_superseded"
     PLAN_REVISED = "plan_revised"
-    STEP_RETRY = "step_retry"
-    REPLAN = "replan"
-    EXECUTOR_TURN = "executor_turn"
-    REVIEW = "review"
     MODEL_TURN = "model_turn"
     TOOL_CALL = "tool_call"
     TOOL_RESULT = "tool_result"
@@ -60,8 +56,6 @@ class TerminationReason(str, Enum):
 class RuntimeRequest:
     task_id: str
     model_name: str
-    max_steps: int = 30
-    run_id: str | None = None
 
 
 @dataclass(frozen=True)

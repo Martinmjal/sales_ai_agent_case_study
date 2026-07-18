@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from html import escape
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 from urllib.parse import quote
 
 from fastapi import FastAPI
@@ -26,14 +26,9 @@ STATIC_DIRECTORY = Path(__file__).resolve().parent / "static"
 def create_app(
     *,
     artifacts_dir: Path | None = None,
-    read_directories: Iterable[Path] | None = None,
 ) -> FastAPI:
-    if artifacts_dir is not None and read_directories is not None:
-        raise ValueError("Pass artifacts_dir or read_directories, not both")
-    if read_directories is None:
-        results = REPOSITORY_ROOT / "results"
-        read_directories = (artifacts_dir,) if artifacts_dir else (results,)
-    repository = ArtifactRepository(read_directories)
+    directory = artifacts_dir or REPOSITORY_ROOT / "results"
+    repository = ArtifactRepository(directory)
     app = FastAPI(title="Run Artifact Trace Viewer", version=__version__)
     app.mount("/static", StaticFiles(directory=STATIC_DIRECTORY), name="static")
 

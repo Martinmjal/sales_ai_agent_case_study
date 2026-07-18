@@ -4,7 +4,6 @@ import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterable
 
 from sales_agent.artifacts import ArtifactValidationError, RunArtifact, read_artifact
 
@@ -30,8 +29,8 @@ class ArtifactReference:
 class ArtifactRepository:
     """Read-only index derived from artifact files on every request."""
 
-    def __init__(self, directories: Iterable[Path]):
-        self.directories = tuple(directories)
+    def __init__(self, directory: Path):
+        self.directory = directory
 
     def recent(self) -> list[ArtifactReference]:
         return sorted(
@@ -50,12 +49,7 @@ class ArtifactRepository:
 
     def _index(self) -> dict[str, ArtifactReference]:
         references: dict[str, ArtifactReference] = {}
-        seen_paths: set[Path] = set()
         for path in self._paths():
-            resolved = path.resolve()
-            if resolved in seen_paths:
-                continue
-            seen_paths.add(resolved)
             try:
                 artifact = read_artifact(path)
             except (ArtifactValidationError, KeyError, TypeError, ValueError, OSError):
@@ -80,9 +74,8 @@ class ArtifactRepository:
         return None
 
     def _paths(self):
-        for directory in self.directories:
-            if directory.exists():
-                yield from sorted(directory.rglob("*.json"))
+        if self.directory.exists():
+            yield from sorted(self.directory.rglob("*.json"))
 
 
 def _timestamp(value: str) -> datetime:

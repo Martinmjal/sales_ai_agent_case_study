@@ -200,7 +200,7 @@ def test_recent_runs_are_flat_newest_first_and_requests_are_read_only(tmp_path):
     )
     before = {path: path.read_bytes() for path in (older, newer, tmp_path / "unsupported.json")}
 
-    repository = ArtifactRepository((tmp_path,))
+    repository = ArtifactRepository(tmp_path)
     assert [reference.artifact.run_id for reference in repository.recent()] == [
         "newer",
         "older",
