@@ -6,9 +6,6 @@
 **/.env.*
 !**/.env.example
 
-# Raw assistant transcripts are intentionally kept outside version control.
-build_sessions/
-
 # Python and uv
 __pycache__/
 *.py[cod]
