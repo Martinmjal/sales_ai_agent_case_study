@@ -1,17 +1,67 @@
 {
+  "complete": false,
+  "coverage": {
+    "coverage_complete": true,
+    "excluded_configuration_identities": [],
+    "expected_observation_count": 50,
+    "missing": [],
+    "scorable_observation_count": 50,
+    "unexpected_tasks": [],
+    "unscorable": []
+  },
   "groups": [
     {
       "artifacts": [
-        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-contract_renewal_coordinator_r001.json",
-        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-contract_renewal_coordinator_r002.json",
-        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-contract_renewal_coordinator_r003.json",
-        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-contract_renewal_coordinator_r004.json",
-        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-contract_renewal_coordinator_r005.json",
-        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-contract_renewal_coordinator_r006.json",
-        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-contract_renewal_coordinator_r007.json",
-        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-contract_renewal_coordinator_r008.json",
-        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-contract_renewal_coordinator_r009.json",
-        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-contract_renewal_coordinator_r010.json"
+        {
+          "filename": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-contract_renewal_coordinator_r001.json",
+          "path": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-contract_renewal_coordinator_r001.json",
+          "run_id": "068c07c0-6bd4-4ebd-962b-bdbfca76d8a6"
+        },
+        {
+          "filename": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-contract_renewal_coordinator_r002.json",
+          "path": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-contract_renewal_coordinator_r002.json",
+          "run_id": "be9587cf-a28e-42ec-b79b-65d8017bb9b2"
+        },
+        {
+          "filename": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-contract_renewal_coordinator_r003.json",
+          "path": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-contract_renewal_coordinator_r003.json",
+          "run_id": "93b56269-efd0-461c-a5c2-3e6105bc0329"
+        },
+        {
+          "filename": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-contract_renewal_coordinator_r004.json",
+          "path": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-contract_renewal_coordinator_r004.json",
+          "run_id": "209d2a5a-aab3-4f1d-ae00-44f72371c20d"
+        },
+        {
+          "filename": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-contract_renewal_coordinator_r005.json",
+          "path": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-contract_renewal_coordinator_r005.json",
+          "run_id": "4f1e27e3-1ae6-484f-8604-b91d332eba35"
+        },
+        {
+          "filename": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-contract_renewal_coordinator_r006.json",
+          "path": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-contract_renewal_coordinator_r006.json",
+          "run_id": "eab2443d-4763-4e52-90c0-c8863f7e38c7"
+        },
+        {
+          "filename": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-contract_renewal_coordinator_r007.json",
+          "path": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-contract_renewal_coordinator_r007.json",
+          "run_id": "b333a1dc-3a82-41ca-89c7-92b0238ce386"
+        },
+        {
+          "filename": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-contract_renewal_coordinator_r008.json",
+          "path": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-contract_renewal_coordinator_r008.json",
+          "run_id": "dc0e5cc5-ae67-4e1d-b66e-354b1917d51b"
+        },
+        {
+          "filename": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-contract_renewal_coordinator_r009.json",
+          "path": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-contract_renewal_coordinator_r009.json",
+          "run_id": "d371bfc2-3fbd-4fba-a650-c683d83c3673"
+        },
+        {
+          "filename": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-contract_renewal_coordinator_r010.json",
+          "path": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-contract_renewal_coordinator_r010.json",
+          "run_id": "3debefd9-a2c1-473f-bef3-1b32c849fae6"
+        }
       ],
       "configuration": {
         "evaluation_protocol_version": "sales-panel/v1",
@@ -86,16 +136,56 @@
     },
     {
       "artifacts": [
-        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-cross_platform_account_health_score_r001.json",
-        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-cross_platform_account_health_score_r002.json",
-        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-cross_platform_account_health_score_r003.json",
-        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-cross_platform_account_health_score_r004.json",
-        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-cross_platform_account_health_score_r005.json",
-        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-cross_platform_account_health_score_r006.json",
-        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-cross_platform_account_health_score_r007.json",
-        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-cross_platform_account_health_score_r008.json",
-        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-cross_platform_account_health_score_r009.json",
-        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-cross_platform_account_health_score_r010.json"
+        {
+          "filename": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-cross_platform_account_health_score_r001.json",
+          "path": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-cross_platform_account_health_score_r001.json",
+          "run_id": "13dc6635-7d22-47a7-af43-94081c974388"
+        },
+        {
+          "filename": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-cross_platform_account_health_score_r002.json",
+          "path": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-cross_platform_account_health_score_r002.json",
+          "run_id": "efc19f73-42ca-4cc6-aae7-68c24d59e38a"
+        },
+        {
+          "filename": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-cross_platform_account_health_score_r003.json",
+          "path": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-cross_platform_account_health_score_r003.json",
+          "run_id": "afaa0baf-a70f-4030-8204-91988e81941e"
+        },
+        {
+          "filename": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-cross_platform_account_health_score_r004.json",
+          "path": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-cross_platform_account_health_score_r004.json",
+          "run_id": "5cfa1609-bac8-411c-a99c-fe68f261e77f"
+        },
+        {
+          "filename": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-cross_platform_account_health_score_r005.json",
+          "path": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-cross_platform_account_health_score_r005.json",
+          "run_id": "5c322b17-6acf-482a-88b5-917b9339c0b3"
+        },
+        {
+          "filename": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-cross_platform_account_health_score_r006.json",
+          "path": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-cross_platform_account_health_score_r006.json",
+          "run_id": "b6878982-1e04-4233-a5ac-b7a3b01e9327"
+        },
+        {
+          "filename": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-cross_platform_account_health_score_r007.json",
+          "path": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-cross_platform_account_health_score_r007.json",
+          "run_id": "9bde6b88-5019-4d84-87b5-f5a805ec4671"
+        },
+        {
+          "filename": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-cross_platform_account_health_score_r008.json",
+          "path": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-cross_platform_account_health_score_r008.json",
+          "run_id": "13bf72df-203e-47b9-9d08-2d75c96cc61a"
+        },
+        {
+          "filename": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-cross_platform_account_health_score_r009.json",
+          "path": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-cross_platform_account_health_score_r009.json",
+          "run_id": "eb44e21d-a558-4897-b693-3c6a9e65027a"
+        },
+        {
+          "filename": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-cross_platform_account_health_score_r010.json",
+          "path": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-cross_platform_account_health_score_r010.json",
+          "run_id": "6134d655-0f21-490b-8235-bc3fcab3b7f4"
+        }
       ],
       "configuration": {
         "evaluation_protocol_version": "sales-panel/v1",
@@ -170,16 +260,56 @@
     },
     {
       "artifacts": [
-        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-demo_scheduling_r001.json",
-        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-demo_scheduling_r002.json",
-        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-demo_scheduling_r003.json",
-        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-demo_scheduling_r004.json",
-        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-demo_scheduling_r005.json",
-        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-demo_scheduling_r006.json",
-        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-demo_scheduling_r007.json",
-        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-demo_scheduling_r008.json",
-        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-demo_scheduling_r009.json",
-        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-demo_scheduling_r010.json"
+        {
+          "filename": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-demo_scheduling_r001.json",
+          "path": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-demo_scheduling_r001.json",
+          "run_id": "cb345d09-91e9-4b52-98da-9b7b6097dd85"
+        },
+        {
+          "filename": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-demo_scheduling_r002.json",
+          "path": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-demo_scheduling_r002.json",
+          "run_id": "1926a4b8-bfc8-4d80-885e-9b67677b1346"
+        },
+        {
+          "filename": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-demo_scheduling_r003.json",
+          "path": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-demo_scheduling_r003.json",
+          "run_id": "d15a5a44-0c66-45a5-915f-c99496a86d2b"
+        },
+        {
+          "filename": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-demo_scheduling_r004.json",
+          "path": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-demo_scheduling_r004.json",
+          "run_id": "3ce1fd31-353b-4ad2-9186-11b9d0c90821"
+        },
+        {
+          "filename": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-demo_scheduling_r005.json",
+          "path": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-demo_scheduling_r005.json",
+          "run_id": "0a5e8546-66e0-4609-9bb1-7af94436257f"
+        },
+        {
+          "filename": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-demo_scheduling_r006.json",
+          "path": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-demo_scheduling_r006.json",
+          "run_id": "6f80eb1c-ba91-417a-a7db-43ce04aa15bc"
+        },
+        {
+          "filename": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-demo_scheduling_r007.json",
+          "path": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-demo_scheduling_r007.json",
+          "run_id": "8e65ddb1-4516-485b-ac94-c7be203527cf"
+        },
+        {
+          "filename": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-demo_scheduling_r008.json",
+          "path": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-demo_scheduling_r008.json",
+          "run_id": "a0a51558-c079-4fa7-ad5e-68bc86f349a9"
+        },
+        {
+          "filename": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-demo_scheduling_r009.json",
+          "path": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-demo_scheduling_r009.json",
+          "run_id": "36eb3cc4-b9ce-4b74-83c2-9d37f238423f"
+        },
+        {
+          "filename": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-demo_scheduling_r010.json",
+          "path": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-demo_scheduling_r010.json",
+          "run_id": "16c4334a-7c1a-449e-957d-ffa4e2b1e087"
+        }
       ],
       "configuration": {
         "evaluation_protocol_version": "sales-panel/v1",
@@ -254,16 +384,56 @@
     },
     {
       "artifacts": [
-        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-event_to_opportunity_pipeline_r001.json",
-        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-event_to_opportunity_pipeline_r002.json",
-        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-event_to_opportunity_pipeline_r003.json",
-        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-event_to_opportunity_pipeline_r004.json",
-        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-event_to_opportunity_pipeline_r005.json",
-        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-event_to_opportunity_pipeline_r006.json",
-        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-event_to_opportunity_pipeline_r007.json",
-        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-event_to_opportunity_pipeline_r008.json",
-        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-event_to_opportunity_pipeline_r009.json",
-        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-event_to_opportunity_pipeline_r010.json"
+        {
+          "filename": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-event_to_opportunity_pipeline_r001.json",
+          "path": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-event_to_opportunity_pipeline_r001.json",
+          "run_id": "961b9719-9aaf-43dc-a96d-e7de88405e8a"
+        },
+        {
+          "filename": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-event_to_opportunity_pipeline_r002.json",
+          "path": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-event_to_opportunity_pipeline_r002.json",
+          "run_id": "f92f08d8-a9be-4141-8c97-eba2a3cb5bb6"
+        },
+        {
+          "filename": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-event_to_opportunity_pipeline_r003.json",
+          "path": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-event_to_opportunity_pipeline_r003.json",
+          "run_id": "edbbaa79-f39b-4e59-9864-a1705777af4f"
+        },
+        {
+          "filename": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-event_to_opportunity_pipeline_r004.json",
+          "path": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-event_to_opportunity_pipeline_r004.json",
+          "run_id": "0737ea7d-7721-495f-8965-d61799933ce7"
+        },
+        {
+          "filename": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-event_to_opportunity_pipeline_r005.json",
+          "path": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-event_to_opportunity_pipeline_r005.json",
+          "run_id": "ced25b25-ab2c-4baf-a9d3-a633d351b7d8"
+        },
+        {
+          "filename": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-event_to_opportunity_pipeline_r006.json",
+          "path": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-event_to_opportunity_pipeline_r006.json",
+          "run_id": "1c0c38f1-ad02-4c64-871e-178bc2b4f46d"
+        },
+        {
+          "filename": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-event_to_opportunity_pipeline_r007.json",
+          "path": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-event_to_opportunity_pipeline_r007.json",
+          "run_id": "c44069be-a8fb-4752-b773-9a885122ce1c"
+        },
+        {
+          "filename": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-event_to_opportunity_pipeline_r008.json",
+          "path": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-event_to_opportunity_pipeline_r008.json",
+          "run_id": "070e2c87-7f28-4aef-b8a0-cbc38c949f91"
+        },
+        {
+          "filename": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-event_to_opportunity_pipeline_r009.json",
+          "path": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-event_to_opportunity_pipeline_r009.json",
+          "run_id": "f9ca5bd2-3712-462d-8a01-03f8aae1a177"
+        },
+        {
+          "filename": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-event_to_opportunity_pipeline_r010.json",
+          "path": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-event_to_opportunity_pipeline_r010.json",
+          "run_id": "53dc92e3-4b38-4172-9938-88f637de8ae1"
+        }
       ],
       "configuration": {
         "evaluation_protocol_version": "sales-panel/v1",
@@ -338,16 +508,56 @@
     },
     {
       "artifacts": [
-        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-full_sales_cycle_orchestrator_r001.json",
-        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-full_sales_cycle_orchestrator_r002.json",
-        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-full_sales_cycle_orchestrator_r003.json",
-        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-full_sales_cycle_orchestrator_r004.json",
-        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-full_sales_cycle_orchestrator_r005.json",
-        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-full_sales_cycle_orchestrator_r006.json",
-        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-full_sales_cycle_orchestrator_r007.json",
-        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-full_sales_cycle_orchestrator_r008.json",
-        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-full_sales_cycle_orchestrator_r009.json",
-        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-full_sales_cycle_orchestrator_r010.json"
+        {
+          "filename": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-full_sales_cycle_orchestrator_r001.json",
+          "path": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-full_sales_cycle_orchestrator_r001.json",
+          "run_id": "ebe4d2e2-6b1c-422e-b477-ac0435addd64"
+        },
+        {
+          "filename": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-full_sales_cycle_orchestrator_r002.json",
+          "path": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-full_sales_cycle_orchestrator_r002.json",
+          "run_id": "92c5970a-4412-4c9c-a2ed-d576ddb189fd"
+        },
+        {
+          "filename": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-full_sales_cycle_orchestrator_r003.json",
+          "path": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-full_sales_cycle_orchestrator_r003.json",
+          "run_id": "c9ada7cf-abb0-417d-89a9-3d41810af588"
+        },
+        {
+          "filename": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-full_sales_cycle_orchestrator_r004.json",
+          "path": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-full_sales_cycle_orchestrator_r004.json",
+          "run_id": "1977f06c-3964-4b38-9845-1d6d328c3569"
+        },
+        {
+          "filename": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-full_sales_cycle_orchestrator_r005.json",
+          "path": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-full_sales_cycle_orchestrator_r005.json",
+          "run_id": "7e3c957a-abfd-499f-b37a-7521224d5393"
+        },
+        {
+          "filename": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-full_sales_cycle_orchestrator_r006.json",
+          "path": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-full_sales_cycle_orchestrator_r006.json",
+          "run_id": "255b56cc-e9b7-43c0-8b93-8a376daf5793"
+        },
+        {
+          "filename": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-full_sales_cycle_orchestrator_r007.json",
+          "path": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-full_sales_cycle_orchestrator_r007.json",
+          "run_id": "ef7f6d3c-808b-4765-b9ea-bc28c3f93631"
+        },
+        {
+          "filename": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-full_sales_cycle_orchestrator_r008.json",
+          "path": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-full_sales_cycle_orchestrator_r008.json",
+          "run_id": "98b450a5-7a43-4912-afe2-230a9abf5823"
+        },
+        {
+          "filename": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-full_sales_cycle_orchestrator_r009.json",
+          "path": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-full_sales_cycle_orchestrator_r009.json",
+          "run_id": "62dd45a2-77ec-4df5-8241-bbbd98f25599"
+        },
+        {
+          "filename": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-full_sales_cycle_orchestrator_r010.json",
+          "path": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c_sales-full_sales_cycle_orchestrator_r010.json",
+          "run_id": "2503418d-d30c-474c-ac5c-d14f52b76918"
+        }
       ],
       "configuration": {
         "evaluation_protocol_version": "sales-panel/v1",
@@ -421,6 +631,7 @@
       }
     }
   ],
+  "mode": "exploratory",
   "panels": [
     {
       "configuration": {
@@ -484,5 +695,39 @@
       }
     }
   ],
-  "schema_version": 1
+  "schema_version": 2,
+  "selection": {
+    "configuration_identity": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c",
+    "manifest": {
+      "panel_id": "sales-heldout-2026-07-17",
+      "preregistered_by": "repository-owner",
+      "tasks": [
+        "sales.contract_renewal_coordinator",
+        "sales.event_to_opportunity_pipeline",
+        "sales.full_sales_cycle_orchestrator",
+        "sales.cross_platform_account_health_score",
+        "sales.demo_scheduling",
+        "sales.chatgpt_proposal_customization",
+        "sales.docusign_contract_send",
+        "sales.sheets_multi_channel_campaign_router",
+        "sales.email_zoom_fuzzy",
+        "sales.overdue_followup_flag"
+      ]
+    },
+    "repetitions": 10,
+    "selected_tasks": [
+      "sales.contract_renewal_coordinator",
+      "sales.event_to_opportunity_pipeline",
+      "sales.full_sales_cycle_orchestrator",
+      "sales.cross_platform_account_health_score",
+      "sales.demo_scheduling"
+    ],
+    "task_filters": [
+      "sales.contract_renewal_coordinator",
+      "sales.event_to_opportunity_pipeline",
+      "sales.full_sales_cycle_orchestrator",
+      "sales.cross_platform_account_health_score",
+      "sales.demo_scheduling"
+    ]
+  }
 }

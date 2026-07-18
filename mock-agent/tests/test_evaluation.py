@@ -20,6 +20,8 @@ from mock_agent.contract import (
     TerminationReason,
 )
 from mock_agent.evaluation import main
+from mock_agent.evaluation import cli as evaluation_cli
+from mock_agent.evaluation.records import EvaluationConfiguration, completed_triples
 from mock_agent.main import main as single_run_main
 from mock_agent.plan_state_runtime import PLAN_STATE_LIMITS
 
@@ -107,6 +109,61 @@ def _inputs(tmp_path: Path):
     return manifest, config
 
 
+def _write_evaluation_artifact(
+    path: Path,
+    configuration: EvaluationConfiguration,
+    *,
+    repetition: int,
+    identity: str | None = None,
+    run_id: str | None = None,
+    score: dict | None = None,
+) -> None:
+    artifact_identity = identity or configuration.identity
+    artifact_configuration = configuration.artifact_values()
+    artifact_configuration["identity"] = artifact_identity
+    payload = RunArtifact(
+        run_id=run_id or f"run-{artifact_identity[:8]}-{repetition}-{path.stem}",
+        task={
+            "task_id": TASK_ID,
+            "name": TASK_ID,
+            "prompt": [],
+            "tools": [],
+            "assertions": [],
+            "tool_definitions": [],
+        },
+        configuration=artifact_configuration,
+        timing=ArtifactTiming(
+            started_at="2026-07-17T12:00:00+00:00",
+            updated_at="2026-07-17T12:00:01+00:00",
+            finished_at="2026-07-17T12:00:01+00:00",
+            duration_ms=100,
+        ),
+        status="completed",
+        termination_reason="goal_completed",
+        trace=(),
+        summary=ArtifactSummary(0, 1, 0, False),
+        usage={"total_tokens": 10},
+        final_response="done",
+        terminal_error=None,
+        evaluation_error=None,
+        worlds=ArtifactWorlds({}, {}),
+        evaluation=ArtifactEvaluation(
+            available=True,
+            official_score=score
+            or {"partial_credit": 1.0, "task_completed_correctly": 1.0},
+            assertion_evidence=(),
+            context={
+                "configuration_identity": artifact_identity,
+                "repetition": repetition,
+                "fresh_world": True,
+                "resumed": False,
+                "infrastructure_replacement_count": 0,
+            },
+        ),
+    ).to_dict()
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+
 def test_evaluation_replaces_infrastructure_attempts_and_resumes_missing_runs(
     tmp_path,
 ):
@@ -156,9 +213,10 @@ def test_evaluation_replaces_infrastructure_attempts_and_resumes_missing_runs(
         json.loads(path.read_text()) for path in sorted(artifacts.glob("*.json"))
     ]
     assert [record["run_id"] for record in records] == ["observed-1", "observed-2"]
-    assert [
-        record["evaluation"]["context"]["repetition"] for record in records
-    ] == [1, 2]
+    assert [record["evaluation"]["context"]["repetition"] for record in records] == [
+        1,
+        2,
+    ]
     assert all(record["artifact_type"] == "run_artifact" for record in records)
     assert records[1]["termination_reason"] == "runtime_error"
     assert all(record["configuration"]["identity"] for record in records)
@@ -177,10 +235,7 @@ def test_evaluation_replaces_infrastructure_attempts_and_resumes_missing_runs(
     assert records[0]["usage"]["total_tokens"] == 7
     assert records[0]["final_response"] == "done"
     assert records[0]["worlds"]["final"] == {"attempt": "observed-1"}
-    assert (
-        records[0]["evaluation"]["official_score"]["task_completed_correctly"]
-        == 1.0
-    )
+    assert records[0]["evaluation"]["official_score"]["task_completed_correctly"] == 1.0
     assert records[0]["evaluation"]["assertion_evidence"] == [{"passed": True}]
     assert records[0]["task"]["prompt"]
     assert records[0]["evaluation"]["context"] == {
@@ -255,8 +310,8 @@ def test_evaluation_command_loads_project_credentials(tmp_path, monkeypatch):
     )
     monkeypatch.delenv("LIBRA_INTERVIEW_API_KEY", raising=False)
     monkeypatch.delenv("LIBRA_BASE_URL", raising=False)
-    monkeypatch.setattr(evaluation, "PROJECT_ROOT", project, raising=False)
-    monkeypatch.setattr(evaluation, "REPOSITORY_ROOT", tmp_path, raising=False)
+    monkeypatch.setattr(evaluation_cli, "PROJECT_ROOT", project)
+    monkeypatch.setattr(evaluation_cli, "REPOSITORY_ROOT", tmp_path)
     manifest, config = _inputs(tmp_path)
 
     class Runtime:
@@ -355,6 +410,133 @@ def test_evaluator_no_longer_accepts_sessions_dir():
         )
 
 
+def test_final_coverage_rejects_missing_duplicate_out_of_range_and_mixed_records(
+    tmp_path,
+):
+    manifest, config_path = _inputs(tmp_path)
+    config = EvaluationConfiguration.read(config_path)
+    artifacts = tmp_path / "artifacts"
+    artifacts.mkdir()
+    _write_evaluation_artifact(artifacts / "r1.json", config, repetition=1)
+    base = [
+        "report",
+        "--manifest",
+        str(manifest),
+        "--config",
+        str(config_path),
+        "--repetitions",
+        "2",
+        "--artifacts-dir",
+        str(artifacts),
+        "--markdown",
+        str(tmp_path / "report.md"),
+        "--json",
+        str(tmp_path / "report.json"),
+    ]
+
+    with pytest.raises(
+        ValueError, match=f"missing scorable observations: {TASK_ID}/r2"
+    ):
+        main(base)
+
+    main([*base, "--exploratory"])
+    exploratory = json.loads((tmp_path / "report.json").read_text())
+    assert exploratory["complete"] is False
+    assert exploratory["coverage"]["missing"] == [{"task_id": TASK_ID, "repetition": 2}]
+
+    duplicate = artifacts / "duplicate-r1.json"
+    _write_evaluation_artifact(duplicate, config, repetition=1)
+    with pytest.raises(ValueError, match="Duplicate evaluation observations"):
+        main([*base, "--exploratory"])
+    duplicate.unlink()
+
+    out_of_range = artifacts / "r3.json"
+    _write_evaluation_artifact(out_of_range, config, repetition=3)
+    with pytest.raises(ValueError, match="Out-of-range evaluation repetitions"):
+        main([*base, "--exploratory"])
+    out_of_range.unlink()
+
+    _write_evaluation_artifact(artifacts / "r2.json", config, repetition=2)
+    _write_evaluation_artifact(
+        artifacts / "foreign.json",
+        config,
+        repetition=1,
+        identity="b" * 64,
+    )
+    with pytest.raises(ValueError, match="mixed configurations"):
+        main(base)
+    (artifacts / "foreign.json").unlink()
+
+    incompatible = json.loads((artifacts / "r2.json").read_text())
+    incompatible["configuration"]["prompt_version"] = "different-prompts/v1"
+    (artifacts / "r2.json").write_text(json.dumps(incompatible), encoding="utf-8")
+    with pytest.raises(ValueError, match="Configuration identity payload mismatch"):
+        main(base)
+
+
+def test_historical_artifact_is_indexed_and_reported_without_rewrite(tmp_path):
+    manifest, config_path = _inputs(tmp_path)
+    config = EvaluationConfiguration.read(config_path)
+    artifacts = tmp_path / "artifacts"
+    artifacts.mkdir()
+    legacy = artifacts / "legacy.json"
+    legacy.write_text(
+        json.dumps(
+            {
+                "artifact_type": "agent_evaluation_run",
+                "schema_version": 1,
+                "run_id": "legacy-run",
+                "task_id": TASK_ID,
+                "configuration": config.artifact_values(),
+                "repetition": 1,
+                "timing": {
+                    "started_at": "2026-07-17T12:00:00+00:00",
+                    "finished_at": "2026-07-17T12:00:01+00:00",
+                    "duration_ms": 100,
+                },
+                "status": "completed",
+                "termination_reason": "goal_completed",
+                "trace": [],
+                "usage": {"total_tokens": 10},
+                "worlds": {"initial": {}, "final": {}},
+                "official_score": {
+                    "partial_credit": 1.0,
+                    "task_completed_correctly": 1.0,
+                },
+                "assertion_evidence": [],
+                "evaluation_available": True,
+            }
+        ),
+        encoding="utf-8",
+    )
+    original = legacy.read_bytes()
+
+    assert completed_triples(artifacts) == {(config.identity, TASK_ID, 1)}
+    main(
+        [
+            "report",
+            "--manifest",
+            str(manifest),
+            "--config",
+            str(config_path),
+            "--repetitions",
+            "1",
+            "--artifacts-dir",
+            str(artifacts),
+            "--markdown",
+            str(tmp_path / "report.md"),
+            "--json",
+            str(tmp_path / "report.json"),
+        ]
+    )
+
+    assert legacy.read_bytes() == original
+    assert sorted(path.name for path in artifacts.iterdir()) == ["legacy.json"]
+    assert (
+        "[legacy.json](artifacts/legacy.json)" in (tmp_path / "report.md").read_text()
+    )
+
+
 def test_committed_evaluation_corpus_is_canonical_unique_and_report_reproducible(
     tmp_path,
 ):
@@ -369,9 +551,14 @@ def test_committed_evaluation_corpus_is_canonical_unique_and_report_reproducible
     assert len(records) == 61
     assert all(record["artifact_type"] == "run_artifact" for record in records)
     assert len({record["run_id"] for record in records}) == len(records)
-    assert {
-        record["configuration"]["identity"] for record in records
-    } == {"a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c"}
+    assert {record["configuration"]["identity"] for record in records} == {
+        "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c"
+    }
+    historical_config = project_root / "evaluation" / "config.planner-executor-v2.json"
+    assert (
+        EvaluationConfiguration.read(historical_config).identity
+        == "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c"
+    )
     assert not list((repository_root / "sessions").glob("evaluation_*.json"))
 
     generated_markdown = tmp_path / "report.md"
@@ -383,11 +570,33 @@ def test_committed_evaluation_corpus_is_canonical_unique_and_report_reproducible
         "sales.cross_platform_account_health_score",
         "sales.demo_scheduling",
     ]
-    evaluation._write_report(
-        artifacts, generated_markdown, generated_json, selected_tasks
+    main(
+        [
+            "report",
+            "--manifest",
+            str(project_root / "evaluation" / "manifest.json"),
+            "--config",
+            str(historical_config),
+            "--repetitions",
+            "10",
+            "--artifacts-dir",
+            str(artifacts),
+            "--markdown",
+            str(generated_markdown),
+            "--json",
+            str(generated_json),
+            "--exploratory",
+            *[argument for task in selected_tasks for argument in ("--task-id", task)],
+        ]
     )
-    assert generated_markdown.read_bytes() == (artifacts / "report.md").read_bytes()
-    assert generated_json.read_bytes() == (artifacts / "report.json").read_bytes()
+    generated = json.loads(generated_json.read_text())
+    committed = json.loads((artifacts / "report.json").read_text())
+    for report in (generated, committed):
+        for group in report["groups"]:
+            for artifact in group["artifacts"]:
+                artifact.pop("path")
+    assert generated == committed
+    assert "INCOMPLETE EXPLORATORY ANALYSIS" in generated_markdown.read_text()
 
 
 def test_report_is_configuration_isolated_statistically_correct_and_byte_stable(
@@ -396,11 +605,13 @@ def test_report_is_configuration_isolated_statistically_correct_and_byte_stable(
     artifacts = tmp_path / "artifacts"
     artifacts.mkdir()
 
+    manifest_path, config_path = _inputs(tmp_path)
+    configuration = EvaluationConfiguration.read(config_path)
+
     def write_artifact(
         filename,
         *,
         task_id=TASK_ID,
-        identity,
         repetition,
         partial,
         strict,
@@ -411,23 +622,8 @@ def test_report_is_configuration_isolated_statistically_correct_and_byte_stable(
         tool_error,
         reason,
     ):
-        configuration = {
-            "identity": identity,
-            "model": "model-a",
-            "harness_version": "harness/v1",
-            "prompt_version": "prompts/v1",
-            "evaluation_protocol_version": "panel/v1",
-            "execution_limits": {"logical_model_calls": 24},
-            "runtime": {
-                "id": "custom",
-                "label": "Custom agent",
-                "version": "harness/v1",
-            },
-        }
-        if identity == "config-b":
-            configuration["prompt_version"] = "prompts/v2"
         payload = RunArtifact(
-            run_id=f"{identity}-{repetition}",
+            run_id=f"{task_id}-{repetition}",
             task={
                 "task_id": task_id,
                 "name": task_id,
@@ -436,7 +632,7 @@ def test_report_is_configuration_isolated_statistically_correct_and_byte_stable(
                 "assertions": [],
                 "tool_definitions": [],
             },
-            configuration=configuration,
+            configuration=configuration.artifact_values(),
             timing=ArtifactTiming(
                 started_at="2026-07-17T12:00:00+00:00",
                 updated_at="2026-07-17T12:00:01+00:00",
@@ -460,7 +656,7 @@ def test_report_is_configuration_isolated_statistically_correct_and_byte_stable(
                 },
                 assertion_evidence=(),
                 context={
-                    "configuration_identity": identity,
+                    "configuration_identity": configuration.identity,
                     "repetition": repetition,
                     "fresh_world": True,
                     "resumed": False,
@@ -472,7 +668,6 @@ def test_report_is_configuration_isolated_statistically_correct_and_byte_stable(
 
     write_artifact(
         "z.json",
-        identity="config-a",
         repetition=3,
         partial=1.0,
         strict=1.0,
@@ -485,7 +680,6 @@ def test_report_is_configuration_isolated_statistically_correct_and_byte_stable(
     )
     write_artifact(
         "a.json",
-        identity="config-a",
         repetition=1,
         partial=0.0,
         strict=0.0,
@@ -498,7 +692,6 @@ def test_report_is_configuration_isolated_statistically_correct_and_byte_stable(
     )
     write_artifact(
         "m.json",
-        identity="config-a",
         repetition=2,
         partial=0.5,
         strict=1.0,
@@ -509,37 +702,16 @@ def test_report_is_configuration_isolated_statistically_correct_and_byte_stable(
         tool_error=False,
         reason="goal_completed",
     )
-    write_artifact(
-        "other-config.json",
-        identity="config-b",
-        repetition=1,
-        partial=0.25,
-        strict=0.0,
-        tokens=30,
-        duration=300,
-        turns=2,
-        tool_calls=1,
-        tool_error=False,
-        reason="goal_completed",
-    )
-    write_artifact(
-        "second-task.json",
-        task_id="sales.contract_renewal_coordinator",
-        identity="config-a",
-        repetition=1,
-        partial=0.5,
-        strict=0.0,
-        tokens=40,
-        duration=400,
-        turns=4,
-        tool_calls=8,
-        tool_error=False,
-        reason="goal_completed",
-    )
     markdown_path = tmp_path / "report.md"
     json_path = tmp_path / "report.json"
     command = [
         "report",
+        "--manifest",
+        str(manifest_path),
+        "--config",
+        str(config_path),
+        "--repetitions",
+        "3",
         "--artifacts-dir",
         str(artifacts),
         "--markdown",
@@ -555,12 +727,15 @@ def test_report_is_configuration_isolated_statistically_correct_and_byte_stable(
     group = next(
         item
         for item in report["groups"]
-        if item["configuration"]["identity"] == "config-a"
+        if item["configuration"]["identity"] == configuration.identity
         and item["task_id"] == TASK_ID
     )
 
-    assert len(report["groups"]) == 3
-    assert group["configuration"]["identity"] == "config-a"
+    assert report["mode"] == "final"
+    assert report["complete"] is True
+    assert report["coverage"]["coverage_complete"] is True
+    assert len(report["groups"]) == 1
+    assert group["configuration"]["identity"] == configuration.identity
     assert group["coverage"] == {"repetitions": [1, 2, 3], "scorable_count": 3}
     assert group["strict_completion"] == {"count": 2, "percentage": 66.667}
     assert group["partial_credit"] == {
@@ -583,17 +758,23 @@ def test_report_is_configuration_isolated_statistically_correct_and_byte_stable(
         "goal_completed": 2,
     }
     panel = report["panels"][0]
-    assert panel["configuration"]["identity"] == "config-a"
-    assert panel["coverage"] == {"scorable_count": 4, "task_count": 2}
-    assert panel["strict_completion"] == {"count": 2, "percentage": 50.0}
+    assert panel["configuration"]["identity"] == configuration.identity
+    assert panel["coverage"] == {"scorable_count": 3, "task_count": 1}
+    assert panel["strict_completion"] == {"count": 2, "percentage": 66.667}
     assert panel["partial_credit"] == {
         "maximum": 1.0,
         "mean": 0.5,
         "minimum": 0.0,
-        "sample_standard_deviation": 0.408,
+        "sample_standard_deviation": 0.5,
     }
-    assert panel["tokens"] == {"maximum": 100, "median": 30.0, "minimum": 10}
+    assert panel["tokens"] == {"maximum": 100, "median": 20, "minimum": 10}
     markdown = first_markdown.decode()
+    assert json.dumps(report["panels"], indent=2, sort_keys=True) in markdown
+    assert json.dumps(
+        {"selection": report["selection"], "coverage": report["coverage"]},
+        indent=2,
+        sort_keys=True,
+    ) in markdown
     for heading in (
         "## Configuration",
         "## Coverage",
@@ -603,27 +784,37 @@ def test_report_is_configuration_isolated_statistically_correct_and_byte_stable(
         "## Run Artifacts",
     ):
         assert heading in markdown
-    assert "| `config-a` | 2 | 4 | 2/4 (50.000%) |" in markdown
+    assert configuration.identity in markdown
+    assert '"percentage": 66.667' in markdown
     assert all(name in markdown for name in ("a.json", "m.json", "z.json"))
 
     main(command)
     assert markdown_path.read_bytes() == first_markdown
     assert json_path.read_bytes() == first_json
 
-    filtered_json_path = tmp_path / "filtered-report.json"
+    assert all(
+        (json_path.parent / artifact["path"]).resolve().is_file()
+        for artifact in group["artifacts"]
+    )
+
+    with pytest.raises(ValueError, match="require --exploratory"):
+        main([*command, "--task-id", TASK_ID])
+
+    exploratory_json = tmp_path / "exploratory.json"
+    exploratory_markdown = tmp_path / "exploratory.md"
     main(
         [
-            *command[:-1],
-            str(filtered_json_path),
+            *command[:-3],
+            str(exploratory_markdown),
+            "--json",
+            str(exploratory_json),
+            "--exploratory",
             "--task-id",
-            "sales.contract_renewal_coordinator",
+            TASK_ID,
         ]
     )
-    filtered_report = json.loads(filtered_json_path.read_text())
-    assert [group["task_id"] for group in filtered_report["groups"]] == [
-        "sales.contract_renewal_coordinator"
-    ]
-    assert filtered_report["panels"][0]["coverage"] == {
-        "scorable_count": 1,
-        "task_count": 1,
-    }
+    exploratory = json.loads(exploratory_json.read_text())
+    assert exploratory["mode"] == "exploratory"
+    assert exploratory["complete"] is False
+    assert exploratory["selection"]["task_filters"] == [TASK_ID]
+    assert "INCOMPLETE EXPLORATORY ANALYSIS" in exploratory_markdown.read_text()

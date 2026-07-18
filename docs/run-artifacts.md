@@ -23,6 +23,12 @@ The retired `sessions/` evaluation copies were deleted. Agent UI scans the canon
 directly and adapts artifacts to its existing HTTP response shape only in memory. A viewer link is
 `http://127.0.0.1:8000/?run_id=<stable-run-id>`.
 
+The evaluator indexes configuration/task/repetition triples by reading these artifacts through the
+same compatibility boundary; it neither rewrites nor copies them. Final reporting requires the
+expected manifest, configuration, and repetition count and rejects incomplete or ambiguous
+coverage. Filtered subsets require explicit exploratory mode and are labeled incomplete in both
+Markdown and JSON. Artifact links point directly to the canonical JSON files.
+
 ## Persistence invariants
 
 Writes use a temporary file, `fsync`, and atomic replacement. Active snapshots may append events,

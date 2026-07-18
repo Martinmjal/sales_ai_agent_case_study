@@ -1,82 +1,441 @@
-# Offline Evaluation Report
+# Offline Evaluation Report — INCOMPLETE EXPLORATORY ANALYSIS
+
+## Report Status
+
+> This output is exploratory and is not a complete final panel.
+
+- Mode: `exploratory`
+- Complete: `no`
+- Configuration: `a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c`
+- Expected repetitions per selected task: 10
+- Applied task filters: `sales.contract_renewal_coordinator`, `sales.event_to_opportunity_pipeline`, `sales.full_sales_cycle_orchestrator`, `sales.cross_platform_account_health_score`, `sales.demo_scheduling`
+- Coverage complete: `yes`
 
 ## Configuration
 
-### `a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c`
-
-- Model: `gpt-5.6-sol`
-- Harness: `planner-executor/0.3.0`
-- Prompts: `planner-executor-prompts/v2`
-- Protocol: `sales-panel/v1`
-- Execution limits: `{"executor_tool_turns_per_attempt":4,"logical_model_calls":30,"plan_steps":6,"provider_retries":2,"replans":1,"reserved_outcome_calls_per_saturated_attempt":1,"step_retries":1}`
+```json
+{
+  "evaluation_protocol_version": "sales-panel/v1",
+  "execution_limits": {
+    "executor_tool_turns_per_attempt": 4,
+    "logical_model_calls": 30,
+    "plan_steps": 6,
+    "provider_retries": 2,
+    "replans": 1,
+    "reserved_outcome_calls_per_saturated_attempt": 1,
+    "step_retries": 1
+  },
+  "harness_version": "planner-executor/0.3.0",
+  "identity": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c",
+  "model": "gpt-5.6-sol",
+  "prompt_version": "planner-executor-prompts/v2",
+  "runtime": {
+    "id": "custom",
+    "label": "Custom agent",
+    "version": "planner-executor/0.3.0"
+  }
+}
+```
 
 ## Coverage
 
-| Configuration | Task | Scorable | Repetitions |
-| --- | --- | ---: | --- |
-| `a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c` | `sales.contract_renewal_coordinator` | 10 | 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 |
-| `a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c` | `sales.cross_platform_account_health_score` | 10 | 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 |
-| `a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c` | `sales.demo_scheduling` | 10 | 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 |
-| `a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c` | `sales.event_to_opportunity_pipeline` | 10 | 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 |
-| `a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c` | `sales.full_sales_cycle_orchestrator` | 10 | 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 |
+```json
+{
+  "coverage": {
+    "coverage_complete": true,
+    "excluded_configuration_identities": [],
+    "expected_observation_count": 50,
+    "missing": [],
+    "scorable_observation_count": 50,
+    "unexpected_tasks": [],
+    "unscorable": []
+  },
+  "selection": {
+    "configuration_identity": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c",
+    "manifest": {
+      "panel_id": "sales-heldout-2026-07-17",
+      "preregistered_by": "repository-owner",
+      "tasks": [
+        "sales.contract_renewal_coordinator",
+        "sales.event_to_opportunity_pipeline",
+        "sales.full_sales_cycle_orchestrator",
+        "sales.cross_platform_account_health_score",
+        "sales.demo_scheduling",
+        "sales.chatgpt_proposal_customization",
+        "sales.docusign_contract_send",
+        "sales.sheets_multi_channel_campaign_router",
+        "sales.email_zoom_fuzzy",
+        "sales.overdue_followup_flag"
+      ]
+    },
+    "repetitions": 10,
+    "selected_tasks": [
+      "sales.contract_renewal_coordinator",
+      "sales.event_to_opportunity_pipeline",
+      "sales.full_sales_cycle_orchestrator",
+      "sales.cross_platform_account_health_score",
+      "sales.demo_scheduling"
+    ],
+    "task_filters": [
+      "sales.contract_renewal_coordinator",
+      "sales.event_to_opportunity_pipeline",
+      "sales.full_sales_cycle_orchestrator",
+      "sales.cross_platform_account_health_score",
+      "sales.demo_scheduling"
+    ]
+  }
+}
+```
 
 ## Panel Summary
 
-| Configuration | Tasks | Scorable | Strict | Partial mean | Token median | Duration median (ms) |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c` | 5 | 50 | 4/50 (8.000%) | 0.295 | 124028.5 | 251361.595 |
+```json
+[
+  {
+    "configuration": {
+      "evaluation_protocol_version": "sales-panel/v1",
+      "execution_limits": {
+        "executor_tool_turns_per_attempt": 4,
+        "logical_model_calls": 30,
+        "plan_steps": 6,
+        "provider_retries": 2,
+        "replans": 1,
+        "reserved_outcome_calls_per_saturated_attempt": 1,
+        "step_retries": 1
+      },
+      "harness_version": "planner-executor/0.3.0",
+      "identity": "a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c",
+      "model": "gpt-5.6-sol",
+      "prompt_version": "planner-executor-prompts/v2",
+      "runtime": {
+        "id": "custom",
+        "label": "Custom agent",
+        "version": "planner-executor/0.3.0"
+      }
+    },
+    "coverage": {
+      "scorable_count": 50,
+      "task_count": 5
+    },
+    "duration_ms": {
+      "maximum": 518289.606,
+      "median": 251361.595,
+      "minimum": 23286.454
+    },
+    "model_turns": {
+      "maximum": 30,
+      "median": 17.0
+    },
+    "partial_credit": {
+      "maximum": 1.0,
+      "mean": 0.295,
+      "minimum": 0.0,
+      "sample_standard_deviation": 0.418
+    },
+    "runs_containing_tool_errors": 37,
+    "strict_completion": {
+      "count": 4,
+      "percentage": 8.0
+    },
+    "termination_reasons": {
+      "budget_exhausted": 33,
+      "goal_completed": 15,
+      "model_protocol_error": 2
+    },
+    "tokens": {
+      "maximum": 217058,
+      "median": 124028.5,
+      "minimum": 6988
+    },
+    "tool_calls": {
+      "maximum": 92,
+      "median": 27.5
+    }
+  }
+]
+```
 
 ## Per-task Results
 
 ### `sales.contract_renewal_coordinator` — `a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c`
 
-- Strict completion: 0/10 (0.000%).
-- Partial credit: mean 0.087, sample SD 0.236, range 0.0–0.75.
-- Tokens: median 146748.0, range 123609–184732.
-- Duration (ms): median 293766.82200000004, range 145932.256–380652.741.
-- Model turns: median 17.0, maximum 27.
-- Tool calls: median 61.0, maximum 84.
-- Runs containing tool errors: 10.
+```json
+{
+  "coverage": {
+    "repetitions": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10
+    ],
+    "scorable_count": 10
+  },
+  "duration_ms": {
+    "maximum": 380652.741,
+    "median": 293766.82200000004,
+    "minimum": 145932.256
+  },
+  "model_turns": {
+    "maximum": 27,
+    "median": 17.0
+  },
+  "partial_credit": {
+    "maximum": 0.75,
+    "mean": 0.087,
+    "minimum": 0.0,
+    "sample_standard_deviation": 0.236
+  },
+  "runs_containing_tool_errors": 10,
+  "strict_completion": {
+    "count": 0,
+    "percentage": 0.0
+  },
+  "task_id": "sales.contract_renewal_coordinator",
+  "termination_reasons": {
+    "budget_exhausted": 9,
+    "goal_completed": 1
+  },
+  "tokens": {
+    "maximum": 184732,
+    "median": 146748.0,
+    "minimum": 123609
+  },
+  "tool_calls": {
+    "maximum": 84,
+    "median": 61.0
+  }
+}
+```
 
 ### `sales.cross_platform_account_health_score` — `a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c`
 
-- Strict completion: 0/10 (0.000%).
-- Partial credit: mean 0.150, sample SD 0.324, range 0.0–0.9.
-- Tokens: median 104342.5, range 59637–217058.
-- Duration (ms): median 198262.782, range 117918.766–517770.334.
-- Model turns: median 13.0, maximum 29.
-- Tool calls: median 44.5, maximum 92.
-- Runs containing tool errors: 10.
+```json
+{
+  "coverage": {
+    "repetitions": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10
+    ],
+    "scorable_count": 10
+  },
+  "duration_ms": {
+    "maximum": 517770.334,
+    "median": 198262.782,
+    "minimum": 117918.766
+  },
+  "model_turns": {
+    "maximum": 29,
+    "median": 13.0
+  },
+  "partial_credit": {
+    "maximum": 0.9,
+    "mean": 0.15,
+    "minimum": 0.0,
+    "sample_standard_deviation": 0.324
+  },
+  "runs_containing_tool_errors": 10,
+  "strict_completion": {
+    "count": 0,
+    "percentage": 0.0
+  },
+  "task_id": "sales.cross_platform_account_health_score",
+  "termination_reasons": {
+    "budget_exhausted": 8,
+    "goal_completed": 2
+  },
+  "tokens": {
+    "maximum": 217058,
+    "median": 104342.5,
+    "minimum": 59637
+  },
+  "tool_calls": {
+    "maximum": 92,
+    "median": 44.5
+  }
+}
+```
 
 ### `sales.demo_scheduling` — `a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c`
 
-- Strict completion: 0/10 (0.000%).
-- Partial credit: mean 0.000, sample SD 0.000, range 0.0–0.0.
-- Tokens: median 61572.0, range 6988–173776.
-- Duration (ms): median 162968.6845, range 23286.454–376629.447.
-- Model turns: median 13.0, maximum 20.
-- Tool calls: median 23.0, maximum 50.
-- Runs containing tool errors: 8.
+```json
+{
+  "coverage": {
+    "repetitions": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10
+    ],
+    "scorable_count": 10
+  },
+  "duration_ms": {
+    "maximum": 376629.447,
+    "median": 162968.6845,
+    "minimum": 23286.454
+  },
+  "model_turns": {
+    "maximum": 20,
+    "median": 13.0
+  },
+  "partial_credit": {
+    "maximum": 0.0,
+    "mean": 0.0,
+    "minimum": 0.0,
+    "sample_standard_deviation": 0.0
+  },
+  "runs_containing_tool_errors": 8,
+  "strict_completion": {
+    "count": 0,
+    "percentage": 0.0
+  },
+  "task_id": "sales.demo_scheduling",
+  "termination_reasons": {
+    "budget_exhausted": 8,
+    "model_protocol_error": 2
+  },
+  "tokens": {
+    "maximum": 173776,
+    "median": 61572.0,
+    "minimum": 6988
+  },
+  "tool_calls": {
+    "maximum": 50,
+    "median": 23.0
+  }
+}
+```
 
 ### `sales.event_to_opportunity_pipeline` — `a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c`
 
-- Strict completion: 1/10 (10.000%).
-- Partial credit: mean 0.850, sample SD 0.143, range 0.5–1.0.
-- Tokens: median 112585.5, range 85647–152034.
-- Duration (ms): median 226984.39, range 124396.431–518289.606.
-- Model turns: median 23.0, maximum 29.
-- Tool calls: median 20.0, maximum 28.
-- Runs containing tool errors: 0.
+```json
+{
+  "coverage": {
+    "repetitions": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10
+    ],
+    "scorable_count": 10
+  },
+  "duration_ms": {
+    "maximum": 518289.606,
+    "median": 226984.39,
+    "minimum": 124396.431
+  },
+  "model_turns": {
+    "maximum": 29,
+    "median": 23.0
+  },
+  "partial_credit": {
+    "maximum": 1.0,
+    "mean": 0.85,
+    "minimum": 0.5,
+    "sample_standard_deviation": 0.143
+  },
+  "runs_containing_tool_errors": 0,
+  "strict_completion": {
+    "count": 1,
+    "percentage": 10.0
+  },
+  "task_id": "sales.event_to_opportunity_pipeline",
+  "termination_reasons": {
+    "budget_exhausted": 1,
+    "goal_completed": 9
+  },
+  "tokens": {
+    "maximum": 152034,
+    "median": 112585.5,
+    "minimum": 85647
+  },
+  "tool_calls": {
+    "maximum": 28,
+    "median": 20.0
+  }
+}
+```
 
 ### `sales.full_sales_cycle_orchestrator` — `a596d592316e3fc98ff5fb79f351c8075a68f798809eba416c7a8f0cfef5453c`
 
-- Strict completion: 3/10 (30.000%).
-- Partial credit: mean 0.388, sample SD 0.502, range 0.0–1.0.
-- Tokens: median 156335.0, range 94486–209884.
-- Duration (ms): median 263483.1945, range 122744.545–376414.777.
-- Model turns: median 19.0, maximum 30.
-- Tool calls: median 24.0, maximum 49.
-- Runs containing tool errors: 9.
+```json
+{
+  "coverage": {
+    "repetitions": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10
+    ],
+    "scorable_count": 10
+  },
+  "duration_ms": {
+    "maximum": 376414.777,
+    "median": 263483.1945,
+    "minimum": 122744.545
+  },
+  "model_turns": {
+    "maximum": 30,
+    "median": 19.0
+  },
+  "partial_credit": {
+    "maximum": 1.0,
+    "mean": 0.388,
+    "minimum": 0.0,
+    "sample_standard_deviation": 0.502
+  },
+  "runs_containing_tool_errors": 9,
+  "strict_completion": {
+    "count": 3,
+    "percentage": 30.0
+  },
+  "task_id": "sales.full_sales_cycle_orchestrator",
+  "termination_reasons": {
+    "budget_exhausted": 7,
+    "goal_completed": 3
+  },
+  "tokens": {
+    "maximum": 209884,
+    "median": 156335.0,
+    "minimum": 94486
+  },
+  "tool_calls": {
+    "maximum": 49,
+    "median": 24.0
+  }
+}
+```
 
 ## Termination Evidence
 

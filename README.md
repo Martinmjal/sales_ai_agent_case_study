@@ -45,16 +45,20 @@ uv run mock-agent-eval run \
   --manifest evaluation/manifest.json \
   --config evaluation/config.json \
   --repetitions 10 \
-  --artifacts-dir results/evaluation
+  --artifacts-dir results/evaluation/plan-state-v1
 ```
 
-Regenerate both reports without calling the model:
+Regenerate the checked-in, explicitly incomplete exploratory report without calling the model:
 
 ```bash
 uv run mock-agent-eval report \
+  --manifest evaluation/manifest.json \
+  --config evaluation/config.planner-executor-v2.json \
+  --repetitions 10 \
   --artifacts-dir results/evaluation \
   --markdown results/evaluation/report.md \
   --json results/evaluation/report.json \
+  --exploratory \
   --task-id sales.contract_renewal_coordinator \
   --task-id sales.event_to_opportunity_pipeline \
   --task-id sales.full_sales_cycle_orchestrator \

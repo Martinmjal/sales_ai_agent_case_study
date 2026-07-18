@@ -91,7 +91,7 @@ uv run mock-agent-eval run \
   --manifest evaluation/manifest.json \
   --config evaluation/config.json \
   --repetitions 10 \
-  --artifacts-dir results/evaluation
+  --artifacts-dir results/evaluation/plan-state-v1
 ```
 
 The evaluator runs sequentially with a fresh runtime/world for every attempt. Each agent
@@ -100,13 +100,31 @@ attempts are replaced, and rerunning the same command skips completed configurat
 pairs. Every scorable execution is already a complete Agent-UI history artifact; the viewer reads
 it from `results/evaluation` without a copied session file.
 
-Generate byte-stable Markdown and JSON reports offline:
+Final reports require the expected manifest, frozen configuration, and repetition count. With no
+filters, this command succeeds only when every expected triple is present exactly once:
 
 ```bash
 uv run mock-agent-eval report \
+  --manifest evaluation/manifest.json \
+  --config evaluation/config.json \
+  --repetitions 10 \
+  --artifacts-dir results/evaluation/plan-state-v1 \
+  --markdown results/evaluation/plan-state-v1/report.md \
+  --json results/evaluation/plan-state-v1/report.json
+```
+
+The current corpus does not contain the full ten-task preregistered panel. Regenerate its
+checked-in, owner-selected five-task analysis only in explicit exploratory mode:
+
+```bash
+uv run mock-agent-eval report \
+  --manifest evaluation/manifest.json \
+  --config evaluation/config.planner-executor-v2.json \
+  --repetitions 10 \
   --artifacts-dir results/evaluation \
   --markdown results/evaluation/report.md \
   --json results/evaluation/report.json \
+  --exploratory \
   --task-id sales.contract_renewal_coordinator \
   --task-id sales.event_to_opportunity_pipeline \
   --task-id sales.full_sales_cycle_orchestrator \
@@ -116,10 +134,20 @@ uv run mock-agent-eval report \
 
 Reports include configuration-wide panel statistics and per-task sample sizes, strict completion,
 partial-credit variation, efficiency, termination evidence, and links to every persisted run.
-Repeated `--task-id` options select a reproducible subset without deleting observations. The
-checked-in final report covers the owner-selected first five tasks (50 runs); all 61 completed
-traces remain available, including the later observations excluded from that aggregate. The
-`.example.json` inputs remain available as a one-task development template.
+`--task-id` is accepted only with `--exploratory`; exploratory Markdown and JSON are labeled
+incomplete and disclose the manifest, filters, exclusions, and missing observations. Final mode
+rejects missing, duplicate, out-of-range, unexpected-task, and mixed-configuration observations.
+The checked-in exploratory report covers the owner-selected first five tasks (50 runs); all 61
+completed traces remain available, including later observations excluded from that aggregate.
+
+The evaluator is split by responsibility under `mock_agent/evaluation/`: `cli.py` parses and
+dispatches commands, `runner.py` performs sequential fresh-state execution, `records.py` owns the
+typed manifest/configuration and canonical-artifact index, and `report.py` validates coverage and
+renders byte-stable outputs. No module defines another persisted run format or UI projection.
+The historical report uses `config.planner-executor-v2.json`, the exact configuration snapshot
+whose canonical hash matches those artifacts. The current plan-state `config.json` derives a
+different identity, preventing incompatible observations from being combined. The `.example.json`
+inputs remain a one-task development template.
 
 The canonical contract, authoritative locations, atomic/immutability guarantees, and supported
 historical readers are documented in [`../docs/run-artifacts.md`](../docs/run-artifacts.md).
