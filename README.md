@@ -4,6 +4,30 @@ This is a framework-free Python agent for long-running, multi-step Sales workflo
 
 ## How the agent works
 
+```mermaid
+graph TD
+    A[User goal and public tool schemas]
+    B[Planner creates an evidence-backed plan]
+    C[Typed plan state stores steps and evidence]
+    D[Executor calls tools and adapts]
+    E[Python controller validates actions and budgets]
+    F[Business tools update the simulated world]
+    G[Official scorer checks the final world]
+    H[Canonical run artifact]
+    I[Read-only trace viewer]
+
+    A --> B
+    B --> C
+    C --> D
+    D --> E
+    E --> F
+    F -->|Results and errors| D
+    E -->|Trace and outcome| H
+    F --> G
+    G -->|Score and assertions| H
+    H --> I
+```
+
 The agent separates model judgment from deterministic control. The model decides what work is needed and which business tools to call; a custom Python controller owns state transitions, tool validation, recovery, execution limits, termination, and tracing.
 
 1. **Plan.** The planner receives the task prompt and the schemas of the tools available for that task. In one tools-disabled structured call, it creates the smallest cohesive linear plan it can, up to six steps. Every step defines observable completion evidence and names the tools capable of producing it.
