@@ -1,8 +1,8 @@
 # Run artifacts
 
-`run_artifact` schema version 1 is the only run format written by the CLI and evaluator.
-The typed boundary model and atomic serializer live in
-`src/sales_agent/artifacts.py`; runtime controller state remains separate.
+`run_artifact` schema version 1 is the repository's only supported run format. The typed
+`RunArtifact` boundary and serializer live in `src/sales_agent/artifacts.py`; runtime controller
+state remains separate.
 
 Each artifact contains one stable run ID, a complete task snapshot, model/runtime/prompt/protocol
 configuration identity, lifecycle state and termination reason, a monotonic correlated trace,
@@ -10,44 +10,33 @@ usage and retry/call summaries, response and terminal errors, initial/final worl
 and assertion evidence, plus evaluation repetition/resumption/infrastructure-replacement metadata
 when applicable.
 
+The CLI, evaluator, report generator, and trace viewer read this schema directly. Session,
+`agent_evaluation_run`, raw runtime-outcome, and configured-run records are unsupported. Malformed
+files, other artifact types, and unknown schema versions are rejected rather than converted.
+
 ## Authoritative locations
 
-- `results/runs/` contains standalone CLI runs. New filenames are
-  `<run-id>.json`.
+- `results/runs/` contains standalone CLI runs. New filenames are `<run-id>.json`.
 - `results/evaluation/` contains one authoritative artifact per accepted evaluation
-  configuration/task/repetition. Its configuration-derived filenames remain stable across resume.
-- `results/development/` contains the representative partial development artifact.
+  configuration/task/repetition. Configuration-derived filenames remain stable across resume.
+- `results/development/` contains representative development artifacts.
 - `report.md` and `report.json` are derived outputs, not run artifacts.
 
-The retired `sessions/` evaluation copies were deleted. The trace viewer scans the canonical result
-store directly, writes nothing, and renders supported historical formats through the versioned
-reader only in memory. A viewer link is
-`http://127.0.0.1:8000/runs/<stable-run-id>`.
+The trace viewer scans these canonical result locations directly and writes nothing. A viewer link
+is `http://127.0.0.1:8000/runs/<stable-run-id>`.
 
-The evaluator indexes configuration/task/repetition triples by reading these artifacts through the
-same compatibility boundary; it neither rewrites nor copies them. Final reporting requires the
-expected manifest, configuration, and repetition count and rejects incomplete or ambiguous
-coverage. Filtered subsets require explicit exploratory mode and are labeled incomplete in both
-Markdown and JSON. Artifact links point directly to the canonical JSON files.
+The evaluator indexes configuration/task/repetition triples from canonical artifacts without
+rewriting or copying them. Final reporting requires the expected manifest, configuration, and
+repetition count and rejects incomplete or ambiguous coverage. Filtered subsets require explicit
+exploratory mode and are labeled incomplete in both Markdown and JSON. Artifact links point
+directly to the canonical JSON files.
 
-## Persistence invariants
+## Write-once persistence
 
-Writes use a temporary file, `fsync`, and atomic replacement. Active snapshots may append events,
-but existing events cannot change and sequence numbers must increase. Once an artifact is
-completed, stopped, failed, or interrupted, the store refuses every mutation.
+A `RunArtifactStore` creates each artifact once at its terminal destination. It serializes and
+flushes a temporary file, installs that file atomically only if the destination does not exist,
+and synchronizes the containing directory. An existing destination always causes the write to
+fail. Its bytes are never modified, even when it is malformed or contains the same run ID.
 
-## Historical compatibility
-
-The reader supports canonical schema version 1 plus these historical inputs:
-
-- `agent_evaluation_run` schema version 1;
-- Agent UI session schema version 1;
-- raw `RuntimeOutcome` JSON;
-- the earlier configured-run evidence record.
-
-Compatibility is strictly “read old, write one”: all shared serializers emit only
-`run_artifact` version 1. The deterministic migration used for the committed evidence is preserved
-in Git history. Malformed files and unknown canonical or legacy schema versions are rejected
-rather than guessed. Historical terminal sessions that never recorded a reason are explicitly
-marked `legacy_unknown` with configuration metadata noting that the original reason was
-unavailable.
+CLI and evaluation runs are assembled in memory and persisted only after the runtime has produced
+its terminal outcome. There are no active-artifact snapshots or in-place artifact updates.

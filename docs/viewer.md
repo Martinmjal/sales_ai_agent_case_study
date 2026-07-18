@@ -17,10 +17,9 @@ bookmarkable `/runs/{run-id}` route. A run page shows:
 - raw initial and final worlds without inferred tool provenance; and
 - a link to the exact source artifact.
 
-Supported historical files are normalized in memory through the sales agent's versioned reader and
-are never copied or rewritten. Malformed files are omitted from recent runs; a direct request for a
-malformed or unsupported run returns a clear unavailable page. Running canonical snapshots use a
-simple two-second page refresh. There is no SSE or reconnect state.
+Only canonical `run_artifact` schema version 1 files are indexed. Historical, malformed, and
+unsupported files are omitted from recent runs; a direct request for one returns a clear
+unavailable page. Viewer requests never copy, rewrite, or otherwise mutate artifact files.
 
 ## Set up and run
 
@@ -46,5 +45,5 @@ uv run pytest
 ```
 
 The focused tests cover recent ordering, stable routes, terminal and scorer-unavailable states,
-plan/trace correlation, historical compatibility, malformed inputs, HTML escaping, long values,
-keyboard access, and the invariant that viewer requests never mutate artifact files.
+plan/trace correlation, unsupported and malformed inputs, HTML escaping, long values, keyboard
+access, and the invariant that viewer requests never mutate artifact files.

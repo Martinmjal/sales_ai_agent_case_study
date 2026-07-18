@@ -245,7 +245,7 @@ approval only for real external side effects.
   scorer, license, and update provenance.
 - `results/runs/`: canonical standalone CLI run artifacts.
 - `results/evaluation/`: canonical held-out observations and generated reports.
-- `docs/run-artifacts.md`: canonical schema, persistence invariants, and historical compatibility.
+- `docs/run-artifacts.md`: canonical schema, unsupported inputs, and write-once persistence.
 
 Run the local checks from the repository root:
 

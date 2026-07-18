@@ -21,7 +21,6 @@ class UnsupportedRunError(LookupError):
 class ArtifactReference:
     artifact: RunArtifact
     path: Path
-    canonical: bool
 
     @property
     def timestamp(self) -> str:
@@ -58,16 +57,13 @@ class ArtifactRepository:
                 continue
             seen_paths.add(resolved)
             try:
-                artifact = read_artifact(path, enrich_task=True)
+                artifact = read_artifact(path)
             except (ArtifactValidationError, KeyError, TypeError, ValueError, OSError):
                 continue
-            canonical = _is_canonical(path)
-            current = references.get(artifact.run_id)
-            if current is None or (canonical and not current.canonical):
+            if artifact.run_id not in references:
                 references[artifact.run_id] = ArtifactReference(
                     artifact=artifact,
                     path=path,
-                    canonical=canonical,
                 )
         return references
 
@@ -87,15 +83,6 @@ class ArtifactRepository:
         for directory in self.directories:
             if directory.exists():
                 yield from sorted(directory.rglob("*.json"))
-
-
-def _is_canonical(path: Path) -> bool:
-    try:
-        with path.open("r", encoding="utf-8") as stream:
-            prefix = stream.read(256)
-    except (OSError, UnicodeDecodeError):
-        return False
-    return '"artifact_type": "run_artifact"' in prefix
 
 
 def _timestamp(value: str) -> datetime:

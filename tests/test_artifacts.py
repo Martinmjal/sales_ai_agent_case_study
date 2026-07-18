@@ -1,5 +1,6 @@
 import json
 from dataclasses import replace
+from pathlib import Path
 
 import pytest
 
@@ -14,7 +15,6 @@ from sales_agent.artifacts import (
     RunArtifactStore,
     UnsupportedArtifactVersionError,
     read_artifact,
-    session_view_to_artifact,
 )
 
 
@@ -120,126 +120,45 @@ def test_successful_and_partial_artifacts_round_trip_without_information_loss():
     assert RunArtifact.from_dict(partial.to_dict()) == partial
 
 
-def test_atomic_active_snapshots_preserve_trace_and_terminal_artifacts_are_immutable(
-    tmp_path,
-):
+def test_artifact_writes_are_atomic_and_never_replace_an_existing_destination(tmp_path):
     store = RunArtifactStore(tmp_path)
-    active = _artifact(status="running")
-    path = store.write(active)
-    assert json.loads(path.read_text())["status"] == "running"
+    artifact = _artifact()
+    path = store.write(artifact)
+    original = path.read_bytes()
+    assert read_artifact(path) == artifact
 
-    event = {
-        "sequence": 1,
-        "kind": "model_turn",
-        "timestamp": "2026-07-17T12:00:00.500000+00:00",
-        "run_id": active.run_id,
-        "correlation_id": "turn-1",
-    }
-    snapshot = replace(
-        active,
-        trace=(event,),
-        timing=replace(active.timing, updated_at="2026-07-17T12:00:00.500000+00:00"),
-    )
-    store.write(snapshot)
-    changed_event = {**event, "kind": "tool_call"}
-    with pytest.raises(ImmutableArtifactError, match="trace events"):
-        store.write(replace(snapshot, trace=(changed_event,)))
+    with pytest.raises(ImmutableArtifactError, match="already exists"):
+        store.write(artifact)
+    assert path.read_bytes() == original
 
-    terminal = replace(
-        snapshot,
-        status="completed",
-        termination_reason="goal_completed",
-        timing=ArtifactTiming(
-            active.timing.started_at,
-            "2026-07-17T12:00:01+00:00",
-            "2026-07-17T12:00:01+00:00",
-            1000.0,
-        ),
-        final_response="done",
-        worlds=ArtifactWorlds(active.worlds.initial, {"after": True}),
-    )
-    store.write(terminal)
-    assert read_artifact(path) == terminal
-    with pytest.raises(ImmutableArtifactError, match="Terminal artifact"):
-        store.write(terminal)
+    with pytest.raises(ImmutableArtifactError, match="already exists"):
+        store.write(_artifact(run_id="different-run"), filename=path.name)
+    assert path.read_bytes() == original
     assert not list(tmp_path.glob("*.tmp"))
 
-    second_store = RunArtifactStore(tmp_path / "collision")
-    second_store.write(_artifact(status="running", run_id="first"), filename="run.json")
-    with pytest.raises(ImmutableArtifactError, match="already belongs"):
-        second_store.write(_artifact(status="running", run_id="second"), filename="run.json")
+    malformed = tmp_path / "malformed.json"
+    malformed.write_bytes(b"{not-json\n")
+    malformed_original = malformed.read_bytes()
+    with pytest.raises(ImmutableArtifactError, match="already exists"):
+        store.write(_artifact(run_id="malformed"), filename=malformed.name)
+    assert malformed.read_bytes() == malformed_original
 
 
-def test_legacy_evaluation_and_session_are_read_but_only_canonical_is_written(
-    tmp_path,
-):
-    legacy_evaluation = {
-        "artifact_type": "agent_evaluation_run",
-        "schema_version": 1,
-        "configuration": {
-            "identity": "legacy-config",
-            "model": "legacy-model",
-            "harness_version": "legacy/1",
-            "prompt_version": "legacy-prompts/1",
-            "evaluation_protocol_version": "legacy-panel/1",
-            "execution_limits": {},
-        },
-        "task_id": "sales.zoom_calendar_conflict",
-        "repetition": 3,
-        "run_id": "legacy-evaluation",
-        "timing": {
-            "started_at": "2026-07-17T12:00:00+00:00",
-            "finished_at": "2026-07-17T12:00:01+00:00",
-            "duration_ms": 1000,
-        },
-        "status": "completed",
-        "termination_reason": "goal_completed",
-        "trace": [],
-        "provider_retry_count": 0,
-        "model_turn_count": 1,
-        "tool_call_count": 0,
-        "contains_tool_errors": False,
-        "usage": {"total_tokens": 2},
-        "response": "done",
-        "worlds": {"initial": {}, "final": {}},
-        "official_score": {"partial_credit": 1.0, "task_completed_correctly": 1.0},
-        "assertion_evidence": [{"passed": True}],
-        "terminal_error": None,
-    }
-    legacy_path = tmp_path / "legacy-evaluation.json"
-    legacy_path.write_text(json.dumps(legacy_evaluation), encoding="utf-8")
-    converted_evaluation = read_artifact(legacy_path)
-    assert converted_evaluation.evaluation.context["repetition"] == 3
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"artifact_type": "agent_evaluation_run", "schema_version": 1},
+        {"schema_version": 1, "session_id": "session", "lifecycle": {}, "events": []},
+        {"run_id": "runtime", "task_id": "task", "status": "completed", "events": []},
+        {"task": "task", "model": "model", "messages": [], "end_state": {}},
+    ],
+)
+def test_historical_artifact_formats_are_rejected_as_unsupported(tmp_path, payload):
+    path = tmp_path / "historical.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
 
-    legacy_session = {
-        "schema_version": 1,
-        "session_id": "legacy-session",
-        "status": "Completed",
-        "lifecycle": {
-            "created_at": "2026-07-17T12:00:00+00:00",
-            "updated_at": "2026-07-17T12:00:01+00:00",
-            "completed_at": "2026-07-17T12:00:01+00:00",
-            "terminal_error": None,
-            "termination_reason": "goal_completed",
-        },
-        "task": {
-            "task_id": "sales.zoom_calendar_conflict",
-            "name": "Zoom Calendar Conflict",
-            "prompt": [],
-        },
-        "agent": {"model": "legacy-model", "max_steps": 2, "agent_version": "legacy/1"},
-        "events": [],
-        "final_response": "done",
-        "evaluation": {"partial_credit": 1.0, "assertions": []},
-        "usage": {"total_tokens": 2},
-        "initial_world": {},
-        "final_world": {},
-    }
-    canonical = session_view_to_artifact(legacy_session)
-    written = RunArtifactStore(tmp_path / "canonical").write(canonical)
-    persisted = json.loads(written.read_text())
-    assert persisted["artifact_type"] == "run_artifact"
-    assert "session_id" not in persisted
+    with pytest.raises(ArtifactValidationError, match="Artifact type must be run_artifact"):
+        read_artifact(path)
 
 
 def test_missing_malformed_and_unsupported_versions_are_rejected(tmp_path):
@@ -266,3 +185,17 @@ def test_missing_malformed_and_unsupported_versions_are_rejected(tmp_path):
     future_path.write_text(json.dumps(future), encoding="utf-8")
     with pytest.raises(UnsupportedArtifactVersionError, match="99"):
         read_artifact(future_path)
+
+
+def test_every_checked_in_run_and_evaluation_observation_is_canonical():
+    project_root = Path(__file__).resolve().parents[1]
+    results = project_root / "results"
+    paths = [
+        *results.glob("*.json"),
+        *(results / "development").glob("*.json"),
+        *(results / "runs").glob("*.json"),
+        *(path for path in (results / "evaluation").glob("*.json") if path.name != "report.json"),
+    ]
+
+    assert paths
+    assert all(read_artifact(path).to_dict()["artifact_type"] == "run_artifact" for path in paths)

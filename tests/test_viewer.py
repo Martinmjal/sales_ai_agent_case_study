@@ -291,7 +291,7 @@ def test_missing_score_fields_are_not_invented(tmp_path):
     assert page.count("unavailable") >= 2
 
 
-def test_historical_reader_and_clear_unsupported_states_create_no_copy(tmp_path):
+def test_historical_and_malformed_artifacts_are_unavailable_without_rewrite(tmp_path):
     legacy = tmp_path / "legacy-evaluation.json"
     legacy.write_text(
         json.dumps(
@@ -334,7 +334,9 @@ def test_historical_reader_and_clear_unsupported_states_create_no_copy(tmp_path)
     original = {path: path.read_bytes() for path in (legacy, malformed)}
     client = TestClient(create_app(artifacts_dir=tmp_path))
 
-    assert client.get("/runs/legacy-run").status_code == 200
+    historical = client.get("/runs/legacy-run")
+    assert historical.status_code == 422
+    assert "malformed or unsupported" in historical.text
     unavailable = client.get("/runs/malformed-run")
     assert unavailable.status_code == 422
     assert "malformed or unsupported" in unavailable.text

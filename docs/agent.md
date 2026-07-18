@@ -149,5 +149,5 @@ whose canonical hash matches those artifacts. The current plan-state `config.jso
 different identity, preventing incompatible observations from being combined. The `.example.json`
 inputs remain a one-task development template.
 
-The canonical contract, authoritative locations, atomic/immutability guarantees, and supported
-historical readers are documented in [`../docs/run-artifacts.md`](../docs/run-artifacts.md).
+The canonical contract, authoritative locations, unsupported input behavior, and atomic write-once
+guarantees are documented in [`../docs/run-artifacts.md`](../docs/run-artifacts.md).

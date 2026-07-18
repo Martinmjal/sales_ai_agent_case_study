@@ -8,11 +8,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
-from sales_agent.artifacts import (
-    artifact_to_report_record,
-    atomic_write_json,
-    atomic_write_text,
-)
+from sales_agent.artifacts import atomic_write_json, atomic_write_text
 from sales_agent.evaluation.records import (
     EvaluationConfiguration,
     EvaluationManifest,
@@ -39,9 +35,21 @@ def _range(values: list[float]) -> dict[str, float]:
 
 
 def _report_record(record: EvaluationRecord) -> dict[str, Any]:
-    value = artifact_to_report_record(record.artifact)
-    value["repetition"] = record.repetition
-    return value
+    artifact = record.artifact
+    return {
+        "configuration": artifact.configuration,
+        "task_id": artifact.task["task_id"],
+        "repetition": record.repetition,
+        "timing": {
+            "duration_ms": artifact.timing.duration_ms,
+        },
+        "model_turn_count": artifact.summary.model_turn_count,
+        "tool_call_count": artifact.summary.tool_call_count,
+        "contains_tool_errors": artifact.summary.contains_tool_errors,
+        "usage": artifact.usage,
+        "official_score": artifact.evaluation.official_score,
+        "termination_reason": artifact.termination_reason,
+    }
 
 
 def _statistics(values: list[dict[str, Any]]) -> dict[str, Any]:

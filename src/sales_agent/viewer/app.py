@@ -77,14 +77,12 @@ def _html(body: str, *, status_code: int = 200) -> HTMLResponse:
     )
 
 
-def _shell(content: str, *, title: str, refresh: bool = False) -> str:
-    refresh_tag = '<meta http-equiv="refresh" content="2">' if refresh else ""
+def _shell(content: str, *, title: str) -> str:
     return f"""<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  {refresh_tag}
   <title>{escape(title)} · Run trace viewer</title>
   <link rel="stylesheet" href="/static/styles.css">
 </head>
@@ -139,10 +137,6 @@ def _run_page(reference: ArtifactReference) -> str:
     final = _final_html(artifact)
     config = artifact.configuration
     runtime = config.get("runtime") or {}
-    active = artifact.status == "running"
-    source_kind = (
-        "Canonical RunArtifact" if reference.canonical else "Supported historical artifact"
-    )
     content = f"""
 <nav class="breadcrumbs" aria-label="Breadcrumb"><a href="/">Recent runs</a><span>/</span><span>{escape(artifact.run_id)}</span></nav>
 <article>
@@ -171,10 +165,10 @@ def _run_page(reference: ArtifactReference) -> str:
   </section>
   <section class="card raw-link" aria-labelledby="raw-title"><h2 id="raw-title">Source artifact</h2>
     <a href="/runs/{quote(artifact.run_id, safe="")}/artifact.json">Open raw artifact</a>
-    <span>{escape(source_kind)} · {escape(str(reference.path))}</span>
+    <span>Canonical RunArtifact · {escape(str(reference.path))}</span>
   </section>
 </article>"""
-    return _shell(content, title=str(artifact.task.get("name") or artifact.run_id), refresh=active)
+    return _shell(content, title=str(artifact.task.get("name") or artifact.run_id))
 
 
 def _plan_from_trace(trace: tuple[dict[str, Any], ...]) -> dict[str, Any] | None:

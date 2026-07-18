@@ -6,7 +6,7 @@ from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
-from sales_agent.artifacts import ArtifactValidationError, read_artifact
+from sales_agent.artifacts import ArtifactValidationError, RunArtifact, read_artifact
 from sales_agent.plan_state_runtime import PLAN_STATE_LIMITS
 
 CONFIGURATION_FIELDS = (
@@ -88,7 +88,7 @@ class EvaluationConfiguration:
 @dataclass(frozen=True)
 class EvaluationRecord:
     filename: str
-    artifact: Any
+    artifact: RunArtifact
     configuration_identity: str
     task_id: str
     repetition: int
@@ -107,7 +107,7 @@ class EvaluationRecord:
 
 
 def load_records(directory: Path) -> list[EvaluationRecord]:
-    """Read evaluator observations through the canonical compatibility boundary."""
+    """Read canonical evaluator observations."""
 
     records: list[EvaluationRecord] = []
     for path in sorted(directory.glob("*.json")):

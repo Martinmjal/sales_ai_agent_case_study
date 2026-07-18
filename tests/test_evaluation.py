@@ -459,7 +459,7 @@ def test_final_coverage_rejects_missing_duplicate_out_of_range_and_mixed_records
         main(base)
 
 
-def test_historical_artifact_is_indexed_and_reported_without_rewrite(tmp_path):
+def test_historical_artifact_is_rejected_without_rewrite(tmp_path):
     manifest, config_path = _inputs(tmp_path)
     config = EvaluationConfiguration.read(config_path)
     artifacts = tmp_path / "artifacts"
@@ -496,28 +496,29 @@ def test_historical_artifact_is_indexed_and_reported_without_rewrite(tmp_path):
     )
     original = legacy.read_bytes()
 
-    assert completed_triples(artifacts) == {(config.identity, TASK_ID, 1)}
-    main(
-        [
-            "report",
-            "--manifest",
-            str(manifest),
-            "--config",
-            str(config_path),
-            "--repetitions",
-            "1",
-            "--artifacts-dir",
-            str(artifacts),
-            "--markdown",
-            str(tmp_path / "report.md"),
-            "--json",
-            str(tmp_path / "report.json"),
-        ]
-    )
+    assert completed_triples(artifacts) == set()
+    with pytest.raises(ValueError, match="missing scorable observations"):
+        main(
+            [
+                "report",
+                "--manifest",
+                str(manifest),
+                "--config",
+                str(config_path),
+                "--repetitions",
+                "1",
+                "--artifacts-dir",
+                str(artifacts),
+                "--markdown",
+                str(tmp_path / "report.md"),
+                "--json",
+                str(tmp_path / "report.json"),
+            ]
+        )
 
     assert legacy.read_bytes() == original
     assert sorted(path.name for path in artifacts.iterdir()) == ["legacy.json"]
-    assert "[legacy.json](artifacts/legacy.json)" in (tmp_path / "report.md").read_text()
+    assert not (tmp_path / "report.md").exists()
 
 
 def test_committed_evaluation_corpus_is_canonical_unique_and_report_reproducible(

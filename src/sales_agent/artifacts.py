@@ -5,7 +5,6 @@ import json
 import os
 import tempfile
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
 from hashlib import sha256
 from pathlib import Path
 from typing import Any
@@ -31,7 +30,7 @@ class UnsupportedArtifactVersionError(ArtifactError):
 
 
 class ImmutableArtifactError(RuntimeError):
-    """Raised when a terminal artifact or an existing trace event would change."""
+    """Raised when an artifact destination already exists."""
 
 
 @dataclass(frozen=True)
@@ -320,50 +319,14 @@ def artifact_from_outcome(
     )
 
 
-def active_artifact(
-    *,
-    run_id: str,
-    task: dict[str, Any],
-    configuration: dict[str, Any],
-    started_at: str,
-    initial_world: dict[str, Any],
-) -> RunArtifact:
-    return RunArtifact(
-        run_id=run_id,
-        task=copy.deepcopy(task),
-        configuration=copy.deepcopy(configuration),
-        timing=ArtifactTiming(started_at, started_at, None, None),
-        status="running",
-        termination_reason=None,
-        trace=(),
-        summary=summarize_trace(()),
-        usage=None,
-        final_response=None,
-        terminal_error=None,
-        evaluation_error=None,
-        worlds=ArtifactWorlds(copy.deepcopy(initial_world), None),
-        evaluation=ArtifactEvaluation(False, {}, ()),
-    )
-
-
-def read_artifact(path: Path, *, enrich_task: bool = False) -> RunArtifact:
+def read_artifact(path: Path) -> RunArtifact:
     try:
         value = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as error:
         raise ArtifactValidationError(f"Cannot read artifact {path}: {error}") from error
     if not isinstance(value, dict):
         raise ArtifactValidationError("Artifact must be a JSON object")
-    if value.get("artifact_type") == ARTIFACT_TYPE:
-        return RunArtifact.from_dict(value)
-    if value.get("artifact_type") == "agent_evaluation_run":
-        return _legacy_evaluation_artifact(value, enrich_task=enrich_task)
-    if _looks_like_legacy_session(value):
-        return _legacy_session_artifact(value)
-    if _looks_like_runtime_outcome(value):
-        return _legacy_runtime_outcome(value, enrich_task=enrich_task)
-    if _looks_like_configured_run(value):
-        return _legacy_configured_run(value, enrich_task=enrich_task)
-    raise ArtifactValidationError(f"Unsupported artifact schema: {path}")
+    return RunArtifact.from_dict(value)
 
 
 class RunArtifactStore:
@@ -380,29 +343,49 @@ class RunArtifactStore:
             raise ArtifactValidationError("Artifact filename must be a JSON basename")
         destination = self.directory / resolved_filename
         if destination.exists():
-            try:
-                current = read_artifact(destination)
-            except ArtifactValidationError:
-                current = None
-            if current is not None:
-                if current.run_id != validated.run_id:
-                    raise ImmutableArtifactError(
-                        f"Artifact filename already belongs to run: {current.run_id}"
-                    )
-                if current.status in TERMINAL_STATUSES:
-                    raise ImmutableArtifactError(
-                        f"Terminal artifact cannot be changed: {current.run_id}"
-                    )
-                current_trace = current.trace
-                if (
-                    len(validated.trace) < len(current_trace)
-                    or validated.trace[: len(current_trace)] != current_trace
-                ):
-                    raise ImmutableArtifactError(
-                        f"Existing trace events cannot be changed: {current.run_id}"
-                    )
-        atomic_write_json(destination, validated.to_dict())
+            raise ImmutableArtifactError(f"Artifact destination already exists: {destination}")
+        _atomic_create_json(destination, validated.to_dict())
         return destination
+
+
+def _atomic_create_json(path: Path, value: Any) -> None:
+    payload = (
+        json.dumps(
+            value,
+            indent=2,
+            sort_keys=True,
+            ensure_ascii=True,
+            default=_json_default,
+        )
+        + "\n"
+    )
+    _atomic_create_text(path, payload)
+
+
+def _atomic_create_text(path: Path, payload: str) -> None:
+    """Atomically create ``path`` without ever replacing an existing destination."""
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, temporary_name = tempfile.mkstemp(
+        dir=path.parent, prefix=f".{path.name}.", suffix=".tmp"
+    )
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as temporary:
+            temporary.write(payload)
+            temporary.flush()
+            os.fsync(temporary.fileno())
+        try:
+            os.link(temporary_name, path)
+        except FileExistsError as error:
+            raise ImmutableArtifactError(f"Artifact destination already exists: {path}") from error
+        directory_descriptor = os.open(path.parent, os.O_RDONLY)
+        try:
+            os.fsync(directory_descriptor)
+        finally:
+            os.close(directory_descriptor)
+    finally:
+        if os.path.exists(temporary_name):
+            os.unlink(temporary_name)
 
 
 def atomic_write_json(path: Path, value: Any) -> None:
@@ -440,460 +423,6 @@ def atomic_write_text(path: Path, payload: str) -> None:
             os.unlink(temporary_name)
 
 
-def artifact_to_report_record(artifact: RunArtifact) -> dict[str, Any]:
-    context = artifact.evaluation.context or {}
-    return {
-        "artifact_type": ARTIFACT_TYPE,
-        "schema_version": SCHEMA_VERSION,
-        "configuration": copy.deepcopy(artifact.configuration),
-        "task_id": artifact.task["task_id"],
-        "repetition": context.get("repetition"),
-        "run_id": artifact.run_id,
-        "timing": asdict(artifact.timing),
-        "status": artifact.status,
-        "termination_reason": artifact.termination_reason,
-        "trace": copy.deepcopy(list(artifact.trace)),
-        "provider_retry_count": artifact.summary.provider_retry_count,
-        "model_turn_count": artifact.summary.model_turn_count,
-        "tool_call_count": artifact.summary.tool_call_count,
-        "contains_tool_errors": artifact.summary.contains_tool_errors,
-        "usage": copy.deepcopy(artifact.usage),
-        "response": copy.deepcopy(artifact.final_response),
-        "worlds": asdict(artifact.worlds),
-        "official_score": copy.deepcopy(artifact.evaluation.official_score),
-        "assertion_evidence": copy.deepcopy(list(artifact.evaluation.assertion_evidence)),
-        "terminal_error": artifact.terminal_error,
-        "evaluation_available": artifact.evaluation.available,
-        "evaluation_error": artifact.evaluation_error,
-    }
-
-
-def artifact_to_session_view(artifact: RunArtifact, *, artifact_filename: str) -> dict[str, Any]:
-    configuration = artifact.configuration
-    runtime = configuration.get("runtime") or {
-        "id": "custom",
-        "label": "Custom agent",
-        "version": str(configuration.get("harness_version") or "Unknown"),
-    }
-    limits = configuration.get("execution_limits") or {}
-    max_steps = limits.get("max_model_turns", limits.get("logical_model_calls", 0))
-    if not isinstance(max_steps, int):
-        max_steps = 0
-    score = copy.deepcopy(artifact.evaluation.official_score)
-    if artifact.evaluation.assertion_evidence_available:
-        score["assertions"] = copy.deepcopy(list(artifact.evaluation.assertion_evidence))
-    status = {
-        "running": "Running",
-        "completed": "Completed",
-        "stopped": "Stopped",
-        "failed": "Failed",
-        "interrupted": "Interrupted",
-    }[artifact.status]
-    view = {
-        "schema_version": 1,
-        "session_id": artifact.run_id,
-        "artifact_filename": artifact_filename,
-        "artifact_type": ARTIFACT_TYPE,
-        "status": status,
-        "lifecycle": {
-            "created_at": artifact.timing.started_at,
-            "updated_at": artifact.timing.updated_at,
-            "completed_at": artifact.timing.finished_at,
-            "terminal_error": artifact.terminal_error,
-            "evaluation_error": artifact.evaluation_error,
-            "termination_reason": artifact.termination_reason,
-        },
-        "task": copy.deepcopy(artifact.task),
-        "agent": {
-            "model": str(configuration.get("model") or "Unknown"),
-            "max_steps": max_steps,
-            "agent_version": str(runtime.get("version") or "Unknown"),
-        },
-        "runtime": copy.deepcopy(runtime),
-        "events": copy.deepcopy(list(artifact.trace)),
-        "final_response": copy.deepcopy(artifact.final_response),
-        "evaluation": score if artifact.evaluation.available else None,
-        "usage": copy.deepcopy(artifact.usage),
-        "initial_world": copy.deepcopy(artifact.worlds.initial),
-        "final_world": copy.deepcopy(artifact.worlds.final),
-    }
-    context = artifact.evaluation.context
-    if context is not None:
-        view["evaluation_run"] = {
-            "configuration_identity": context.get(
-                "configuration_identity", configuration.get("identity")
-            ),
-            "repetition": context.get("repetition"),
-            "evaluation_artifact": artifact_filename,
-            "fresh_world": context.get("fresh_world"),
-            "resumed": context.get("resumed"),
-            "infrastructure_replacement_count": context.get("infrastructure_replacement_count", 0),
-        }
-    return view
-
-
-def session_view_to_artifact(session: dict[str, Any]) -> RunArtifact:
-    return _legacy_session_artifact(session)
-
-
-def _legacy_evaluation_artifact(value: dict[str, Any], *, enrich_task: bool) -> RunArtifact:
-    _require_legacy_version(value)
-    task_id = _required_string(value, "task_id")
-    task = _resolved_task_snapshot(task_id) if enrich_task else _minimal_task(task_id)
-    configuration = copy.deepcopy(_required_dict(value, "configuration"))
-    configuration.setdefault(
-        "runtime",
-        {
-            "id": "custom",
-            "label": "Custom agent",
-            "version": str(configuration.get("harness_version") or "Unknown"),
-        },
-    )
-    trace_value = value.get("trace")
-    if not isinstance(trace_value, list):
-        raise ArtifactValidationError("Legacy evaluation trace must be a list")
-    trace = tuple(copy.deepcopy(trace_value))
-    timing = _required_dict(value, "timing")
-    started_at = timing.get("started_at")
-    if not isinstance(started_at, str):
-        started_at = "1970-01-01T00:00:00+00:00"
-    finished_at = timing.get("finished_at")
-    if not isinstance(finished_at, str):
-        finished_at = started_at
-    score = copy.deepcopy(value.get("official_score") or {})
-    evidence = value.get("assertion_evidence") or []
-    if not isinstance(evidence, list):
-        raise ArtifactValidationError("Legacy assertion evidence must be a list")
-    status = _required_string(value, "status").lower()
-    termination_reason = _optional_string(value, "termination_reason")
-    if status in TERMINAL_STATUSES and termination_reason is None:
-        termination_reason = "legacy_unknown"
-        configuration["legacy_termination_reason_unavailable"] = True
-    artifact = RunArtifact(
-        run_id=_required_string(value, "run_id"),
-        task=task,
-        configuration=configuration,
-        timing=ArtifactTiming(
-            started_at=started_at,
-            updated_at=finished_at,
-            finished_at=finished_at,
-            duration_ms=_optional_number(timing, "duration_ms"),
-        ),
-        status=status,
-        termination_reason=termination_reason,
-        trace=trace,
-        summary=ArtifactSummary(
-            provider_retry_count=int(value.get("provider_retry_count", 0)),
-            model_turn_count=int(value.get("model_turn_count", 0)),
-            tool_call_count=int(value.get("tool_call_count", 0)),
-            contains_tool_errors=bool(value.get("contains_tool_errors", False)),
-        ),
-        usage=copy.deepcopy(value.get("usage")),
-        final_response=copy.deepcopy(value.get("response")),
-        terminal_error=_optional_string(value, "terminal_error"),
-        evaluation_error=_optional_string(value, "evaluation_error"),
-        worlds=ArtifactWorlds(
-            initial=copy.deepcopy(_required_dict(value, "worlds").get("initial", {})),
-            final=copy.deepcopy(_required_dict(value, "worlds").get("final")),
-        ),
-        evaluation=ArtifactEvaluation(
-            available=bool(value.get("evaluation_available", True)),
-            official_score=score,
-            assertion_evidence=tuple(copy.deepcopy(evidence)),
-            context={
-                "configuration_identity": configuration.get("identity"),
-                "repetition": value.get("repetition"),
-                "fresh_world": True,
-                "resumed": False,
-                "infrastructure_replacement_count": 0,
-            },
-        ),
-    )
-    return RunArtifact.from_dict(artifact.to_dict())
-
-
-def _legacy_session_artifact(value: dict[str, Any]) -> RunArtifact:
-    _require_legacy_version(value)
-    lifecycle = _required_dict(value, "lifecycle")
-    task = copy.deepcopy(_required_dict(value, "task"))
-    task.setdefault("tools", [])
-    task.setdefault("assertions", [])
-    task.setdefault("tool_definitions", [])
-    agent = _required_dict(value, "agent")
-    runtime = copy.deepcopy(
-        value.get("runtime")
-        or {
-            "id": str(agent.get("runtime_id") or "legacy"),
-            "label": str(agent.get("runtime_label") or "Legacy runtime"),
-            "version": str(agent.get("agent_version") or "Unknown"),
-        }
-    )
-    limits = {"max_model_turns": int(agent.get("max_steps", 0))}
-    configuration = {
-        "model": str(agent.get("model") or "Unknown"),
-        "harness_version": str(runtime.get("version") or "Unknown"),
-        "prompt_version": "legacy-session",
-        "evaluation_protocol_version": "legacy-session",
-        "execution_limits": limits,
-        "runtime": runtime,
-    }
-    evaluation_run = value.get("evaluation_run")
-    if isinstance(evaluation_run, dict) and evaluation_run.get("configuration_identity"):
-        configuration["identity"] = evaluation_run["configuration_identity"]
-    else:
-        configuration["identity"] = configuration_identity(configuration)
-    trace_value = value.get("events")
-    if not isinstance(trace_value, list):
-        raise ArtifactValidationError("Legacy session events must be a list")
-    trace = tuple(copy.deepcopy(trace_value))
-    legacy_session_id = _required_string(value, "session_id")
-    event_run_ids = {
-        event.get("run_id")
-        for event in trace
-        if isinstance(event, dict) and isinstance(event.get("run_id"), str)
-    }
-    run_id = next(iter(event_run_ids)) if len(event_run_ids) == 1 else legacy_session_id
-    if run_id != legacy_session_id:
-        configuration["legacy_session_id"] = legacy_session_id
-    evaluation = value.get("evaluation")
-    if evaluation is not None and not isinstance(evaluation, dict):
-        raise ArtifactValidationError("Legacy session evaluation must be an object")
-    score = copy.deepcopy(evaluation or {})
-    evidence = score.pop("assertions", [])
-    status = _required_string(value, "status").lower()
-    completed_at = lifecycle.get("completed_at")
-    if status in TERMINAL_STATUSES and not isinstance(completed_at, str):
-        completed_at = _required_string(lifecycle, "updated_at")
-    termination_reason = _optional_string(lifecycle, "termination_reason")
-    if status in TERMINAL_STATUSES and termination_reason is None:
-        termination_reason = "legacy_unknown"
-        configuration["legacy_termination_reason_unavailable"] = True
-    context = None
-    if isinstance(evaluation_run, dict):
-        context = {
-            "configuration_identity": evaluation_run.get("configuration_identity"),
-            "repetition": evaluation_run.get("repetition"),
-            "fresh_world": evaluation_run.get("fresh_world", True),
-            "resumed": evaluation_run.get("resumed", False),
-            "infrastructure_replacement_count": evaluation_run.get(
-                "infrastructure_replacement_count", 0
-            ),
-        }
-    artifact = RunArtifact(
-        run_id=run_id,
-        task=task,
-        configuration=configuration,
-        timing=ArtifactTiming(
-            started_at=_required_string(lifecycle, "created_at"),
-            updated_at=_required_string(lifecycle, "updated_at"),
-            finished_at=completed_at,
-            duration_ms=_duration_ms(_required_string(lifecycle, "created_at"), completed_at),
-        ),
-        status=status,
-        termination_reason=termination_reason,
-        trace=trace,
-        summary=summarize_trace(trace),
-        usage=copy.deepcopy(value.get("usage")),
-        final_response=copy.deepcopy(value.get("final_response")),
-        terminal_error=_optional_string(lifecycle, "terminal_error"),
-        evaluation_error=_optional_string(lifecycle, "evaluation_error"),
-        worlds=ArtifactWorlds(
-            initial=copy.deepcopy(value.get("initial_world") or {}),
-            final=copy.deepcopy(value.get("final_world")),
-        ),
-        evaluation=ArtifactEvaluation(
-            available=evaluation is not None,
-            official_score=score,
-            assertion_evidence=tuple(copy.deepcopy(evidence)),
-            context=context,
-            assertion_evidence_available=(evaluation is not None and "assertions" in evaluation),
-        ),
-    )
-    return RunArtifact.from_dict(artifact.to_dict())
-
-
-def _legacy_runtime_outcome(value: dict[str, Any], *, enrich_task: bool) -> RunArtifact:
-    task_id = _required_string(value, "task_id")
-    task = _resolved_task_snapshot(task_id) if enrich_task else _minimal_task(task_id)
-    events = value.get("events")
-    if not isinstance(events, list):
-        raise ArtifactValidationError("Legacy runtime events must be a list")
-    trace = tuple(copy.deepcopy(events))
-    timestamps = [event.get("timestamp") for event in trace if event.get("timestamp")]
-    started_at = min(timestamps) if timestamps else "1970-01-01T00:00:00+00:00"
-    finished_at = max(timestamps) if timestamps else started_at
-    configuration = {
-        "model": "Unknown",
-        "harness_version": "legacy-runtime-outcome",
-        "prompt_version": "legacy-runtime-outcome",
-        "evaluation_protocol_version": "legacy-runtime-outcome",
-        "execution_limits": {},
-        "runtime": {
-            "id": "legacy",
-            "label": "Legacy runtime",
-            "version": "legacy-runtime-outcome",
-        },
-    }
-    configuration["identity"] = configuration_identity(configuration)
-    score = copy.deepcopy(value.get("score") or {})
-    evidence = score.pop("assertions", [])
-    status = _required_string(value, "status").lower()
-    termination_reason = _optional_string(value, "termination_reason")
-    if status in TERMINAL_STATUSES and termination_reason is None:
-        termination_reason = "legacy_unknown"
-        configuration["legacy_termination_reason_unavailable"] = True
-    artifact = RunArtifact(
-        run_id=_required_string(value, "run_id"),
-        task=task,
-        configuration=configuration,
-        timing=ArtifactTiming(
-            started_at=started_at,
-            updated_at=finished_at,
-            finished_at=finished_at,
-            duration_ms=_duration_ms(started_at, finished_at),
-        ),
-        status=status,
-        termination_reason=termination_reason,
-        trace=trace,
-        summary=summarize_trace(trace),
-        usage=copy.deepcopy(value.get("usage")),
-        final_response=copy.deepcopy(value.get("final_response")),
-        terminal_error=_optional_string(value, "terminal_error"),
-        evaluation_error=_optional_string(value, "evaluation_error"),
-        worlds=ArtifactWorlds(
-            initial=_resolved_initial_world(task_id) if enrich_task else {},
-            final=copy.deepcopy(value.get("world_state")),
-        ),
-        evaluation=ArtifactEvaluation(
-            available=value.get("score") is not None,
-            official_score=score,
-            assertion_evidence=tuple(copy.deepcopy(evidence)),
-        ),
-    )
-    return RunArtifact.from_dict(artifact.to_dict())
-
-
-def _legacy_configured_run(value: dict[str, Any], *, enrich_task: bool) -> RunArtifact:
-    task_id = _required_string(value, "task")
-    task = _resolved_task_snapshot(task_id) if enrich_task else _minimal_task(task_id)
-    task["example_id"] = value.get("example_id")
-    task["tools"] = copy.deepcopy(value.get("tools") or [])
-    canonical_legacy = json.dumps(value, sort_keys=True, separators=(",", ":"))
-    run_id = f"legacy-configured-{sha256(canonical_legacy.encode()).hexdigest()[:24]}"
-    messages = value.get("messages")
-    if not isinstance(messages, list):
-        raise ArtifactValidationError("Legacy configured-run messages must be a list")
-    trace = tuple(
-        {
-            "sequence": index,
-            "kind": "legacy_message",
-            "timestamp": "1970-01-01T00:00:00+00:00",
-            "run_id": run_id,
-            "correlation_id": f"legacy-message-{index}",
-            "content": copy.deepcopy(message),
-        }
-        for index, message in enumerate(messages, start=1)
-    )
-    score = copy.deepcopy(value.get("score") or {})
-    evidence = score.pop("assertions", [])
-    strict = score.get("task_completed_correctly") == 1.0
-    configuration = {
-        "model": str(value.get("model") or "Unknown"),
-        "harness_version": "legacy-configured-run",
-        "prompt_version": "legacy-configured-run",
-        "evaluation_protocol_version": "legacy-configured-run",
-        "execution_limits": {},
-        "runtime": {
-            "id": "legacy",
-            "label": "Legacy configured run",
-            "version": "legacy-configured-run",
-        },
-        "legacy_timing_unavailable": True,
-    }
-    configuration["identity"] = configuration_identity(configuration)
-    final_response = None
-    for message in reversed(messages):
-        if isinstance(message, dict) and message.get("type") == "ai":
-            final_response = copy.deepcopy(message.get("content"))
-            break
-    artifact = RunArtifact(
-        run_id=run_id,
-        task=task,
-        configuration=configuration,
-        timing=ArtifactTiming(
-            started_at="1970-01-01T00:00:00+00:00",
-            updated_at="1970-01-01T00:00:00+00:00",
-            finished_at="1970-01-01T00:00:00+00:00",
-            duration_ms=None,
-        ),
-        status="completed" if strict else "stopped",
-        termination_reason="goal_completed" if strict else "partial",
-        trace=trace,
-        summary=ArtifactSummary(
-            provider_retry_count=0,
-            model_turn_count=sum(
-                isinstance(message, dict) and message.get("type") == "ai" for message in messages
-            ),
-            tool_call_count=sum(
-                isinstance(block, dict) and block.get("type") == "function_call"
-                for message in messages
-                if isinstance(message, dict) and isinstance(message.get("content"), list)
-                for block in message["content"]
-            ),
-            contains_tool_errors=False,
-        ),
-        usage=copy.deepcopy(value.get("usage")),
-        final_response=final_response,
-        terminal_error=None,
-        evaluation_error=None,
-        worlds=ArtifactWorlds(
-            initial=_resolved_initial_world(task_id) if enrich_task else {},
-            final=copy.deepcopy(value.get("end_state")),
-        ),
-        evaluation=ArtifactEvaluation(
-            available=value.get("score") is not None,
-            official_score=score,
-            assertion_evidence=tuple(copy.deepcopy(evidence)),
-        ),
-    )
-    return RunArtifact.from_dict(artifact.to_dict())
-
-
-def _resolved_task_snapshot(task_id: str) -> dict[str, Any]:
-    from sales_agent.adapter import AutomationBenchAdapter
-    from sales_agent.catalog import TaskCatalog
-
-    catalog = TaskCatalog.from_sales_dataset()
-    task = catalog.get_task(task_id)
-    tools = AutomationBenchAdapter(catalog=catalog).open(task_id).agent_task.tools
-    definitions = [
-        {
-            "name": tool.name,
-            "description": tool.description,
-            "input_schema": tool.input_schema,
-        }
-        for tool in tools
-    ]
-    return task_snapshot(task, tool_definitions=definitions)
-
-
-def _resolved_initial_world(task_id: str) -> dict[str, Any]:
-    from sales_agent.catalog import TaskCatalog
-
-    return copy.deepcopy(TaskCatalog.from_sales_dataset().get_task(task_id).info["initial_state"])
-
-
-def _minimal_task(task_id: str) -> dict[str, Any]:
-    return {
-        "task_id": task_id,
-        "name": task_id.removeprefix("sales.").replace("_", " ").title(),
-        "prompt": [],
-        "tools": [],
-        "assertions": [],
-        "tool_definitions": [],
-    }
-
-
 def _validate_trace(trace: list[Any], run_id: str) -> list[dict[str, Any]]:
     validated = []
     previous = 0
@@ -911,25 +440,6 @@ def _validate_trace(trace: list[Any], run_id: str) -> list[dict[str, Any]]:
         previous = sequence
         validated.append(copy.deepcopy(event))
     return validated
-
-
-def _looks_like_legacy_session(value: dict[str, Any]) -> bool:
-    return all(key in value for key in ("session_id", "lifecycle", "task", "events"))
-
-
-def _looks_like_runtime_outcome(value: dict[str, Any]) -> bool:
-    return all(key in value for key in ("run_id", "task_id", "status", "events"))
-
-
-def _looks_like_configured_run(value: dict[str, Any]) -> bool:
-    return all(key in value for key in ("task", "model", "messages", "end_state"))
-
-
-def _require_legacy_version(value: dict[str, Any]) -> None:
-    if value.get("schema_version") != 1:
-        raise UnsupportedArtifactVersionError(
-            f"Unsupported legacy artifact schema version: {value.get('schema_version')!r}"
-        )
 
 
 def _required_dict(value: dict[str, Any], key: str) -> dict[str, Any]:
@@ -974,21 +484,6 @@ def _required_bool(value: dict[str, Any], key: str) -> bool:
     if not isinstance(item, bool):
         raise ArtifactValidationError(f"{key} must be a boolean")
     return item
-
-
-def _duration_ms(started_at: str, finished_at: str | None) -> float | None:
-    if finished_at is None:
-        return None
-    try:
-        started = datetime.fromisoformat(started_at)
-        finished = datetime.fromisoformat(finished_at)
-    except ValueError:
-        return None
-    if started.tzinfo is None:
-        started = started.replace(tzinfo=timezone.utc)
-    if finished.tzinfo is None:
-        finished = finished.replace(tzinfo=timezone.utc)
-    return round((finished - started).total_seconds() * 1000, 3)
 
 
 def _json_default(value: Any) -> Any:
