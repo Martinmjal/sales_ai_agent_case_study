@@ -16,17 +16,15 @@ cd ../Agent-UI
 uv sync
 ```
 
-Run the evaluator UI:
+Start the read-only trace viewer:
 
 ```bash
 cd Agent-UI
 uv run agent-ui
 ```
 
-Open <http://127.0.0.1:8000>, select a task, then start the execution. The submission UI exposes
-one **Custom agent** backed by the plan-state runtime. The left pane reads canonical run artifacts
-directly from `mock-agent/results/`; refreshing the browser does not lose a finished or historical
-trace, and `?run_id=<stable-run-id>` opens a run directly.
+The viewer does not execute agents. In another terminal, run the CLI and follow its printed
+`http://127.0.0.1:8000/runs/<stable-run-id>` URL:
 
 Run one task without the UI:
 
@@ -37,7 +35,11 @@ uv run mock-agent \
   --output results/development/example.json
 ```
 
-Run or resume the frozen held-out panel and make every observation available in Agent-UI history:
+The landing page at <http://127.0.0.1:8000> lists canonical artifacts newest first. The stable run
+route exposes the plan, correlated trace, final outcome, official score/assertions, raw worlds, and
+the source artifact without creating UI-owned state.
+
+Run or resume the frozen held-out panel and make every observation available in the trace viewer:
 
 ```bash
 cd mock-agent
@@ -99,7 +101,7 @@ flowchart TB
         direction LR
         T["Immutable event trace"]
         O["Canonical RunArtifact"]
-        U["Agent-UI"]
+        U["Read-only trace viewer"]
 
         T --> O
         O --> U
@@ -163,14 +165,14 @@ Every terminal agent observation—including incorrect completion, budget exhaus
 failure, and agent-caused runtime failure—counts. An exhausted transient endpoint attempt is
 infrastructure-invalid: it is replaced, is not assigned a repetition, and cannot enter the report.
 Each accepted observation is written atomically before the next begins. Resumption skips existing
-configuration/task/repetition triples. Agent UI reads that same artifact directly; no history copy
-or second persisted schema is created.
+configuration/task/repetition triples. The trace viewer reads that same artifact directly; no
+history copy or second persisted schema is created.
 
 Reports keep strict completion as count and percentage, partial-credit mean/sample standard
 deviation/range, token and duration median/range, model-turn and tool-call efficiency, runs with
 tool errors, termination counts, task coverage, and artifact links. Aggregation is isolated by the
-full configuration hash and includes both overall-panel and per-task summaries. Repeated
-`--task-id` options select a report subset without mutating the immutable observations.
+full configuration hash and includes both overall-panel and per-task summaries. Task filters
+require explicit exploratory mode, which is labeled incomplete and discloses its selection.
 
 ## Held-out results
 
@@ -241,9 +243,9 @@ real external side effects.
 
 - `mock-agent/src/mock_agent/`: blind adapter, direct provider client, plan-state runtime, contracts,
   and offline evaluation/reporting.
-- `Agent-UI/`: local execution workspace and durable history/evidence inspector.
+- `Agent-UI/`: read-only recent-runs list and bookmarkable canonical trace viewer.
 - `AutomationBench/`: Sales tasks, tools, simulated worlds, and official deterministic scorer.
-- `mock-agent/results/runs/`: canonical standalone CLI and Agent UI run artifacts.
+- `mock-agent/results/runs/`: canonical standalone CLI run artifacts.
 - `mock-agent/results/evaluation/`: canonical held-out observations and generated reports.
 - `docs/run-artifacts.md`: canonical schema, persistence invariants, and historical compatibility.
 

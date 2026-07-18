@@ -36,6 +36,7 @@ def parser() -> argparse.ArgumentParser:
     report.add_argument("--json", type=Path, required=True)
     report.add_argument("--exploratory", action="store_true")
     report.add_argument("--task-id", dest="task_ids", action="append")
+    report.add_argument("--viewer-base-url", default="http://127.0.0.1:8000")
     return value
 
 
@@ -66,6 +67,7 @@ def main(
             args.repetitions,
             task_ids=args.task_ids,
             exploratory=args.exploratory,
+            viewer_base_url=args.viewer_base_url,
         )
 
 

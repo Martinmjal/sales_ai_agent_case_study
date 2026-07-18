@@ -1,110 +1,109 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+from datetime import datetime, timezone
+import json
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Iterable
 
-from mock_agent.artifacts import (
-    ArtifactValidationError,
-    ImmutableArtifactError,
-    RunArtifact,
-    RunArtifactStore,
-    artifact_to_session_view,
-    read_artifact,
-    session_view_to_artifact,
-)
+from mock_agent.artifacts import ArtifactValidationError, RunArtifact, read_artifact
 
 
-class SessionNotFoundError(LookupError):
-    """Raised when a run artifact cannot be found."""
+class RunNotFoundError(LookupError):
+    pass
 
 
-class ImmutableSessionError(ImmutableArtifactError):
-    """Compatibility name for an attempted terminal artifact mutation."""
+class UnsupportedRunError(LookupError):
+    pass
 
 
-class SessionStore:
-    """UI adapter over the canonical store; it never writes the legacy schema."""
+@dataclass(frozen=True)
+class ArtifactReference:
+    artifact: RunArtifact
+    path: Path
+    canonical: bool
 
-    def __init__(
-        self, directory: Path, *, read_directories: Iterable[Path] | None = None
-    ):
-        self.directory = directory
-        self.directory.mkdir(parents=True, exist_ok=True)
-        self.read_directories = tuple(read_directories or (directory,))
-        self._store = RunArtifactStore(directory)
+    @property
+    def timestamp(self) -> str:
+        return self.artifact.timing.updated_at or self.artifact.timing.started_at
 
-    def create(
-        self, artifact: RunArtifact | dict[str, Any]
-    ) -> dict[str, Any]:
-        canonical = (
-            artifact
-            if isinstance(artifact, RunArtifact)
-            else session_view_to_artifact(artifact)
-        )
-        filename = f"{canonical.run_id}.json"
-        self._store.write(canonical, filename=filename)
-        return artifact_to_session_view(canonical, artifact_filename=filename)
 
-    def save(self, session: dict[str, Any]) -> None:
-        canonical = session_view_to_artifact(session)
-        filename = str(session.get("artifact_filename") or f"{canonical.run_id}.json")
-        try:
-            self._store.write(canonical, filename=filename)
-        except ImmutableArtifactError as error:
-            raise ImmutableSessionError(str(error)) from error
+class ArtifactRepository:
+    """Read-only index derived from artifact files on every request."""
 
-    def read(self, session_id: str) -> dict[str, Any]:
-        for session in self.list():
-            if session.get("session_id") == session_id:
-                return session
-        raise SessionNotFoundError(f"Unknown run ID: {session_id}")
+    def __init__(self, directories: Iterable[Path]):
+        self.directories = tuple(directories)
 
-    def list(self) -> list[dict[str, Any]]:
-        sessions_by_id: dict[str, dict[str, Any]] = {}
-        canonical_by_id: dict[str, bool] = {}
-        seen_paths: set[Path] = set()
-        for directory in self.read_directories:
-            if not directory.exists():
-                continue
-            for path in directory.rglob("*.json"):
-                resolved = path.resolve()
-                if resolved in seen_paths:
-                    continue
-                seen_paths.add(resolved)
-                try:
-                    artifact = read_artifact(path, enrich_task=True)
-                except ArtifactValidationError:
-                    continue
-                is_canonical = _is_canonical_file(path)
-                if artifact.run_id in sessions_by_id and (
-                    canonical_by_id[artifact.run_id] or not is_canonical
-                ):
-                    continue
-                sessions_by_id[artifact.run_id] = artifact_to_session_view(
-                    artifact, artifact_filename=path.name
-                )
-                canonical_by_id[artifact.run_id] = is_canonical
+    def recent(self) -> list[ArtifactReference]:
         return sorted(
-            sessions_by_id.values(),
-            key=lambda session: session["lifecycle"]["created_at"],
+            self._index().values(),
+            key=lambda reference: _timestamp(reference.timestamp),
             reverse=True,
         )
 
-    @staticmethod
-    def _is_supported(session: Any) -> bool:
-        if not isinstance(session, dict):
-            return False
-        try:
-            session_view_to_artifact(session)
-        except (ArtifactValidationError, KeyError, TypeError, ValueError):
-            return False
-        return True
+    def get(self, run_id: str) -> ArtifactReference:
+        reference = self._index().get(run_id)
+        if reference is not None:
+            return reference
+        if self._unsupported_path(run_id) is not None:
+            raise UnsupportedRunError(f"Run {run_id!r} is malformed or unsupported")
+        raise RunNotFoundError(f"Unknown run ID: {run_id}")
+
+    def _index(self) -> dict[str, ArtifactReference]:
+        references: dict[str, ArtifactReference] = {}
+        seen_paths: set[Path] = set()
+        for path in self._paths():
+            resolved = path.resolve()
+            if resolved in seen_paths:
+                continue
+            seen_paths.add(resolved)
+            try:
+                artifact = read_artifact(path, enrich_task=True)
+            except (ArtifactValidationError, KeyError, TypeError, ValueError, OSError):
+                continue
+            canonical = _is_canonical(path)
+            current = references.get(artifact.run_id)
+            if current is None or (canonical and not current.canonical):
+                references[artifact.run_id] = ArtifactReference(
+                    artifact=artifact,
+                    path=path,
+                    canonical=canonical,
+                )
+        return references
+
+    def _unsupported_path(self, run_id: str) -> Path | None:
+        for path in self._paths():
+            if path.stem == run_id:
+                return path
+            try:
+                value = json.loads(path.read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, OSError, UnicodeDecodeError):
+                continue
+            if (
+                isinstance(value, dict)
+                and value.get("run_id", value.get("session_id")) == run_id
+            ):
+                return path
+        return None
+
+    def _paths(self):
+        for directory in self.directories:
+            if directory.exists():
+                yield from sorted(directory.rglob("*.json"))
 
 
-def _is_canonical_file(path: Path) -> bool:
+def _is_canonical(path: Path) -> bool:
     try:
         with path.open("r", encoding="utf-8") as stream:
-            prefix = stream.read(240)
-    except OSError:
+            prefix = stream.read(256)
+    except (OSError, UnicodeDecodeError):
         return False
     return '"artifact_type": "run_artifact"' in prefix
+
+
+def _timestamp(value: str) -> datetime:
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+    except ValueError:
+        return datetime.min.replace(tzinfo=timezone.utc)

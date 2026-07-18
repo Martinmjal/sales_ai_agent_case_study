@@ -359,7 +359,7 @@ def test_single_run_and_evaluator_write_the_same_canonical_schema(tmp_path, caps
     )
     output = capsys.readouterr().out
     assert "artifact:" in output
-    assert "viewer: http://viewer/?run_id=single-run" in output
+    assert "viewer: http://viewer/runs/single-run" in output
 
     manifest, config = _inputs(tmp_path)
     evaluation_directory = tmp_path / "evaluation"
@@ -770,11 +770,14 @@ def test_report_is_configuration_isolated_statistically_correct_and_byte_stable(
     assert panel["tokens"] == {"maximum": 100, "median": 20, "minimum": 10}
     markdown = first_markdown.decode()
     assert json.dumps(report["panels"], indent=2, sort_keys=True) in markdown
-    assert json.dumps(
-        {"selection": report["selection"], "coverage": report["coverage"]},
-        indent=2,
-        sort_keys=True,
-    ) in markdown
+    assert (
+        json.dumps(
+            {"selection": report["selection"], "coverage": report["coverage"]},
+            indent=2,
+            sort_keys=True,
+        )
+        in markdown
+    )
     for heading in (
         "## Configuration",
         "## Coverage",
@@ -794,6 +797,10 @@ def test_report_is_configuration_isolated_statistically_correct_and_byte_stable(
 
     assert all(
         (json_path.parent / artifact["path"]).resolve().is_file()
+        for artifact in group["artifacts"]
+    )
+    assert all(
+        artifact["viewer_url"].endswith(f"/runs/{artifact['run_id']}")
         for artifact in group["artifacts"]
     )
 

@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "agent-ui"
 version = "0.1.0"
-description = "Local evaluator UI for AutomationBench agent sessions"
+description = "Read-only trace viewer for canonical agent run artifacts"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [

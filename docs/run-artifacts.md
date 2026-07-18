@@ -1,6 +1,6 @@
 # Run artifacts
 
-`run_artifact` schema version 1 is the only run format written by the CLI, evaluator, and Agent UI.
+`run_artifact` schema version 1 is the only run format written by the CLI and evaluator.
 The typed boundary model and atomic serializer live in
 `mock-agent/src/mock_agent/artifacts.py`; runtime controller state remains separate.
 
@@ -12,16 +12,17 @@ when applicable.
 
 ## Authoritative locations
 
-- `mock-agent/results/runs/` contains standalone CLI and Agent UI runs. New filenames are
+- `mock-agent/results/runs/` contains standalone CLI runs. New filenames are
   `<run-id>.json`.
 - `mock-agent/results/evaluation/` contains one authoritative artifact per accepted evaluation
   configuration/task/repetition. Its configuration-derived filenames remain stable across resume.
 - `mock-agent/results/development/` contains the representative partial development artifact.
 - `report.md` and `report.json` are derived outputs, not run artifacts.
 
-The retired `sessions/` evaluation copies were deleted. Agent UI scans the canonical result store
-directly and adapts artifacts to its existing HTTP response shape only in memory. A viewer link is
-`http://127.0.0.1:8000/?run_id=<stable-run-id>`.
+The retired `sessions/` evaluation copies were deleted. The trace viewer scans the canonical result
+store directly, writes nothing, and renders supported historical formats through the versioned
+reader only in memory. A viewer link is
+`http://127.0.0.1:8000/runs/<stable-run-id>`.
 
 The evaluator indexes configuration/task/repetition triples by reading these artifacts through the
 same compatibility boundary; it neither rewrites nor copies them. Final reporting requires the

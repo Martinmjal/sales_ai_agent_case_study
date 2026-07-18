@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import statistics
 from typing import Any
+from urllib.parse import quote
 
 from mock_agent.artifacts import (
     artifact_to_report_record,
@@ -191,7 +192,10 @@ def _validate_selection(
 
 
 def _groups(
-    records: list[EvaluationRecord], directory: Path, report_directory: Path
+    records: list[EvaluationRecord],
+    directory: Path,
+    report_directory: Path,
+    viewer_base_url: str,
 ) -> list[dict[str, Any]]:
     grouped: dict[tuple[str, str], list[EvaluationRecord]] = defaultdict(list)
     for record in records:
@@ -214,6 +218,7 @@ def _groups(
                     {
                         "filename": row.filename,
                         "run_id": row.artifact.run_id,
+                        "viewer_url": f"{viewer_base_url.rstrip('/')}/runs/{quote(row.artifact.run_id, safe='')}",
                         "path": Path(
                             os.path.relpath(
                                 (directory / row.filename).resolve(),
@@ -311,7 +316,7 @@ def _markdown(report: dict[str, Any]) -> str:
     for group in report["groups"]:
         lines += [f"### `{config['identity']}` / `{group['task_id']}`", ""]
         lines += [
-            f"- [{artifact['filename']}]({artifact['path']})"
+            f"- [View run]({artifact['viewer_url']}) · [{artifact['filename']}]({artifact['path']})"
             for artifact in group["artifacts"]
         ]
         lines.append("")
@@ -328,6 +333,7 @@ def write_report(
     *,
     task_ids: list[str] | None = None,
     exploratory: bool = False,
+    viewer_base_url: str = "http://127.0.0.1:8000",
 ) -> None:
     if markdown_path.parent.resolve() != json_path.parent.resolve():
         raise ValueError("Markdown and JSON reports must share an output directory")
@@ -338,7 +344,7 @@ def write_report(
         "schema_version": 2,
         **metadata,
         "panels": _panel(records),
-        "groups": _groups(records, directory, json_path.parent),
+        "groups": _groups(records, directory, json_path.parent, viewer_base_url),
     }
     atomic_write_text(markdown_path, _markdown(report))
     atomic_write_json(json_path, report)

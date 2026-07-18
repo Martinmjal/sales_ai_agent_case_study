@@ -1,1 +1,1 @@
-"""Local Agent UI application."""
+"""Read-only viewer for canonical run artifacts."""

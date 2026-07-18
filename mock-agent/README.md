@@ -68,8 +68,8 @@ default runtime. A turn that mixes business and control calls executes nothing a
 structured correction observation. Stale revisions, unknown steps, failed or invented calls, and
 incompatible evidence remain recoverable observations. The runtime emits `plan_created`,
 `step_started`, `step_completed`, `step_failed`, `step_superseded`, `plan_revised`, and `completion`
-without reviewer calls, retry loops, or per-step finalization. The Agent UI registers it as the
-single **Custom agent** submission runtime.
+without reviewer calls, retry loops, or per-step finalization. The browser viewer is deliberately
+read-only; this CLI and the evaluator are the execution surfaces.
 
 ## Verify
 
@@ -97,8 +97,8 @@ uv run mock-agent-eval run \
 The evaluator runs sequentially with a fresh runtime/world for every attempt. Each agent
 observation is written immediately, agent failures remain scorable, exhausted transient endpoint
 attempts are replaced, and rerunning the same command skips completed configuration/task/repetition
-pairs. Every scorable execution is already a complete Agent-UI history artifact; the viewer reads
-it from `results/evaluation` without a copied session file.
+pairs. Every scorable execution is already a complete viewer artifact; the viewer reads it from
+`results/evaluation` without a copied session file.
 
 Final reports require the expected manifest, frozen configuration, and repetition count. With no
 filters, this command succeeds only when every expected triple is present exactly once:

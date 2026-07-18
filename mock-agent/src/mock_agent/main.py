@@ -118,9 +118,8 @@ def main(
         print(
             f"task_completed_correctly: {outcome.score['task_completed_correctly']:.0f}"
         )
-    viewer_separator = "&" if "?" in args.viewer_base_url else "?"
     viewer_url = (
-        f"{args.viewer_base_url}{viewer_separator}run_id={quote(outcome.run_id)}"
+        f"{args.viewer_base_url.rstrip('/')}/runs/{quote(outcome.run_id, safe='')}"
     )
     print(f"artifact: {path}")
     print(f"viewer: {viewer_url}")

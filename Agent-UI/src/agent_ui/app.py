@@ -1,499 +1,364 @@
 from __future__ import annotations
 
-import asyncio
-from contextlib import asynccontextmanager
-from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from html import escape
 import json
 from pathlib import Path
-from typing import Any, Mapping
-from uuid import uuid4
+from typing import Any, Iterable
+from urllib.parse import quote
 
-from fastapi import FastAPI, Header, HTTPException, Query, status
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi import FastAPI
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
 
-from mock_agent.adapter import AutomationBenchAdapter
-from mock_agent.artifacts import (
-    RunArtifact,
-    active_artifact,
-    configuration_identity,
-    task_snapshot,
-)
-from mock_agent.catalog import TaskCatalog, TaskDefinition, UnknownTaskError
-from mock_agent.contract import (
-    AgentRuntime,
-    CancellationSignal,
-    ExitStatus,
-    RuntimeEvent,
-    RuntimeRequest,
-)
-from mock_agent.model import OpenAIModelClient
-from mock_agent.plan_state_runtime import PlanStateRuntime
-from mock_agent.runtime_support import RunBudget
+from mock_agent.artifacts import RunArtifact
 
-from agent_ui.store import SessionNotFoundError, SessionStore
-from agent_ui.world_diff import world_change_evidence
+from agent_ui.store import (
+    ArtifactReference,
+    ArtifactRepository,
+    RunNotFoundError,
+    UnsupportedRunError,
+)
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 STATIC_DIRECTORY = Path(__file__).resolve().parent / "static"
-DEFAULT_RUNTIME_ID = "custom"
-SUBMISSION_RUNTIME_VERSION = "plan-state/1.0.0"
-
-
-@dataclass(frozen=True)
-class AgentConfig:
-    model: str = "gpt-5.6-sol"
-    max_steps: int = 30
-    agent_version: str = SUBMISSION_RUNTIME_VERSION
-
-
-@dataclass(frozen=True)
-class RuntimeRegistration:
-    runtime_id: str
-    label: str
-    version: str
-    runtime: AgentRuntime
-
-    def payload(self) -> dict[str, str]:
-        return {
-            "id": self.runtime_id,
-            "label": self.label,
-            "version": self.version,
-        }
-
-
-class CreateSessionRequest(BaseModel):
-    task_id: str
-    runtime_id: str = DEFAULT_RUNTIME_ID
-
-
-class ActiveSessionError(RuntimeError):
-    """Raised when another execution already owns the runtime."""
-
-
-class SessionNotRunningError(RuntimeError):
-    """Raised when execution control targets a session without a live owner."""
-
-
-class UnknownRuntimeError(LookupError):
-    """Raised when a session requests a runtime outside the fixed registry."""
-
-
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
-
-
-def _event_payload(event: RuntimeEvent) -> dict[str, Any]:
-    return asdict(event)
-
-
-def _task_payload(task: TaskDefinition) -> dict[str, Any]:
-    return {
-        "task_id": task.summary.task_id,
-        "name": task.summary.task_id.removeprefix("sales.").replace("_", " ").title(),
-        "example_id": task.summary.example_id,
-        "prompt": [asdict(message) for message in task.summary.prompt],
-        "tools": list(task.summary.tools),
-        "assertion_count": task.summary.assertion_count,
-    }
-
-
-def _tool_definitions(
-    task: TaskDefinition, adapter: AutomationBenchAdapter
-) -> list[dict[str, Any]]:
-    return [
-        {
-            "name": tool.name,
-            "description": tool.description,
-            "input_schema": tool.input_schema,
-        }
-        for tool in adapter.open(task.summary.task_id).agent_task.tools
-    ]
-
-
-def _summary(session: dict[str, Any]) -> dict[str, Any]:
-    evaluation = session.get("evaluation") or {}
-    runtime = _session_runtime(session)
-    return {
-        "session_id": session["session_id"],
-        "created_at": session["lifecycle"]["created_at"],
-        "status": session["status"],
-        "task_id": session["task"]["task_id"],
-        "task_name": session["task"]["name"],
-        "partial_credit": evaluation.get("partial_credit"),
-        "runtime_id": runtime["id"],
-        "runtime_label": runtime["label"],
-        "runtime_version": runtime["version"],
-    }
-
-
-def _session_runtime(session: dict[str, Any]) -> dict[str, str]:
-    runtime = session.get("runtime")
-    if isinstance(runtime, dict) and all(
-        isinstance(runtime.get(key), str) for key in ("id", "label", "version")
-    ):
-        return {
-            "id": runtime["id"],
-            "label": runtime["label"],
-            "version": runtime["version"],
-        }
-    agent = session.get("agent") or {}
-    version = str(agent.get("agent_version") or "Unknown")
-    return {
-        "id": str(agent.get("runtime_id") or "legacy"),
-        "label": str(agent.get("runtime_label") or version),
-        "version": str(agent.get("runtime_version") or version),
-    }
-
-
-class ExecutionManager:
-    def __init__(
-        self,
-        *,
-        runtimes: Mapping[str, RuntimeRegistration],
-        default_runtime_id: str,
-        catalog: TaskCatalog,
-        adapter: AutomationBenchAdapter,
-        store: SessionStore,
-        config: AgentConfig,
-    ) -> None:
-        self.runtimes = dict(runtimes)
-        self.default_runtime_id = default_runtime_id
-        if default_runtime_id not in self.runtimes:
-            raise ValueError("The default runtime must exist in the runtime registry")
-        if any(
-            key != registration.runtime_id
-            for key, registration in self.runtimes.items()
-        ):
-            raise ValueError("Runtime registry keys must match registration IDs")
-        self.catalog = catalog
-        self.adapter = adapter
-        self.store = store
-        self.config = config
-        self._active_session_id: str | None = None
-        self._lock = asyncio.Lock()
-        self._event_locks: dict[str, asyncio.Lock] = {}
-        self._cancellations: dict[str, CancellationSignal] = {}
-        self._background_tasks: set[asyncio.Task[None]] = set()
-
-    async def start(self, task_id: str, runtime_id: str) -> dict[str, Any]:
-        registration = self.runtimes.get(runtime_id)
-        if registration is None:
-            allowed = ", ".join(self.runtimes)
-            raise UnknownRuntimeError(
-                f"Unknown runtime ID: {runtime_id}. Allowed values: {allowed}"
-            )
-        async with self._lock:
-            if self._active_session_id is not None:
-                active = self.store.read(self._active_session_id)
-                if active["status"] == "Running":
-                    raise ActiveSessionError(self._active_session_id)
-                self._active_session_id = None
-
-            task = self.catalog.get_task(task_id)
-            session = self.store.create(self._new_session(task, registration))
-            self._active_session_id = session["session_id"]
-            self._event_locks[session["session_id"]] = asyncio.Lock()
-            self._cancellations[session["session_id"]] = CancellationSignal()
-            background = asyncio.create_task(self._execute(session["session_id"]))
-            self._background_tasks.add(background)
-            background.add_done_callback(self._background_tasks.discard)
-            return _summary(session)
-
-    async def stop(self, session_id: str) -> dict[str, Any]:
-        async with self._lock:
-            if self._active_session_id != session_id:
-                raise SessionNotRunningError(session_id)
-            session = self.store.read(session_id)
-            if session["status"] != "Running":
-                raise SessionNotRunningError(session_id)
-            self._cancellations[session_id].cancel()
-            return _summary(session)
-
-    def interrupt_orphans(self) -> None:
-        for session in self.store.list():
-            if session["status"] != "Running":
-                continue
-            interrupted_at = _now()
-            session["status"] = "Interrupted"
-            session["lifecycle"].update(
-                {
-                    "updated_at": interrupted_at,
-                    "completed_at": interrupted_at,
-                    "terminal_error": "Execution owner was lost when the server stopped.",
-                    "termination_reason": "runtime_error",
-                }
-            )
-            self.store.save(session)
-
-    def _new_session(
-        self, task: TaskDefinition, registration: RuntimeRegistration
-    ) -> RunArtifact:
-        created_at = _now()
-        configuration = {
-            "model": self.config.model,
-            "harness_version": registration.version,
-            "prompt_version": "plan-state-prompts/v1",
-            "evaluation_protocol_version": "interactive/v1",
-            "execution_limits": {"max_model_turns": self.config.max_steps},
-            "runtime": registration.payload(),
-        }
-        configuration["identity"] = configuration_identity(configuration)
-        return active_artifact(
-            run_id=str(uuid4()),
-            task=task_snapshot(
-                task, tool_definitions=_tool_definitions(task, self.adapter)
-            ),
-            configuration=configuration,
-            started_at=created_at,
-            initial_world=task.info["initial_state"],
-        )
-
-    async def _execute(self, session_id: str) -> None:
-        async def persist_event(event: RuntimeEvent) -> None:
-            async with self._event_locks[session_id]:
-                session = self.store.read(session_id)
-                payload = _event_payload(event)
-                payload["sequence"] = len(session["events"]) + 1
-                payload["run_id"] = session_id
-                session["events"].append(payload)
-                session["lifecycle"]["updated_at"] = _now()
-                self.store.save(session)
-
-        session = self.store.read(session_id)
-        runtime = self.runtimes[session["runtime"]["id"]].runtime
-        try:
-            outcome = await runtime.run(
-                RuntimeRequest(
-                    task_id=session["task"]["task_id"],
-                    model_name=self.config.model,
-                    max_steps=self.config.max_steps,
-                    run_id=session_id,
-                ),
-                event_sink=persist_event,
-                cancellation=self._cancellations[session_id],
-            )
-            session = self.store.read(session_id)
-            completed_at = _now()
-            session.update(
-                {
-                    "status": {
-                        ExitStatus.COMPLETED: "Completed",
-                        ExitStatus.STOPPED: "Stopped",
-                        ExitStatus.FAILED: "Failed",
-                    }[outcome.status],
-                    "final_response": outcome.final_response,
-                    "evaluation": outcome.score,
-                    "usage": outcome.usage,
-                    "final_world": outcome.world_state,
-                }
-            )
-            session["lifecycle"].update(
-                {
-                    "updated_at": completed_at,
-                    "completed_at": completed_at,
-                    "terminal_error": outcome.terminal_error,
-                    "evaluation_error": outcome.evaluation_error,
-                    "termination_reason": outcome.termination_reason.value
-                    if outcome.termination_reason
-                    else {
-                        ExitStatus.COMPLETED: "goal_completed",
-                        ExitStatus.STOPPED: "cancelled",
-                        ExitStatus.FAILED: "runtime_error",
-                    }[outcome.status],
-                }
-            )
-            self.store.save(session)
-        except Exception as error:
-            session = self.store.read(session_id)
-            completed_at = _now()
-            session["status"] = "Failed"
-            session["lifecycle"].update(
-                {
-                    "updated_at": completed_at,
-                    "completed_at": completed_at,
-                    "terminal_error": f"{type(error).__name__}: {error}",
-                    "termination_reason": "runtime_error",
-                }
-            )
-            self.store.save(session)
-        finally:
-            async with self._lock:
-                if self._active_session_id == session_id:
-                    self._active_session_id = None
-                self._cancellations.pop(session_id, None)
-
-    async def stream_events(self, session_id: str, after: int) -> Any:
-        next_sequence = max(after + 1, 1)
-        while True:
-            session = self.store.read(session_id)
-            for event in session["events"]:
-                sequence = event["sequence"]
-                if sequence < next_sequence:
-                    continue
-                yield (
-                    f"id: {sequence}\n"
-                    "event: runtime\n"
-                    f"data: {json.dumps(event, ensure_ascii=True, default=str)}\n\n"
-                )
-                next_sequence = sequence + 1
-            if session["status"] != "Running" and next_sequence > len(
-                session["events"]
-            ):
-                yield (
-                    "event: session\n"
-                    f"data: {json.dumps({'status': session['status']})}\n\n"
-                )
-                return
-            await asyncio.sleep(0.05)
 
 
 def create_app(
     *,
-    runtime: AgentRuntime | None = None,
-    runtime_registry: Mapping[str, RuntimeRegistration] | None = None,
     artifacts_dir: Path | None = None,
-    sessions_dir: Path | None = None,
-    config: AgentConfig | None = None,
+    read_directories: Iterable[Path] | None = None,
 ) -> FastAPI:
-    catalog = TaskCatalog.from_sales_dataset()
-    adapter = AutomationBenchAdapter(catalog=catalog)
-    resolved_config = config or AgentConfig()
-    if runtime is not None and runtime_registry is not None:
-        raise ValueError("Pass either runtime or runtime_registry, not both")
-    if artifacts_dir is not None and sessions_dir is not None:
-        raise ValueError("Pass artifacts_dir; sessions_dir is only a compatibility alias")
-    if runtime_registry is None:
-        model_client = OpenAIModelClient()
-        runtime_registry = {
-            DEFAULT_RUNTIME_ID: RuntimeRegistration(
-                runtime_id=DEFAULT_RUNTIME_ID,
-                label="Custom agent",
-                version=resolved_config.agent_version,
-                runtime=runtime
-                or PlanStateRuntime(
-                    model_client=model_client,
-                    adapter=adapter,
-                    budget=RunBudget(max_model_turns=resolved_config.max_steps),
-                ),
-            ),
-        }
-    selected_directory = artifacts_dir or sessions_dir
-    if selected_directory is None:
-        results_directory = REPOSITORY_ROOT / "mock-agent" / "results"
-        store = SessionStore(
-            results_directory / "runs",
-            read_directories=(results_directory, REPOSITORY_ROOT / "sessions"),
-        )
-    else:
-        store = SessionStore(selected_directory)
-    manager = ExecutionManager(
-        runtimes=runtime_registry,
-        default_runtime_id=DEFAULT_RUNTIME_ID,
-        catalog=catalog,
-        adapter=adapter,
-        store=store,
-        config=resolved_config,
-    )
-
-    @asynccontextmanager
-    async def lifespan(_: FastAPI):
-        manager.interrupt_orphans()
-        yield
-
-    app = FastAPI(title="Agent UI", version="0.1.0", lifespan=lifespan)
+    if artifacts_dir is not None and read_directories is not None:
+        raise ValueError("Pass artifacts_dir or read_directories, not both")
+    if read_directories is None:
+        results = REPOSITORY_ROOT / "mock-agent" / "results"
+        read_directories = (artifacts_dir,) if artifacts_dir else (results,)
+    repository = ArtifactRepository(read_directories)
+    app = FastAPI(title="Run Artifact Trace Viewer", version="1.0.0")
     app.mount("/static", StaticFiles(directory=STATIC_DIRECTORY), name="static")
 
     @app.get("/", include_in_schema=False)
-    async def index() -> FileResponse:
-        return FileResponse(STATIC_DIRECTORY / "index.html")
+    async def recent_runs(run_id: str | None = None):
+        if run_id:
+            return RedirectResponse(f"/runs/{quote(run_id, safe='')}", status_code=307)
+        return _html(_recent_page(repository.recent()))
 
-    @app.get("/api/tasks")
-    async def list_tasks() -> dict[str, Any]:
-        return {
-            "tasks": [
-                _task_payload(catalog.get_task(summary.task_id))
-                for summary in catalog.list_tasks()
-            ]
-        }
-
-    @app.get("/api/runtimes")
-    async def list_runtimes() -> dict[str, Any]:
-        return {
-            "default_runtime_id": manager.default_runtime_id,
-            "runtimes": [
-                registration.payload() for registration in manager.runtimes.values()
-            ],
-        }
-
-    @app.post("/api/sessions", status_code=status.HTTP_202_ACCEPTED)
-    async def create_session(request: CreateSessionRequest) -> dict[str, Any]:
+    @app.get("/runs/{run_id}/artifact.json", include_in_schema=False)
+    async def raw_artifact(run_id: str):
         try:
-            return await manager.start(request.task_id, request.runtime_id)
-        except UnknownTaskError as error:
-            raise HTTPException(status_code=404, detail=str(error)) from error
-        except UnknownRuntimeError as error:
-            raise HTTPException(status_code=422, detail=str(error)) from error
-        except ActiveSessionError as error:
-            raise HTTPException(
-                status_code=409,
-                detail={
-                    "message": "An execution is already running",
-                    "active_session_id": str(error),
-                },
-            ) from error
+            reference = repository.get(run_id)
+        except RunNotFoundError as error:
+            return _error_page(404, "Run not found", str(error))
+        except UnsupportedRunError as error:
+            return _error_page(422, "Run unavailable", str(error))
+        return FileResponse(reference.path, media_type="application/json")
 
-    @app.get("/api/sessions")
-    async def list_sessions() -> dict[str, Any]:
-        return {"sessions": [_summary(session) for session in manager.store.list()]}
-
-    @app.post("/api/sessions/{session_id}/stop", status_code=status.HTTP_202_ACCEPTED)
-    async def stop_session(session_id: str) -> dict[str, Any]:
+    @app.get("/runs/{run_id}", include_in_schema=False)
+    async def run_view(run_id: str):
         try:
-            return await manager.stop(session_id)
-        except (SessionNotFoundError, SessionNotRunningError) as error:
-            raise HTTPException(
-                status_code=409,
-                detail="Only the active running session can be stopped",
-            ) from error
-
-    @app.get("/api/sessions/{session_id}")
-    async def get_session(session_id: str) -> dict[str, Any]:
-        try:
-            return manager.store.read(session_id)
-        except SessionNotFoundError as error:
-            raise HTTPException(status_code=404, detail=str(error)) from error
-
-    @app.get("/api/sessions/{session_id}/world-changes")
-    async def get_world_changes(session_id: str) -> dict[str, Any]:
-        try:
-            session = manager.store.read(session_id)
-        except SessionNotFoundError as error:
-            raise HTTPException(status_code=404, detail=str(error)) from error
-        return {
-            "changes": world_change_evidence(session),
-        }
-
-    @app.get("/api/sessions/{session_id}/events")
-    async def stream_session_events(
-        session_id: str,
-        last_event_id: int = Header(default=0, alias="Last-Event-ID"),
-        after: int = Query(default=0, ge=0),
-    ) -> StreamingResponse:
-        try:
-            manager.store.read(session_id)
-        except SessionNotFoundError as error:
-            raise HTTPException(status_code=404, detail=str(error)) from error
-        return StreamingResponse(
-            manager.stream_events(session_id, max(last_event_id, after)),
-            media_type="text/event-stream",
-            headers={
-                "Cache-Control": "no-cache",
-                "X-Accel-Buffering": "no",
-            },
-        )
+            reference = repository.get(run_id)
+        except RunNotFoundError as error:
+            return _error_page(404, "Run not found", str(error))
+        except UnsupportedRunError as error:
+            return _error_page(422, "Run unavailable", str(error))
+        return _html(_run_page(reference))
 
     return app
+
+
+def _html(body: str, *, status_code: int = 200) -> HTMLResponse:
+    return HTMLResponse(
+        body,
+        status_code=status_code,
+        headers={
+            "Cache-Control": "no-store",
+            "Content-Security-Policy": "default-src 'self'; style-src 'self'; object-src 'none'",
+        },
+    )
+
+
+def _shell(content: str, *, title: str, refresh: bool = False) -> str:
+    refresh_tag = '<meta http-equiv="refresh" content="2">' if refresh else ""
+    return f"""<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  {refresh_tag}
+  <title>{escape(title)} · Run trace viewer</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="/">Run trace viewer</a>
+    <span>Canonical artifacts · read only</span>
+  </header>
+  <main id="main-content">{content}</main>
+</body>
+</html>"""
+
+
+def _recent_page(references: list[ArtifactReference]) -> str:
+    rows = []
+    for reference in references:
+        artifact = reference.artifact
+        score = (
+            artifact.evaluation.official_score if artifact.evaluation.available else {}
+        )
+        partial = _score(score.get("partial_credit"))
+        strict = _strict_score(score.get("task_completed_correctly"))
+        task_name = artifact.task.get("name") or artifact.task["task_id"]
+        rows.append(
+            f"""<li class="run-row">
+  <a href="/runs/{quote(artifact.run_id, safe="")}">
+    <span class="run-task">{escape(str(task_name))}</span>
+    <code>{escape(artifact.task["task_id"])}</code>
+    <span class="run-meta"><time datetime="{escape(reference.timestamp)}">{escape(reference.timestamp)}</time>
+      · <strong>{escape(artifact.status)}</strong> · partial {partial} · strict {strict}</span>
+  </a>
+</li>"""
+        )
+    items = "".join(rows) or '<li class="empty">No supported run artifacts found.</li>'
+    return _shell(
+        f"""<section aria-labelledby="recent-title">
+  <p class="eyebrow">Artifact store</p>
+  <h1 id="recent-title">Recent runs</h1>
+  <p>Newest first. Open a run to inspect its immutable trace and evaluation evidence.</p>
+  <nav aria-label="Recent runs"><ol class="run-list">{items}</ol></nav>
+</section>""",
+        title="Recent runs",
+    )
+
+
+def _run_page(reference: ArtifactReference) -> str:
+    artifact = reference.artifact
+    plan = _plan_from_trace(artifact.trace)
+    prompt = _prompt_html(artifact.task.get("prompt"))
+    score = _score_html(artifact)
+    assertions = _assertions_html(artifact)
+    trace = "".join(_event_html(event) for event in artifact.trace)
+    trace = trace or '<p class="empty">No trace events were recorded.</p>'
+    final = _final_html(artifact)
+    config = artifact.configuration
+    runtime = config.get("runtime") or {}
+    active = artifact.status == "running"
+    source_kind = (
+        "Canonical RunArtifact"
+        if reference.canonical
+        else "Supported historical artifact"
+    )
+    content = f"""
+<nav class="breadcrumbs" aria-label="Breadcrumb"><a href="/">Recent runs</a><span>/</span><span>{escape(artifact.run_id)}</span></nav>
+<article>
+  <header class="run-header">
+    <div><p class="eyebrow">{escape(artifact.task["task_id"])}</p><h1>{escape(str(artifact.task.get("name") or artifact.task["task_id"]))}</h1></div>
+    <span class="status status-{escape(artifact.status)}">{escape(artifact.status)}</span>
+  </header>
+  <section class="card" aria-labelledby="identity-title"><h2 id="identity-title">Task and run</h2>
+    <dl class="facts">
+      {_fact("Run ID", artifact.run_id)}{_fact("Started", artifact.timing.started_at)}
+      {_fact("Termination", artifact.termination_reason or "Not terminal")}
+      {_fact("Model", config.get("model"))}{_fact("Runtime", runtime.get("label") or runtime.get("id"))}
+      {_fact("Harness", config.get("harness_version"))}{_fact("Prompt version", config.get("prompt_version"))}
+    </dl>{prompt}
+  </section>
+  {_plan_html(plan)}
+  <section class="card" aria-labelledby="trace-title"><h2 id="trace-title">Chronological trace</h2>
+    <p>Tool calls, results, and errors expose their shared correlation ID. No world-change provenance is inferred.</p>
+    <ol class="trace">{trace}</ol>
+  </section>
+  {final}
+  <section class="card" aria-labelledby="score-title"><h2 id="score-title">Official score</h2>{score}{assertions}</section>
+  <section class="card" aria-labelledby="world-title"><h2 id="world-title">Initial and final worlds</h2>
+    <p>Raw snapshots are disclosed side by side without tool-to-change attribution.</p>
+    <div class="worlds"><div><h3>Initial</h3>{_structured(artifact.worlds.initial)}</div><div><h3>Final</h3>{_structured(artifact.worlds.final, unavailable="Unavailable")}</div></div>
+  </section>
+  <section class="card raw-link" aria-labelledby="raw-title"><h2 id="raw-title">Source artifact</h2>
+    <a href="/runs/{quote(artifact.run_id, safe="")}/artifact.json">Open raw artifact</a>
+    <span>{escape(source_kind)} · {escape(str(reference.path))}</span>
+  </section>
+</article>"""
+    return _shell(
+        content, title=str(artifact.task.get("name") or artifact.run_id), refresh=active
+    )
+
+
+def _plan_from_trace(trace: tuple[dict[str, Any], ...]) -> dict[str, Any] | None:
+    plan: dict[str, Any] | None = None
+    states: dict[str, str] = {}
+    transitions = {
+        "step_started": "active",
+        "step_completed": "completed",
+        "step_failed": "failed",
+        "step_superseded": "superseded",
+    }
+    for event in trace:
+        content = event.get("content") if isinstance(event.get("content"), dict) else {}
+        if event.get("kind") in {"plan_created", "plan_revised", "replan"}:
+            candidate = (
+                content.get("plan_state")
+                if isinstance(content.get("plan_state"), dict)
+                else content
+            )
+            if isinstance(candidate.get("steps"), list):
+                plan = candidate
+                states = {
+                    str(step.get("id")): str(step.get("status") or "pending")
+                    for step in candidate["steps"]
+                    if isinstance(step, dict) and step.get("id")
+                }
+        state = transitions.get(str(event.get("kind")))
+        if state:
+            step_id = (
+                content.get("id")
+                or content.get("step_id")
+                or event.get("correlation_id")
+            )
+            if step_id:
+                states[str(step_id)] = state
+    if plan is not None:
+        plan = {**plan, "step_states": states}
+    return plan
+
+
+def _plan_html(plan: dict[str, Any] | None) -> str:
+    if plan is None:
+        return '<section class="card" aria-labelledby="plan-title"><h2 id="plan-title">Plan</h2><p class="empty">No structured plan was recorded.</p></section>'
+    states = plan.get("step_states") or {}
+    steps = []
+    for step in plan.get("steps") or []:
+        if not isinstance(step, dict):
+            continue
+        step_id = str(step.get("id") or "step")
+        state = str(states.get(step_id) or step.get("status") or "pending")
+        steps.append(
+            f'<li><span class="step-state state-{escape(state)}">{escape(state)}</span><strong>{escape(step_id)}</strong><p>{escape(str(step.get("objective") or "No objective disclosed"))}</p></li>'
+        )
+    goal = plan.get("goal")
+    if isinstance(goal, dict):
+        goal = goal.get("objective") or goal.get("description") or goal.get("id")
+    return f'<section class="card" aria-labelledby="plan-title"><h2 id="plan-title">Current or final plan</h2><p>{escape(str(goal or "No goal disclosed"))}</p><ol class="plan">{"".join(steps)}</ol></section>'
+
+
+def _event_html(event: dict[str, Any]) -> str:
+    kind = str(event.get("kind") or "event")
+    correlation = event.get("correlation_id")
+    details = []
+    for label, key in (
+        ("Content", "content"),
+        ("Arguments", "arguments"),
+        ("Result", "result"),
+        ("Error", "error"),
+        ("Usage", "usage"),
+        ("Metadata", "metadata"),
+    ):
+        value = event.get(key)
+        if value not in (None, {}, []):
+            details.append(f"<dt>{label}</dt><dd>{_structured(value)}</dd>")
+    if event.get("duration_ms") is not None:
+        details.append(
+            f"<dt>Duration</dt><dd>{escape(str(event['duration_ms']))} ms</dd>"
+        )
+    relation = []
+    if correlation:
+        relation.append(f"correlation <code>{escape(str(correlation))}</code>")
+    if event.get("parent_id"):
+        relation.append(f"parent <code>{escape(str(event['parent_id']))}</code>")
+    if event.get("name"):
+        relation.append(f"name <code>{escape(str(event['name']))}</code>")
+    return f"""<li class="event kind-{escape(kind)}" data-correlation="{escape(str(correlation or ""))}">
+  <header><span class="sequence">#{escape(str(event.get("sequence", "?")))}</span><strong>{escape(kind.replace("_", " "))}</strong><time datetime="{escape(str(event.get("timestamp") or ""))}">{escape(str(event.get("timestamp") or ""))}</time></header>
+  <p class="relations">{" · ".join(relation) or "No correlation metadata"}</p><dl>{"".join(details)}</dl>
+</li>"""
+
+
+def _prompt_html(value: Any) -> str:
+    messages = value if isinstance(value, list) else [value]
+    rows = []
+    for message in messages:
+        if isinstance(message, dict):
+            role, content = message.get("role", "message"), message.get("content")
+        else:
+            role, content = "message", message
+        rows.append(
+            f'<div class="prompt"><strong>{escape(str(role))}</strong>{_structured(content)}</div>'
+        )
+    return '<div class="prompts"><h3>Prompt</h3>' + "".join(rows) + "</div>"
+
+
+def _final_html(artifact: RunArtifact) -> str:
+    if artifact.final_response is not None:
+        body = _structured(artifact.final_response)
+    else:
+        outcome = {
+            "status": artifact.status,
+            "termination_reason": artifact.termination_reason,
+            "terminal_error": artifact.terminal_error,
+        }
+        body = _structured(outcome)
+    return f'<section class="card" aria-labelledby="outcome-title"><h2 id="outcome-title">Final response or terminal outcome</h2>{body}</section>'
+
+
+def _score_html(artifact: RunArtifact) -> str:
+    evaluation = artifact.evaluation
+    if not evaluation.available:
+        reason = artifact.evaluation_error or "The scorer did not provide evidence."
+        return (
+            f'<p class="unavailable"><strong>Unavailable.</strong> {escape(reason)}</p>'
+        )
+    score = evaluation.official_score
+    return f'<dl class="facts">{_fact("Partial credit", _score(score.get("partial_credit")))}{_fact("Strict completion", _strict_score(score.get("task_completed_correctly")))}</dl>'
+
+
+def _assertions_html(artifact: RunArtifact) -> str:
+    evaluation = artifact.evaluation
+    if not evaluation.assertion_evidence_available:
+        return '<h3>Assertions</h3><p class="unavailable">Assertion evidence unavailable.</p>'
+    if not evaluation.assertion_evidence:
+        return '<h3>Assertions</h3><p class="empty">No assertion evidence recorded.</p>'
+    rows = []
+    for assertion in evaluation.assertion_evidence:
+        passed = assertion.get("passed") if isinstance(assertion, dict) else None
+        label = (
+            "passed"
+            if passed is True
+            else "failed"
+            if passed is False
+            else "not disclosed"
+        )
+        rows.append(
+            f"<li><strong>{escape(label)}</strong>{_structured(assertion)}</li>"
+        )
+    return '<h3>Assertions</h3><ol class="assertions">' + "".join(rows) + "</ol>"
+
+
+def _structured(value: Any, *, unavailable: str = "None") -> str:
+    if value is None:
+        return f'<p class="unavailable">{escape(unavailable)}</p>'
+    if isinstance(value, str):
+        return f"<pre>{escape(value)}</pre>"
+    payload = json.dumps(
+        value, indent=2, sort_keys=True, ensure_ascii=True, default=str
+    )
+    return f"<pre>{escape(payload)}</pre>"
+
+
+def _fact(label: str, value: Any) -> str:
+    shown = "Unavailable" if value is None else str(value)
+    return f"<div><dt>{escape(label)}</dt><dd>{escape(shown)}</dd></div>"
+
+
+def _score(value: Any) -> str:
+    return f"{value:.3f}" if isinstance(value, (int, float)) else "unavailable"
+
+
+def _strict_score(value: Any) -> str:
+    if not isinstance(value, (int, float)):
+        return "unavailable"
+    return "yes" if value == 1.0 else "no"
+
+
+def _error_page(status_code: int, title: str, detail: str) -> HTMLResponse:
+    content = f'<section class="error"><p class="eyebrow">{status_code}</p><h1>{escape(title)}</h1><p>{escape(detail)}</p><a href="/">Return to recent runs</a></section>'
+    return _html(_shell(content, title=title), status_code=status_code)
