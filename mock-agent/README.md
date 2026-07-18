@@ -8,9 +8,11 @@ values, raw world state, and scoring behind a blind adapter, and sends only prom
 public tool schemas, observed tool results, accepted evidence, and execution budgets to the model.
 It uses the OpenAI Responses API directly.
 
-`PlannerExecutorRuntime` provides structured planning, review, retry, and replanning. The smaller
-`BaselineRuntime` is a direct model/tool loop with no plan events; both implement the same
-`AgentRuntime` request, event, cancellation, and outcome contract without LangChain or LangGraph.
+`PlannerExecutorRuntime` provides the default structured planning, review, retry, and replanning
+flow. `PlanStateRuntime` is an opt-in structured-plan runtime with one continuous execution loop
+and local evidence-backed control actions. The smaller `BaselineRuntime` is a direct model/tool
+loop with no plan events. All three implement the same `AgentRuntime` request, event, cancellation,
+and outcome contract without LangChain or LangGraph.
 
 ## Set up
 
@@ -53,6 +55,22 @@ payloads that report `success: false` or a non-null top-level `error` become cor
 evidence; failed writes and reads remain distinguishable from successful side effects. Provider
 retries, protocol correction, cancellation, budget exhaustion, and completion are also emitted as
 correlated events and return scorable outcomes.
+
+## Plan-state runtime
+
+The optional `PlanStateRuntime` makes one tool-disabled structured planning call, activates the
+first step, and then exposes business tools plus two harness controls to one model loop.
+`complete_step` must cite the current plan revision and map every requirement ID to a factual claim
+and a compatible successful call made for that step. `finish(outcome="completed")` is accepted only
+after all required steps are complete and carries the final response.
+
+Business calls execute through the same validating dispatcher and in the same emitted order as the
+default runtime. A turn that mixes business and control calls executes nothing and returns a
+structured correction observation. Stale revisions, unknown steps, failed or invented calls, and
+incompatible evidence remain recoverable observations. The runtime emits `plan_created`,
+`step_started`, `step_completed`, and `completion` without reviewer, retry, replan, `StepOutcome`,
+or reserved-finalization calls. The Agent UI registers it as **Plan-state agent** while keeping the
+planner-executor **Custom agent** as the default.
 
 ## Verify
 

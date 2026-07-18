@@ -23,9 +23,10 @@ cd Agent-UI
 uv run agent-ui
 ```
 
-Open <http://127.0.0.1:8000>, select a task and the custom runtime, then start the execution. The
-left pane reads durable JSON sessions from `sessions/`; refreshing the browser does not lose a
-finished trace.
+Open <http://127.0.0.1:8000>, select a task and runtime, then start the execution. **Custom agent**
+remains the default planner-review runtime; **Plan-state agent** is the opt-in continuous-loop
+runtime. The left pane reads durable JSON sessions from `sessions/`; refreshing the browser does
+not lose a finished trace.
 
 Run one task without the UI:
 
@@ -126,6 +127,16 @@ tool-capable executor turns plus one tool-free outcome call, one rejected step m
 remaining plan may be replaced, and the full run gets 30 logical model calls. Two short transport
 retries do not consume that logical budget. Terminal reasons distinguish completion, budget
 exhaustion, cancellation, provider failure, protocol failure, and unexpected runtime failure.
+
+### Optional plan-state runtime
+
+The Agent UI also exposes `PlanStateRuntime` alongside the default runtime. It creates one validated
+plan with business tools disabled, then uses a single model loop whose turns contain either a
+sequential business-tool batch or one local `complete_step`/`finish` control. Immutable typed
+transitions own the plan revision, active step, accepted evidence, and successful call ledger.
+Completion evidence must cite successful, compatible calls from the active step; invalid controls
+become structured observations, and mixed business/control batches execute no side effects. Direct
+`step_completed` events update and replay in the same UI plan reducer as historical reviewer events.
 
 ## Information and blindness boundaries
 

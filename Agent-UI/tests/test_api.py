@@ -9,6 +9,7 @@ from time import sleep
 from agent_ui.app import (
     BASELINE_RUNTIME_ID,
     DEFAULT_RUNTIME_ID,
+    PLAN_STATE_RUNTIME_ID,
     AgentConfig,
     RuntimeRegistration,
     create_app,
@@ -343,6 +344,11 @@ def test_runtime_registry_validates_selection_and_defaults_to_custom(tmp_path):
                 "id": DEFAULT_RUNTIME_ID,
                 "label": "Custom agent",
                 "version": "planner-executor/0.2.0",
+            },
+            {
+                "id": PLAN_STATE_RUNTIME_ID,
+                "label": "Plan-state agent",
+                "version": "plan-state/0.1.0",
             },
             {
                 "id": BASELINE_RUNTIME_ID,

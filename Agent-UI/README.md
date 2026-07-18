@@ -8,15 +8,16 @@ Running sessions expose a reconnectable SSE stream at `/api/sessions/{session_id
 The JSON artifact is the durable source of truth: clients load it first, then resume the stream
 after its latest sequence with `Last-Event-ID` or the `after` query parameter.
 
-The top-right agent picker selects either the default **Custom agent** planner-executor or the
-framework-free **Mock/baseline agent** for the next session. The server validates that selection
-against a fixed registry and freezes the runtime ID, label, and version into the artifact before
-execution. The picker is disabled while a session is active.
+The top-right agent picker selects the default **Custom agent** planner-executor, the opt-in
+**Plan-state agent**, or the framework-free **Mock/baseline agent** for the next session. The server
+validates that selection against a fixed registry and freezes the runtime ID, label, and version
+into the artifact before execution. The picker is disabled while a session is active.
 
-Custom-agent `plan_created`, step, review, retry, replan, cancellation, budget, and completion
-events reduce into one structured plan in the center workspace. Replaced work remains visible as
-completed, failed, or superseded history. The same reducer rebuilds the final plan solely from a
-historical artifact; runtimes without plan events display `No structured plan`.
+Architecture-neutral `plan_created`, `step_started`, `step_completed`, and completion events reduce
+into one structured plan in the center workspace. Historical review, retry, and replan events
+remain supported, and replaced work stays visible as completed, failed, or superseded history. The
+same reducer rebuilds the final plan solely from a historical artifact; runtimes without plan
+events display `No structured plan`.
 
 The history drawer searches durable sessions by task name or canonical task ID, groups them in
 the browser's local timezone, and keeps the active run available while terminal history is viewed.

@@ -182,10 +182,10 @@ class LivePlanRuntime:
         await asyncio.to_thread(self.release_replan.wait)
 
         await emit(
-            EventKind.REVIEW,
-            "review-inspect-complete",
-            parent_id="inspect",
-            content={"decision": "step_completed"},
+            EventKind.STEP_COMPLETED,
+            "inspect",
+            parent_id="plan-original",
+            content={"step_id": "inspect", "summary": "Inspection completed."},
         )
         await emit(
             EventKind.STEP_STARTED,
@@ -1109,7 +1109,7 @@ def test_agent_picker_and_live_plan_reducer_replay_the_durable_final_state(tmp_p
         picker = page.get_by_label("Agent runtime")
         expect(picker).to_have_value("custom")
         expect(picker.locator("option")).to_have_text(
-            ["Custom agent", "Mock/baseline agent"]
+            ["Custom agent", "Plan-state agent", "Mock/baseline agent"]
         )
         response = page.request.post(
             f"{base_url}/api/sessions",
@@ -1153,6 +1153,7 @@ def test_agent_picker_and_live_plan_reducer_replay_the_durable_final_state(tmp_p
         expect(page.locator("[data-plan-step-id='safe-update']")).to_have_attribute(
             "data-state", "active"
         )
+        expect(page.locator("[data-trace-kind='step_completed']")).to_have_count(1)
 
         runtime.release_finish.set()
         expect(page.locator("#session-status")).to_have_text("Completed")

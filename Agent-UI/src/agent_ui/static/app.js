@@ -321,6 +321,14 @@ function reducePlanEvents(events) {
         step.state = "active";
         activeStep = step;
       }
+    } else if (event.kind === "step_completed") {
+      const step = findStep(
+        event.content?.step_id || event.content?.id || event.correlation_id,
+      );
+      if (step) {
+        step.state = "completed";
+        if (activeStep === step) activeStep = null;
+      }
     } else if (event.kind === "review") {
       const step = findStep(event.parent_id);
       reviews.set(event.correlation_id, step);
@@ -904,6 +912,7 @@ function renderInspector(session) {
     planning: "Planning",
     plan_created: "Plan created",
     step_started: "Step started",
+    step_completed: "Step completed",
     step_retry: "Step retry",
     replan: "Plan replaced",
     review: "Planner review",

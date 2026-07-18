@@ -11,6 +11,7 @@ class EventKind(str, Enum):
     PLANNING = "planning"
     PLAN_CREATED = "plan_created"
     STEP_STARTED = "step_started"
+    STEP_COMPLETED = "step_completed"
     STEP_RETRY = "step_retry"
     REPLAN = "replan"
     EXECUTOR_TURN = "executor_turn"

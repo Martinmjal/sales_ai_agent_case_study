@@ -27,6 +27,7 @@ from mock_agent.contract import (
 )
 from mock_agent.model import OpenAIModelClient
 from mock_agent.planner_executor import PlannerExecutorRuntime
+from mock_agent.plan_state_runtime import PlanStateRuntime
 
 from agent_ui.store import SessionNotFoundError, SessionStore
 from agent_ui.world_diff import world_change_evidence
@@ -35,6 +36,8 @@ from agent_ui.world_diff import world_change_evidence
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 STATIC_DIRECTORY = Path(__file__).resolve().parent / "static"
 DEFAULT_RUNTIME_ID = "custom"
+PLAN_STATE_RUNTIME_ID = "plan-state"
+PLAN_STATE_RUNTIME_VERSION = "plan-state/0.1.0"
 BASELINE_RUNTIME_ID = "mock-baseline"
 BASELINE_RUNTIME_VERSION = "baseline/0.1.0"
 
@@ -374,6 +377,15 @@ def create_app(
                 version=resolved_config.agent_version,
                 runtime=runtime
                 or PlannerExecutorRuntime(
+                    model_client=model_client,
+                    adapter=adapter,
+                ),
+            ),
+            PLAN_STATE_RUNTIME_ID: RuntimeRegistration(
+                runtime_id=PLAN_STATE_RUNTIME_ID,
+                label="Plan-state agent",
+                version=PLAN_STATE_RUNTIME_VERSION,
+                runtime=PlanStateRuntime(
                     model_client=model_client,
                     adapter=adapter,
                 ),
