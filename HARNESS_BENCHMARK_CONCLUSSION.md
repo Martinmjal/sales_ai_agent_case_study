@@ -1,8 +1,8 @@
 # Harness Benchmark Conclusion
 
-## Executive conclusion
+## Resume
 
-The `plan-state/1.0.0` harness is a substantial benchmark improvement over the available previous measured version, `planner-executor/0.3.0`.
+The `plan-state/1.0.0` harness beates its previous measured version, `planner-executor/0.3.0`.
 
 Across the same five tasks, using the same `gpt-5.6-sol` model and 10 scorable repetitions per task:
 
@@ -13,7 +13,7 @@ Across the same five tasks, using the same `gpt-5.6-sol` model and 10 scorable r
 - Runs terminating as `goal_completed` increased from **15 to 38**.
 - The previous harness had 33 budget-exhausted runs; the current harness had none, although 12 runs terminated as partial.
 
-The refactor therefore made the agent dramatically more capable of carrying workflows through to useful completion. The improvement is visible in official benchmark state, not merely in the quality of final responses. The clearest example is demo scheduling, which went from never succeeding to succeeding in eight of ten runs.
+The refactor made the agent more capable of carrying workflows through to useful completion. The clearest example is demo scheduling, which went from never succeeding to succeeding in eight of ten runs.
 
 The improvement has a significant computational cost. The current agent generally uses more model turns, tool calls, and especially tokens. This version is considerably more effective, but less token-efficient.
 
@@ -28,7 +28,7 @@ The improvement has a significant computational cost. The current agent generall
 | Account health | 0% | 0% | 0.150 | 0.160 | Essentially unchanged and still the weakest task |
 | **Overall** | **8%** | **36%** | **0.295** | **0.681** | Substantial capability improvement with higher token cost |
 
-No task's mean score regressed, but the gains were uneven:
+No task's mean score regressed:
 
 - Demo scheduling accounts for much of the strict-success increase.
 - Event pipeline and full sales cycle improved convincingly.
