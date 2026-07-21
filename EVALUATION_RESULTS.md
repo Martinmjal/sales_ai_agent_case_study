@@ -1,8 +1,8 @@
-# Harness Benchmark Conclusion
+# Evaluation Results
 
-## Resume
+## Summary
 
-The `plan-state/1.0.0` harness beates its previous measured version, `planner-executor/0.3.0`.
+The `plan-state/1.0.0` harness outperforms the previous measured version, `planner-executor/0.3.0`.
 
 Across the same five tasks, using the same `gpt-5.6-sol` model and 10 scorable repetitions per task:
 

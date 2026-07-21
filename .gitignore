@@ -32,3 +32,6 @@ vendor/automationbench/automationbench/tools/api/schemas/index.txt
 .vscode/
 *.swp
 *~
+
+# Local AI-assisted development transcripts
+build_sessions/

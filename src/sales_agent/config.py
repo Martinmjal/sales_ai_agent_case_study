@@ -63,13 +63,13 @@ def provider_max_retries() -> int:
 
 
 def require_provider_settings() -> ProviderSettings:
-    base_url = os.environ.get("LIBRA_BASE_URL", "").strip()
-    api_key = os.environ.get("LIBRA_INTERVIEW_API_KEY", "").strip()
+    base_url = os.environ.get("SALES_AGENT_PROVIDER_BASE_URL", "").strip()
+    api_key = os.environ.get("SALES_AGENT_PROVIDER_API_KEY", "").strip()
     missing = [
         name
         for name, value in (
-            ("LIBRA_BASE_URL", base_url),
-            ("LIBRA_INTERVIEW_API_KEY", api_key),
+            ("SALES_AGENT_PROVIDER_BASE_URL", base_url),
+            ("SALES_AGENT_PROVIDER_API_KEY", api_key),
         )
         if not value
     ]
