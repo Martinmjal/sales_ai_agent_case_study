@@ -424,18 +424,19 @@ def test_evaluation_replaces_infrastructure_attempts_and_resumes_missing_runs(
 
 def test_evaluation_command_loads_root_credentials(tmp_path, monkeypatch):
     (tmp_path / ".env").write_text(
-        "LIBRA_INTERVIEW_API_KEY=repository-key\nLIBRA_BASE_URL=https://libra.example/v1\n",
+        "SALES_AGENT_PROVIDER_API_KEY=repository-key\n"
+        "SALES_AGENT_PROVIDER_BASE_URL=https://provider.example/v1\n",
         encoding="utf-8",
     )
-    monkeypatch.delenv("LIBRA_INTERVIEW_API_KEY", raising=False)
-    monkeypatch.delenv("LIBRA_BASE_URL", raising=False)
+    monkeypatch.delenv("SALES_AGENT_PROVIDER_API_KEY", raising=False)
+    monkeypatch.delenv("SALES_AGENT_PROVIDER_BASE_URL", raising=False)
     monkeypatch.setattr(runtime_config, "REPOSITORY_ROOT", tmp_path)
     manifest, config = _inputs(tmp_path)
 
     class Runtime:
         async def run(self, request, **_):
-            assert os.environ["LIBRA_INTERVIEW_API_KEY"] == "repository-key"
-            assert os.environ["LIBRA_BASE_URL"] == "https://libra.example/v1"
+            assert os.environ["SALES_AGENT_PROVIDER_API_KEY"] == "repository-key"
+            assert os.environ["SALES_AGENT_PROVIDER_BASE_URL"] == ("https://provider.example/v1")
             return _outcome("credentials-loaded")
 
     main(

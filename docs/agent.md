@@ -7,7 +7,7 @@ values, raw world state, and scoring behind a blind adapter, and sends only prom
 public tool schemas, observed tool results, accepted evidence, and execution budgets to the model.
 It uses the OpenAI Responses API directly.
 
-`PlanStateRuntime` is the submission runtime. It uses one continuous execution loop and local
+`PlanStateRuntime` is the default runtime. It uses one continuous execution loop and local
 evidence-backed control actions, and implements the `AgentRuntime` request, event, cancellation,
 and outcome contract without LangChain or LangGraph.
 
@@ -18,8 +18,8 @@ uv sync
 cp .env.example .env
 ```
 
-Set `LIBRA_BASE_URL` plus `LIBRA_INTERVIEW_API_KEY` in the repository-root `.env`. The dedicated
-key keeps Libra authentication separate from
+Set `SALES_AGENT_PROVIDER_BASE_URL` plus `SALES_AGENT_PROVIDER_API_KEY` in the
+repository-root `.env`. The dedicated variables keep model-provider authentication separate from
 AutomationBench tools that may interpret `OPENAI_API_KEY` as a public OpenAI credential.
 
 ## Run

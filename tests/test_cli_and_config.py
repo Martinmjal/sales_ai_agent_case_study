@@ -41,13 +41,13 @@ def test_root_cli_dispatches_all_four_commands(monkeypatch):
 
 def test_provider_configuration_is_validated_and_bounded(monkeypatch):
     for name in (
-        "LIBRA_BASE_URL",
-        "LIBRA_INTERVIEW_API_KEY",
+        "SALES_AGENT_PROVIDER_BASE_URL",
+        "SALES_AGENT_PROVIDER_API_KEY",
         "SALES_AGENT_TIMEOUT_SECONDS",
         "SALES_AGENT_PROVIDER_RETRIES",
     ):
         monkeypatch.delenv(name, raising=False)
-    with pytest.raises(ConfigurationError, match="LIBRA_BASE_URL"):
+    with pytest.raises(ConfigurationError, match="SALES_AGENT_PROVIDER_BASE_URL"):
         require_provider_settings()
 
     monkeypatch.setenv("SALES_AGENT_TIMEOUT_SECONDS", "0")
@@ -60,8 +60,8 @@ def test_provider_configuration_is_validated_and_bounded(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_model_client_is_created_once_with_explicit_timeout(monkeypatch):
-    monkeypatch.setenv("LIBRA_BASE_URL", "https://example.test/openai/v1")
-    monkeypatch.setenv("LIBRA_INTERVIEW_API_KEY", "test-only-key")
+    monkeypatch.setenv("SALES_AGENT_PROVIDER_BASE_URL", "https://example.test/openai/v1")
+    monkeypatch.setenv("SALES_AGENT_PROVIDER_API_KEY", "test-only-key")
     monkeypatch.setenv("SALES_AGENT_TIMEOUT_SECONDS", "42")
     monkeypatch.setenv("SALES_AGENT_PROVIDER_RETRIES", "0")
     created = []
